@@ -1,0 +1,10 @@
+Changelog for Python Quantum Information Toolkit
+
++ added
+- removed
+* changed
+b bugfix
+
+
+2011-05-??    Version 0.9.10 (first public beta)
+	      * based on the MATLAB QIT version 0.9.10.
