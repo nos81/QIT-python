@@ -5,16 +5,23 @@
 
 from __future__ import print_function, division
 import sys
+from copy import deepcopy
+
 import numpy as np
 
 from base import tol
 
 
-def error(msg, ex=None):
-    """Print an error message, raise an exception."""
-    print(msg, file=sys.stderr)
-    if ex != None:
-        raise ex
+
+def numstr_to_array(s):
+    """Utility, converts a numeric string to the corresponding array."""
+    return np.array(map(lambda x: ord(x) - ord('0'), s))
+
+
+def array_to_numstr(s):
+    """Utility, converts an integer array to the corresponding numeric string."""
+    return "".join(map(lambda x: chr(x + ord('0')), s))
+
 
 
 class lmap(object):
@@ -34,54 +41,73 @@ class lmap(object):
 # TODO copy constructor, with or without dim change
 # TODO make the data members "read-only":  @property def data(self): return self._data
 # TODO def __format__(self, format_spec)
-# TODO linalg efficiency: copy vs. view vs. reference?
+# TODO linalg efficiency: copy vs. view
 # TODO sparse matrices?
 
     def __init__(self, s, dim=None):
         """Construct an lmap.
 
-        Calling syntax                     dim
-        ==============                     ============
-        lmap(rand(a))                      ((a,), (1,))      1D array default: ket
-        lmap(rand(a), ((1,), None)         ((1,), (a,))      bra given as a 1D array
-        lmap(rand(a,b))                    ((a,), (b,))      2D array, dims inferred
-        lmap(rand(4,b), ((2, 2), None))    ((2, 2), (b,))    state op, output: two qubits 
-        lmap(rand(a,6), (None, (3, 2)))    ((a,), (3, 2))    state op, input: qutrit+qubit
-        lmap(rand(6,6), ((3, 2), (2, 3)))  ((3, 2), (2, 3))  state op, all dims given
+        s:    ndarray OR valid initializer for ndarray OR lmap instance
+              A copy is made unless s is an ndarray.
 
-        lmap(y)                      (y is an lmap) copy constructor
-        lmap(y, dim)                 (y is an lmap) copy constructor, reinterpret dimensions
+        dim:  2-tuple containing the output and input subsystem dimensions
+              stored in tuples:  dim == ((out), (in)).
+              If dim, (out) or (in) is None, the corresponding dimensions
+              are inferred from s.
+        
+        calling syntax                     resulting dim
+        ==============                     =============
+        lmap(rand(a))                      ((a,), (1,))      1D array default: ket vector
+        lmap(rand(a), ((1,), None))        ((1,), (a,))      bra vector given as a 1D array
+        lmap(rand(a,b))                    ((a,), (b,))      2D array, all dims inferred
+        lmap(rand(4,b), ((2, 2), None))    ((2, 2), (b,))    2D array, output: two qubits 
+        lmap(rand(a,6), (None, (3, 2)))    ((a,), (3, 2))    2D array, input: qutrit+qubit
+        lmap(rand(6,6), ((3, 2), (2, 3)))  ((3, 2), (2, 3))  2D array, all dims given
+
+        lmap(A)             (A is an lmap) copy constructor
+        lmap(A, dim)        (A is an lmap) copy constructor, redefine the dimensions
         """
-
         # initialize the ndarray part
-        self.data = np.array(s)
+        if isinstance(s, lmap):
+            # copy constructor
+            self.data = deepcopy(s.data)
+            defdim = s.dim  # copy the dimensions too, unless redefined
+        else:
+            if isinstance(s, np.ndarray):
+                # NOTE that s is not copied here
+                self.data = s
+            else:
+                # makes a copy of s
+                self.data = np.array(s)
 
-        # into a 2d array
-        if self.data.ndim == 0:
-            # scalar
-            self.data.resize((1, 1))
-        elif self.data.ndim == 1:
-            # vector, ket by default
-            self.data.resize((self.data.size, 1))
-        elif self.data.ndim > 2:
-            raise ValueError('Array dimension must be <= 2.')
+            # into a 2d array
+            if self.data.ndim == 0:
+                # scalar
+                self.data.resize((1, 1))
+            elif self.data.ndim == 1:
+                # vector, ket by default
+                self.data.resize((self.data.size, 1))
+            elif self.data.ndim > 2:
+                raise ValueError('Array dimension must be <= 2.')
+            # now self.data.ndim == 2, always
 
-        # now self.data.ndim == 2, always
+            # is it a bra given as a 1D array?
+            if dim and dim[0] == (1,):
+                self.data.resize((1, self.data.size))
 
-        # set the dimensions: dim = ((out), (in))
+            # infer default dims from data (wrap them in tuples!)
+            defdim = tuple([(k,) for k in self.data.shape])
+
+        # set the dimensions
         if dim == None:
             # infer both dimensions from s
             dim = (None, None)
 
-        # is it a bra, yet given as a ket array?
-        if dim[0] == (1,):
-            self.data.resize((1, self.data.size))
-
         self.dim = []
         for k in range(len(dim)):
             if dim[k] == None:
-                # not specified, infer from the data
-                self.dim.append((self.data.shape[k],))
+                # not specified, use default
+                self.dim.append(defdim[k])
             else:
                 self.dim.append(dim[k])
         self.dim = tuple(self.dim)
@@ -134,8 +160,7 @@ class lmap(object):
                     out += ' +' + str(temp)
 
                 # ket or bra symbol
-                # FIXME this is insane
-                temp = str(bytearray(map(lambda(x): x + ord('0'), np.unravel_index(ind, dim))))
+                temp = array_to_numstr(np.unravel_index(ind, dim))
                 if is_ket:
                     out += ' |' + temp + '>'
                 else:
@@ -150,6 +175,18 @@ class lmap(object):
 
 # utilities
 
+    def inplacer(self, inplace):
+        """Utility for implementing inplace operations.
+
+        Functions using this should begin with s = self.inplacer(inplace)
+        and end with return s
+        """
+        if inplace:
+            return self
+        else:
+            return deepcopy(self)
+
+
     def remove_singletons(self):
         """Eliminate unnecessary singleton dimensions.
 
@@ -162,7 +199,7 @@ class lmap(object):
               temp = (1,)
           dd.append(temp)
         self.dim = tuple(dd)
-        return self
+        return
 
 
     def is_compatible(self, t):
@@ -172,17 +209,29 @@ class lmap(object):
         return self.dim == t.dim
 
 
+    def is_ket(self):
+        """True if the lmap is a ket."""
+        return self.data.shape[1] == 1
+
 
 # linear algebra
 
     def conj(self):
         """Complex conjugate."""
         # complex conjugate data
+        # TODO compare performance
+        #s = deepcopy(self)
+        #s.data.conj(s.data)
+        #return s
         return lmap(self.data.conj(), self.dim)
 
 
     def transpose(self):
         """Transpose."""
+        # TODO compare
+        #s = deepcopy(self)
+        #s.dim = (s.dim[1], s.dim[0])
+        #s.data = s.data.transpose()
         # swap dims
         dim = (self.dim[1], self.dim[0])
         # transpose data
@@ -191,6 +240,11 @@ class lmap(object):
 
     def ctranspose(self):
         """Hermitian conjugate."""
+        # TODO compare
+        #s = deepcopy(self)
+        #s.dim = (s.dim[1], s.dim[0])
+        #s.data = s.data.transpose()
+        #s.data.conj(s.data)
         # swap dims
         dim = (self.dim[1], self.dim[0])
         # conjugate transpose data
@@ -216,6 +270,9 @@ class lmap(object):
 
     def __truediv__(self, t):
         """Division of lmaps by scalars from the right."""
+        #s = deepcopy(self)
+        #s.data /= t
+        #return s
         return lmap(self.data / t, self.dim)
 
 
@@ -273,7 +330,7 @@ class lmap(object):
 
 # subsystem ordering
 
-    def reorder(self, *perm):
+    def reorder(self, perm, inplace=False):
         """Change the relative order of the input and/or output subsystems.
 
         Returns a copy of the lmap with permuted subsystem order.
@@ -281,67 +338,62 @@ class lmap(object):
         A permutation can be either None (do nothing), a pair (a, b) of subsystems to be swapped,
         or a tuple containing a full permutation of the subsystems.
 
-        reorder(None, (2, 1, 0))   ignore first index, reverse the order of subsystems in the second
-        reorder((2, 5))            swap the subsystems 2 and 5 in the first index
+        reorder((None, (2, 1, 0)))   ignore first index, reverse the order of subsystems in the second
+        reorder(((2, 5), None))            swap the subsystems 2 and 5 in the first index, ignore the second
         """
-        dd = []
+        s = self.inplacer(inplace)
+
+        orig_d = s.data.shape  # original dimensions
         total_d = []
         total_perm = []
         last_used_index = 0
-        newdim = list(self.dim)
+        newdim = list(s.dim)
 
         # loop over indices
         for k in range(len(perm)):
-            this_perm = perm[k]     # requested permutation for this index
-            this_dim  = self.dim[k] # subsystem dims for this index
-
-            # number of subsystems
-            this_n = len(this_dim)
-
-            # total dimension
-            dd.append(np.prod(this_dim))
-
-            temp = range(this_n)
-            if this_perm == None:
+            # requested permutation for this index
+            if perm[k] == None:
                 # no change
                 # let the dimensions vector be, lump all subsystems in this index into one
-                this_dim = (dd[k],)
-                this_perm = [0]
+                this_dim = (orig_d[k],)
+                this_perm = np.array([0])
                 this_n = 1
-
-            elif len(this_perm) == 2:
-                # swap two subsystems
-                temp[this_perm[0]] = this_perm[1]
-                temp[this_perm[1]] = this_perm[0]
-                this_perm = temp
-                # reorder the dimensions vector
-                newdim[k] = tuple(np.array(this_dim)[this_perm])
-
             else:
-                # full permutation
-                if len(set(temp) ^ set(this_perm)) != 0:
-                    raise ValueError('Invalid permutation.')
+                this_dim  = np.array(s.dim[k])  # subsystem dims
+                this_perm = np.array(perm[k])  # requested permutation for this index
+                this_n = len(this_dim)  # number of subsystems
+
+                temp = np.arange(this_n) # identity permutation
+
+                if len(this_perm) == 2:
+                    # swap two subsystems
+                    temp[this_perm] = this_perm[::-1]
+                    this_perm = temp
+                else:
+                    # full permutation
+                    if len(set(temp) ^ set(this_perm)) != 0:
+                        raise ValueError('Invalid permutation.')
+
                 # reorder the dimensions vector
-                newdim[k] = tuple(np.array(this_dim)[np.array(this_perm)])
+                newdim[k] = tuple(this_dim[this_perm])
 
-
-            # big-endian ordering is more natural for users, but Matlab funcs
-            # prefer little-endian, so we reverse it
-            total_d.extend(this_dim)  #fliplr(this_dim)
-            total_perm.extend(tuple(last_used_index + np.array(this_perm))) #fliplr(n -this_perm)
+            # big-endian ordering
+            total_d.extend(this_dim)
+            total_perm.extend(last_used_index + this_perm)
             last_used_index += this_n
 
         # tensor into another tensor which has one index per subsystem, permute dimensions, back into a tensor with the original number of indices
-        return lmap(self.data.reshape(total_d).transpose(total_perm).reshape(dd), newdim)
+        s.dim = tuple(newdim)
+        s.data = s.data.reshape(total_d).transpose(total_perm).reshape(orig_d)
+        return s
 
 
     @staticmethod
     def test():
         """Test script for the lmap module.
 
-        Ville Bergholm 2009-2010
+        Ville Bergholm 2009-2011
         """
-        import copy
         from numpy.testing import assert_almost_equal
         from numpy.random import rand, randn
 
@@ -356,15 +408,15 @@ class lmap(object):
         T1 = tensor(A, B, C)
 
         p = (2, 0, 1)
-        T2 = T1.reorder(p, p)
+        T2 = T1.reorder((p, p))
         assert_almost_equal((tensor(C, A, B) - T2).norm(), 0, decimal)
 
         p = (1, 0, 2)
-        T2 = T1.reorder(p, p)
+        T2 = T1.reorder((p, p))
         assert_almost_equal((tensor(B, A, C) - T2).norm(), 0, decimal)
 
         p = (2, 1, 0)
-        T2 = T1.reorder(p, p)
+        T2 = T1.reorder((p, p))
         assert_almost_equal((tensor(C, B, A) - T2).norm(), 0, decimal)
 
         print('All tests passed.')
@@ -372,9 +424,6 @@ class lmap(object):
         a = lmap(randn(2,4) +1j*randn(2,4), (None, (2,2)))
         b = lmap(randn(2,2) +1j*randn(2,2))
         c = lmap(randn(2))
-
-        d = lmap(rand(6,6), ((2,3),(2,3)))
-        e = copy.deepcopy(d)
 
         print(repr(b * c))
         print(repr(tensor(a, b)))
@@ -395,4 +444,5 @@ def tensor(*arg):
         data = np.kron(data, k.data)
 
     s = lmap(data, (tuple(dout), tuple(din)))
-    return s.remove_singletons()
+    s.remove_singletons()
+    return s

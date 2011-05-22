@@ -1,0 +1,911 @@
+# -*- coding: utf-8 -*-
+# Author: Ville Bergholm 2011
+"""Utility functions module."""
+
+
+import numpy as np
+from numpy import array, mat, sqrt, dot, sort, diag
+from numpy.random import rand, randn
+from numpy.linalg import qr, det
+from scipy.linalg import expm
+
+from base import *
+
+
+# internal utilities
+
+def assert_o(actual, desired, tolerance):
+    """Octave-style assert."""
+    if abs(actual - desired) > tolerance:
+        raise AssertionError
+
+
+def projector(v):
+    """Projector corresponding to vector v."""
+    return np.outer(v, v.conj())
+
+
+def eigsort(A):
+    """Returns eigenvalues and eigenvectors sorted with a nonincreasing real part."""
+    d, v = np.linalg.eig(A)
+    ind = d.argsort()[::-1]  # nonincreasing real part
+    return d[ind], v[:, ind]
+
+
+
+# random matrices
+
+def rand_hermitian(n):
+    """Random Hermitian n*n matrix.
+
+    Returns a random Hermitian matrix of size n*n.
+    NOTE: The randomness is not defined in any deeply meaningful sense.
+
+    Ville Bergholm 2008-2009
+    """
+    H = (rand(n,n) - 0.5) +1j*(rand(n,n) - 0.5)
+    return H + H.conj().transpose() # make it Hermitian
+
+
+def rand_U(n):
+    """Random U(n) matrix.
+
+    Returns a random unitary n*n matrix.
+    The matrix is random with respect to the Haar measure.
+
+    %! F. Mezzadri, "How to generate random matrices from the classical compact groups", Notices of the AMS 54, 592 (2007). arXiv.org:math-ph/0609050
+    Ville Bergholm 2005-2009
+    """
+    # sample the Ginibre ensemble, p(Z(i,j)) == 1/pi * exp(-abs(Z(i,j))^2),
+    # p(Z) == 1/pi^(n^2) * exp(-trace(Z'*Z))
+    Z = (randn(n,n) + 1j*randn(n,n)) / sqrt(2)
+
+    # QR factorization
+    Q, R = qr(Z)
+
+    # eliminate multivaluedness in Q
+    P = diag(R)
+    P /= abs(P)
+    return dot(Q, diag(P))
+
+
+def rand_SU(n):
+    """Random SU(n) matrix.
+
+    Returns a random special unitary n*n matrix.
+    The matrix is random with respect to the Haar measure.
+
+    Ville Bergholm 2005-2009
+    """
+    U = rand_U(n)
+    d = det(U) ** (1/n) # *exp(i*2*pi*k/n), not unique FIXME
+    return U/d
+
+
+def rand_U1(n):
+    """Random diagonal unitary matrix.
+
+    Returns a random diagonal unitary n*n matrix.
+    The matrix is random with respect to the Haar measure.
+
+    Ville Bergholm 2005-2009
+    """
+    return diag(exp(1j * 2 * pi * rand(n)))
+
+
+
+# randi(n) == np.random.random_integers(n)
+
+def rand_positive(n):
+    """Random n*n positive semidefinite matrix.
+
+    Normalized as trace(A) = 1.
+    Since the matrix has purely real eigenvalues, it is also
+    Hermitian by construction.
+
+    Ville Bergholm 2008-2009
+    """
+    p = sort(rand(n-1))  # n-1 points in [0,1]
+    d = sort(np.r_[p, 1] - np.r_[0, p])  # n deltas between points = partition of unity
+
+    U = mat(rand_U(n)) # random unitary
+    A = U.H * diag(d) * U
+    return array((A + A.H) / 2)   # eliminate rounding errors
+
+
+
+# superoperators
+
+def vec(rho):
+    """Flattens a matrix into a vector.
+
+    Matrix rho is flattened columnwise into a column vector v.
+
+    Used e.g. to convert state operators to superoperator representation.
+
+    JDW 2009
+    Ville Bergholm 2009
+    """
+    return rho.flatten('F')  # copy
+
+
+def inv_vec(v, dim=None):
+    """Reshapes a vector into a matrix.
+    rho = inv_vec(v) 
+    rho = inv_vec(v, [n m]) 
+
+    Reshapes vector v (length n*m) into a matrix rho (size [n m]),
+    using column-major ordering. If n and m are not given, rho is assumed
+    to be square.
+
+    Used e.g. to convert state operators from superoperator representation
+    to standard matrix representation.
+
+    JDW 2009
+    Ville Bergholm 2009
+    """
+    d = v.size
+    if dim == None:
+        # assume a square matrix
+        n = sqrt(d)
+        if floor(n) != n:
+            raise ValueError('Length of vector v is not a squared integer.')
+        dim = (n, n)
+    else:
+        if prod(dim) != d:
+            raise ValueError('Dimensions n, m are not compatible with given vector v.')
+
+    return v.reshape(dim)
+
+
+def lmul(L, q=None):
+    """Superoperator equivalent for multiplying from the left.
+
+    L*rho == inv_vec(lmul(L)*vec(rho))
+
+    Ville Bergholm 2009
+    """
+    if q == None:
+        q = L.shape[1]  # assume target is a square matrix
+
+    return kron(speye(q), L)
+
+
+def rmul(R, m=None):
+    """Superoperator equivalent for multiplying from the right.
+
+    rho*R == inv_vec(rmul(R)*vec(rho))
+
+    Ville Bergholm 2009
+    """
+    if m == None:
+        m = R.shape[0]  # assume target is a square matrix
+
+    return kron(R.transpose(), speye(m))
+
+
+def lrmul(L, R):
+    """Superoperator equivalent for multiplying both from left and right.
+
+    L*rho*R == inv_vec(lrmul(L, R)*vec(rho))
+
+    Ville Bergholm 2009-2010
+    """
+    def issquare(A):
+        return A.shape[0] == A.shape[1]
+
+    if issquare(L) and issquare(R):
+        return kron(R.transpose(), L) # simplifies to this when L and R are both square
+
+    m = L.shape[0]
+    q = R.shape[0] # FIXME [1]
+    return kron(R.transpose(), speye(m)) * kron(speye(q), L)
+
+
+def superop_lindblad(A, H=0):
+    """Liouvillian superoperator for a set of Lindblad operators.
+
+    A is a vector of traceless, orthogonal Lindblad operators.
+    H is an optional Hamiltonian operator.
+
+    Returns the Liouvillian superoperator L corresponding to the
+    diagonal-form Lindblad equation
+
+      \dot{\rho} = inv_vec(L * vec(\rho)) =
+      = -i [H, \rho] +\sum_k (A_k \rho A_k^\dagger -0.5*\{A_k^\dagger A_k, \rho\})
+
+    James D. Whitfield 2009
+    Ville Bergholm 2009-2010
+    """
+    # Hamiltonian
+    iH = 1j * H
+
+    L = 0
+    acomm = 0
+    for k in A:
+        acomm += 0.5 * k.ctranspose() * k
+        L += lrmul(k, k.ctranspose()) 
+
+    L += lmul(-acomm -iH) +rmul(-acomm +iH)
+
+
+
+# physical operators
+
+angular_momentum_cache = []
+def angular_momentum(n):
+    """Angular momentum matrices.
+
+    J = {Jx, Jy, Jz} = angular_momentum(d)
+
+    Returns the angular momentum matrices \vec(J)/\hbar
+    for the d-dimensional subspace defined by the
+    quantum number j == (d-1)/2, as a cell vector.
+
+    Ville Bergholm 2009-2010
+    """
+
+    if n < 1:
+        raise ValueError('Dimension must be one or greater.')
+
+    # check cache first
+    if len(angular_momentum_cache) >= n and angular_momentum_cache[n] != None:
+        return angular_momentum_cache[n]
+
+    j = (n - 1) / 2 # angular momentum quantum number, n == 2*j + 1
+
+    # raising operator in subspace J^2 = j*(j+1)
+    m = j
+    Jplus = sparse(n,n)
+    for k in range(n-1):
+        m = m - 1
+        Jplus[k, k+1] = sqrt(j*(j+1) -m*(m+1))
+
+    # lowering operator
+    Jminus = Jplus.ctranspose()
+
+    # Jplus  = Jx + i*Jy
+    # Jminus = Jx - i*Jy
+
+    J = [0.5*(Jplus + Jminus), 0.5*i*(Jminus - Jplus), spdiags(range(j, -j-1, -1), 0, n, n)]
+
+    # store them in the cache
+    angular_momentum_cache[n] = J
+
+
+
+def boson_ladder(n):
+    """Bosonic ladder operators.
+
+    Returns the n-dimensional approximation of the bosonic
+    annihilation operator b for a single bosonic mode in the
+    number basis {|0>, |1>, ..., |n-1>}.
+
+    The corresponding creation operator is b.ctranspose().
+
+    Ville Bergholm 2009-2010
+    """
+    return spdiags(sqrt(range(n)), 1, n, n)
+
+
+def fermion_ladder(grouping):
+    """Fermionic ladder operators.
+
+    Returns a cell vector of fermionic annihilation operators for a
+    system of n fermionic modes in the second quantization.
+
+    The annihilation operators are built using the Jordan-Wigner
+    transformation for a chain of n qubits, where the state of each
+    qubit denotes the occupation number of the corresponding mode.
+
+    First define annihilation and number operators for a lone fermion mode:
+    s := (sx + i*sy)/2   = [0 1 0 0],
+    n := s'*s = (I-sz)/2 = [0 0 0 1].
+
+    s|0> = 0, s|1> = |0>, n|k> = k|k>
+
+    Then define a phase operator to keep track of sign changes when
+    permuting the order of the operators:
+    \phi_k := \sum_{j=1}^{k-1} n_j.
+
+    Now, the fermionic annihilation operators for the n-mode system are given by
+    f_k := (-1)^{\phi_k} s_k.
+
+    These operators fulfill the required anticommutation relations:
+    {f_k, f_j}  = 0,
+    {f_k, f_j'} = I \delta_{kj},
+    f_k' * f_k  = n_k.
+
+    Ville Bergholm 2009-2010
+    """
+    n = prod(grouping)
+    d = 2^n
+
+    # number and phase operators (diagonal, so we store them as such)
+    temp = zeros(d, 1)
+    phi[1] = temp
+    for k in range(n-1):
+        num = mkron(ones(2^(k-1), 1), [0, 1], ones(2^(n-k), 1)) # number operator n_k as a diagonal
+        temp = temp + num # sum of number ops up to n_k, diagonal
+        phi[k+1] = temp
+    end
+
+    s = sparse([0, 1, 0, 0])
+
+    # fermionic annihilation operators
+    for k in range(n):
+        f[k] = spdiags((-1) ** phi[k], 0, d, d) * mkron(speye(2^(k-1)), s, speye(2^(n-k)))
+
+    f = reshape(f, grouping)
+
+
+
+# SU(2) rotations
+
+def R_nmr(theta, phi):
+    """SU(2) rotation \theta_\phi (NMR notation).
+
+    Returns the one-qubit rotation by angle theta about the unit
+    vector [cos(phi), sin(phi), 0], or \theta_\phi in the NMR notation.
+
+    Ville Bergholm 2009
+    """
+    return expm(-1j * theta/2 * (cos(phi) * sx + sin(phi) * sy))
+
+
+def R_x(theta):
+    """SU(2) x-rotation.
+
+    Returns the one-qubit rotation about the x axis by the angle theta,
+    e^(-i \sigma_x theta/2).
+
+    Ville Bergholm 2006-2009
+    """
+    return expm(-1j * theta/2 * sx)
+
+
+def R_y(theta):
+    """SU(2) y-rotation.
+
+    Returns the one-qubit rotation about the y axis by the angle theta,
+    e^(-i \sigma_y theta/2).
+
+    Ville Bergholm 2006-2009
+    """
+    return expm(-1j * theta/2 * sy)
+
+
+def R_z(theta):
+    """SU(2) z-rotation.
+
+    Returns the one-qubit rotation about the z axis by the angle theta,
+    e^(-i \sigma_z theta/2).
+
+    Ville Bergholm 2006-2009
+    """
+    return array([[exp(-1j * theta/2), 0], [0, exp(1j * theta/2)]])
+
+
+
+# decompositions
+
+def spectral_decomposition(A):
+    """Spectral decomposition of a Hermitian matrix.
+
+    Returns the unique eigenvalues a and the corresponding projectors P
+    for the Hermitian matrix A, such that  A = \sum_k  a_k P_k.
+
+    Ville Bergholm 2010
+    """
+    d, v = eigsort(A)
+    d = d.real  # A is assumed Hermitian
+
+    # combine projectors for degenerate eigenvalues
+    a = [d[0]]
+    P = [projector(v[:, 0])]
+    for k in range(1,len(d)):
+        temp = projector(v[:, k])
+        if abs(d[k] - d[k-1]) > tol:
+            # new eigenvalue, new projector
+            a.append(d[k])
+            P.append(temp)
+        else:
+            # same eigenvalue, extend current P
+            P[-1] += temp
+    return a, P
+
+
+
+# tensor bases
+
+gellmann_cache = [];
+def gellmann(n):
+    """Gell-Mann matrices of dimension n.
+
+    Returns the n^2-1 (traceless, Hermitian) Gell-Mann matrices of dimension n,
+    normalized such that \trace(G_i.ctranspose() * G_j) = \delta_{ij}.
+
+    Ville Bergholm 2006-2011
+    """
+    if n <= 0:
+        raise ValueError('Dimension must be greater than one.')
+
+    # check cache first
+    if len(gellmann_cache) >= n and gellmann_cache[n] != None:
+        return gellmann_cache[n]
+
+    G = []
+    # diagonal
+    d = np.zeros(n)
+    d[0] = 1
+    for k in range(1, n):
+        for j in range(0, k):
+            # nondiagonal
+            temp = np.zeros((n, n))
+            temp[k,j] = 1 / sqrt(2)
+            temp[j,k] = 1 / sqrt(2)
+            G.append(temp)
+  
+            temp[k,j] = 1j / sqrt(2)
+            temp[j,k] = -1j / sqrt(2)
+            G.append(temp)
+
+        d[k] = -sum(d)
+        G.append(diag(d) / norm(d))
+        d[k] = 1 
+
+    # store them in the cache
+    gellmann_cache[n] = G
+
+
+
+tensorbasis_cache = []
+#tensorbasislocal = []
+#function [B, local] = 
+def tensorbasis(n, d=None):
+    """Hermitian tensor-product basis for End(H).
+    B = tensorbasis(n, d)   H = C_d^{\otimes n}.
+    B = tensorbasis(dim)    H = C_{dim(1)} \otimes ... \otimes C_{dim(n)}
+
+    Returns a Hermitian basis for linear operators on the Hilbert space H
+    which shares H's tensor product structure. The basis elements are tensor products
+    of Gell-Mann matrices (which in the case of qubits are equal to Pauli matrices).
+    The basis elements are normalized such that \trace(b_i' * b_j) = \delta_{ij}.
+
+    Input is either two scalars, n and d, in which case the system consists of n qu(d)its,
+    or the vector dim, which contains the dimensions of the individual subsystems.
+
+    In addition to expanding Hermitian operators on H, this basis can be multiplied by
+    the imaginary unit i to obtain the antihermitian generators of U(prod(dim)).
+
+    Ville Bergholm 2005-2011
+    """
+    if d == None:
+        # dim vector
+        dim = n
+        n = len(dim)
+    else:
+        # n qu(d)its
+        dim = np.ones(n, int) * d
+
+
+    # check cache first (we only cache "n qu(d)its" -type bases for convenience)
+    cache = False
+    if all(dim == dim[0]):
+        d = dim[0]
+        if (all(size(tensorbasis_cache) >= [n, d]) and ~tensorbasis_cache[n,d] != None):
+            B = tensorbasis_cache[n,d]
+            local = tensorbasis_cachelocal[n,d]
+            return
+
+        cache = True
+
+    n_elements = dim ** 2      # number of basis elements for each subsystem, incl. identity
+    n_all = prod(n_elements) # number of all tensor basis elements, incl. identity
+
+    B = cell(1, n_all) # basis
+    local = false(1, n_all) # logical array, is the corresponding basis element local?
+
+    # create the tensor basis
+    for k in range(n_all):  # loop over all basis elements
+        temp = 1 # basis element being built
+        rem = k # remainder
+        sum = 0 # number of non-id. matrices included in this element
+        for j in range(n):  # loop over subsystems
+            ind = mod(rem, n_elements[j])  # which local basis element to use
+            rem = floor(rem / n_elements[j])
+            if (ind > 0):
+                sum += 1 # using a non-identity matrix
+
+            d = dim[j]
+            L = hstack((eye(d)/sqrt(d),) +gellmann(d)) # Gell-Mann basis for the subsystem (cached)
+            temp = kron(temp, L[ind+1])  # tensor in another matrix
+
+        B[k+1] = temp  
+        local[k+1] = (sum < 2) # at least two non-identities => nonlocal element
+
+
+
+    # store into cache
+    if (cache):
+        tensorbasis_cache[n,d] = B
+        tensorbasis_cachelocal[n,d] = local
+
+
+
+def bloch_state(A, dim=None):
+    """State corresponding to a generalized Bloch vector.
+    s = bloch_state(A)       assume dim == sqrt(size(A))
+    s = bloch_state(A, dim)  give state dimensions explicitly
+
+    Returns the state s corresponding to the generalized Bloch vector A.
+
+    The vector is defined in terms of the standard Hermitian tensor basis B
+    corresponding to the dimension vector dim.
+
+      \rho_s == \sum_{ijk...} A_{ijk...} B_{ijk...} / \sqrt(D),
+
+    where D = prod(dim). For valid states norm(A) <= sqrt(D).
+
+    Ville Bergholm 2009-2011
+    """
+    if dim == None:
+        dim = sqrt(A.shape)  # s == dim ** 2
+
+    G = tensorbasis(dim)
+    d = prod(dim)
+    rho = np.zeros((d, d))
+    for k in A.flat:
+        rho += k * G[k]
+
+    C = 1/sqrt(d) # to match the usual Bloch vector normalization
+    return state(C * rho, dim)
+
+
+
+# plots
+
+def plot_bloch_sphere(s=None):
+    """Bloch sphere plot.
+
+    Plots a Bloch sphere, a geometrical representation of the state space of a single qubit.
+    Pure states are on the surface of the sphere, nonpure states inside it.
+    The states |0> and |1> lie on the north and south poles of the sphere, respectively.
+
+    s is a two dimensional state to be plotted.
+
+    Ville Bergholm  2005-2010
+    James Whitfield 2010
+    """
+    X,Y,Z = sphere(40)
+
+    hold('off')
+    h = surf(X,Y,Z, 2*ones(41,41))
+    hold(on)
+    shading(flat)
+    alpha(0.2)
+    axis(square)
+    xlabel('x')
+    ylabel('y')
+    zlabel('z')
+    plot3(0,0,1,'r.')
+    plot3(0,0,-1,'b.')
+
+    text(0, 0,  1.2, '|0\rangle')
+    text(0, 0, -1.2, '|1\rangle')
+
+    if s != None:
+        v = s.bloch_vector()
+        quiver3(0, 0, 0, v(1), v(2), v(3), 0)
+    return h
+
+
+def plot_pcolor(W, a, b, clim=[0, 1]):
+    """Easy pseudocolor plot.
+
+    Plots the 2D function given in the matrix W.
+    The vectors x and y define the coordinate grid.
+    clim is an optional parameter for color limits (default is [0 1]).
+
+    Returns the handle to the surface object.
+
+    Ville Bergholm 2010
+    """
+    h = pcolor(a, b, W)
+    axis(equal, tight)
+    shading(interp)
+    set(gca, 'CLim', clim)
+    colorbar
+    colormap(asongoficeandfire(256))
+
+
+def plot_adiabatic_evolution(t, st, H_func, n=4):
+    """Adiabatic evolution plot.
+
+    Input: vector t of time instances, cell vector st of states corresponding
+    to the times and time-dependant Hamiltonian function handle H_func.
+
+    Plots the energies of the eigenstates of H_func(t(k)) as a function of t(k),
+    and the overlap of st{k} with the n lowest final Hamiltonian eigenstates. 
+    Useful for illustrating adiabatic evolution.
+
+    Jacob D. Biamonte 2008
+    Ville Bergholm 2009-2010
+    """
+    T = t[-1]  # final time
+    H = H_func(T)
+
+    n = min(n, H.shape[0])
+
+    # find the n lowest eigenstates of the final Hamiltonian
+    d, v = scipy.sparse.linalg.eigs(H, n, which = 'SR')
+    ind = d.argsort()  # increasing real part
+    for j in range(n):
+        lowest[j] = state(v[:, ind[j]])
+    # TODO with degenerate states these are more or less random linear combinations of the basis states... overlaps are not meaningful
+
+    for k in range(len(t)):
+        tt = t[k]
+        H = H_func(tt)
+        energies[:, k] = sort(real(eig(full(H))), 'ascend')
+        for j in range(n):
+            overlaps[j,k] = lowest[j].fidelity(st[k]) ** 2 # squared overlap with lowest final states
+
+    subplot(2,1,1)
+    plot(t/T, energies)
+    grid(on)
+    title('Energy spectrum')
+    xlabel('Adiabatic time')
+    ylabel('Energy')
+    axis([0, 1, min(min(energies)), max(max(energies))])
+
+
+    subplot(2,1,2)
+    plot(t/T, overlaps) #, 'LineWidth', 1.7)
+    grid(on)
+    title('Squared overlap of current state and final eigenstates')
+    xlabel('Adiabatic time')
+    ylabel('Probability')
+    temp = char([])
+    for k in range(n):
+        temp[k, :] = sprintf('|%d\\rangle', k-1)
+    legend(temp)
+    axis([0, 1, 0, 1])
+    # axis([0, 1, 0, max(max(overlaps))])
+
+
+def makemovie(filename, frameset, plot_func, *arg):
+    """Create an AVI movie.
+    aviobj = makemovie(filename, frameset, plot_func [, ...])
+
+    Creates an AVI movie file named 'filename.avi' in the current directory.
+    Frame k in the movie is obtained from the contents of the
+    current figure after calling plot_func(frameset[k]).
+    The optional extra parameters are passed directly to avifile.
+
+    Returns the closed avi object handle.
+
+    Example: makemovie('test', cell_vector_of_states, @(x) plot(x))
+
+    James D. Whitfield 2009
+    Ville Bergholm 2009-2010
+    """
+    # create an AVI object
+    aviobj = avifile(filename, arg)
+
+    fig = figure('Visible', 'off')
+    for k in frameset:
+        plot_func(k)
+        aviobj = addframe(aviobj, fig)
+        #  F = getframe(fig)   
+        #  aviobj = addframe(aviobj, F)
+
+    close(fig)
+    aviobj = close(aviobj)
+
+
+
+# misc
+
+def op_list(G, dim):
+    """Operator consisting of k-local terms, given as a list.
+
+    Returns the operator O defined by the connection list G.
+    dim is a vector of subsystem dimensions for O.
+
+    G is a list of arrays, G = [c_1, c_2, ..., c_n],
+    where each array c_i corresponds to a term in O.
+
+    An array that has 2 columns and k rows, c_i = [(A1, s1), (A2, s2), ... , (Ak, sk)],
+    where Aj are operators and sj subsystem indices, corresponds to the
+    k-local term given by the tensor product
+
+      A1_{s1} * A2_{s2} * ... * Ak_{sk}.
+
+    The dimensions of all operators acting on subsystem sj must match dim(sj).
+
+    Alternatively one can think of G as defining a hypergraph, where
+    each subsystem corresponds to a vertex and each array c_i in the list
+    describes a hyperedge connecting the vertices {s1, s2, ..., sk}.
+
+    Example: The connection list
+    G = [[(sz,1)], [(sx,1), (sx,3)], [(sy,1), (sy,3)], [(sz,1), (sz,3)],
+         [(sz,2)], [(A,2), (B+C,3)], [(2*sz,3)]]
+
+    corresponds to the operator
+    O = sz_1 +sz_2 +2*sz_3 +sx_1*sx_3 +sy_1*sy_3 +sz_1*sz_3 +A_2*(B+C)_3.
+
+    Ville Bergholm 2009-2010
+    """
+    # TODO we could try to infer dim from the operators
+    H = sparse(0)
+    for spec in G:
+        s = size(spec)
+
+        a = -1  # last subsystem taken care of
+        term = 1
+        for j in spec:
+            if len(j) != 2:
+                raise ValueError('Malformed term spec %d'.format(k))
+
+            b = j[1]  # subsystem number
+            if (b <= a):
+                raise ValueError('Spec %d not in ascending order.'.format(k))
+
+            if j[0].shape[1] != dim[b]:
+                raise ValueError('The dimension of operator %d in spec %d does not match dim.'.format(j, k))
+
+            term = mkron(term, speye(prod(dim[a+1:b])), j[0])
+            a = b
+
+        # final identity
+        term = mkron(term, speye(prod(dim[a+1:])))
+        H += term
+
+    return H
+
+
+
+def asongoficeandfire(n=None):
+    """Colormap with blues and reds. Wraps.
+
+    Returns an n * 3 matrix containing the colormap.
+    If n is not given, the colormap is the same length
+    as the current figure's colormap. 
+
+    Ville Bergholm 2010
+    """
+    if n == None:
+        n = size(get(gcf, 'colormap'), 1)
+
+    d = 3.1
+    p = np.linspace(-1, 1, n)
+
+    x = p[p < 0]
+    c = [1 -((1+x) ** d), 0.5*(tanh(4*(-x -0.5)) + 1), (-x) ** d]
+
+    x = p[p >= 0]
+    c = [c, [x ** d, 0.5*(tanh(4*(x -0.5)) + 1), 1 -((1-x) ** d)]]
+
+    return c
+
+    figure
+    subplot(2,1,1)
+    plot(p, y.tranpose())
+
+    subplot(2,1,2)
+    pcolor(kron(range(n), ones(10,1)))
+    shading('flat')
+    colormap(y)
+
+
+def qubits(n):
+    """Dimension vector for an all-qubit system.
+    
+    For the extemely lazy, returns dim == 2*ones(n, int)
+
+    Ville Bergholm 2010
+    """
+    return 2 * np.ones(n, int)
+
+
+def majorize(x, y):
+    """Majorization partial order of real vectors.
+
+    Returns true iff vector x is majorized by vector y,
+    i.e. res = x \preceq y.
+
+    Ville Bergholm 2010
+    """
+    if x.ndim != 1 or y.ndim != 1 or np.iscomplexobj(x) or np.iscomplexobj(y):
+        raise ValueError('Inputs must be real vectors.')
+
+    if len(x) != len(y):
+        raise ValueError('The vectors must be of equal length.')
+
+    x = cumsum(sort(x)[::-1])
+    y = cumsum(sort(y)[::-1])
+
+    if abs(x[-1] -y[-1]) < tol:
+        # exact majorization
+        return all(x <= y)
+    else:
+        # weak majorization could still be possible, but...
+        warn('Vectors have unequal sums.')
+        return False
+
+
+def mkron(*arg):
+    """This is how kron should work, dammit.
+
+    Returns the tensor (Kronecker) product X = A \otimes B \otimes ...
+
+    Ville Bergholm 2009
+    """
+    X = 1
+    for A in arg:
+        X = kron(X, A)
+    return X
+
+
+def test():
+    """Test script for the utils module.
+
+    Ville Bergholm 2009-2011
+    """
+    dim = 5
+
+    # random matrices
+    H = rand_hermitian(dim)
+    assert_o(norm(H - H.ctranspose()), 0, tol)
+
+    U = rand_U(dim)
+    assert_o(norm(U*U.ctranspose() -eye(dim)), 0, tol)
+    assert_o(norm(U.ctranspose()*U -eye(dim)), 0, tol)
+
+    U = rand_SU(dim)
+    assert_o(norm(U*U.ctranspose() -eye(dim)), 0, tol)
+    assert_o(norm(U.ctranspose()*U -eye(dim)), 0, tol)
+    assert_o(det(U), 1, tol)
+
+    rho = rand_positive(dim)
+    assert_o(norm(rho-rho.ctranspose()), 0, tol) # hermitian
+    assert_o(trace(rho), 1, tol) # trace 1
+    temp = eig(rho)
+    assert_o(norm(imag(temp)), 0, tol) # real eigenvalues
+    assert_o(norm(temp - abs(temp)), 0, tol) # nonnegative eigenvalues
+
+
+    # superoperators
+    L = rand_U(dim)
+    R = rand_U(dim)
+
+    assert_o(norm(rho -inv_vec(vec(rho))), 0, tol)
+    assert_o(norm(L*rho*R -inv_vec(lrmul(L, R)*vec(rho))), 0, tol)
+    assert_o(norm(L*rho -inv_vec(lmul(L)*vec(rho))), 0, tol)
+    assert_o(norm(rho*R -inv_vec(rmul(R)*vec(rho))), 0, tol)
+
+
+    # physical operators
+    # angular_momentum, boson_ladder, fermion_ladder
+
+    # SU(2) rotations
+
+
+    # spectral decomposition
+    E, P = spectral_decomposition(H)
+    temp = 0
+    for k in range(len(E)):
+        temp += E[k] * P[k]
+
+    assert_o(norm(temp-H), 0, tol)
+
+
+    # tensor bases
+
+
+    # majorization
+
+    # op_list
+
+    # plots

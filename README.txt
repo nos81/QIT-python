@@ -62,7 +62,7 @@ or become a contributor yourself!
 Some of the source files have literature references relevant to the
 algorithms or concepts used. Each reference is on its own line starting
 with the characters "%!". One can compile a list of all the references
-in the toolkit using the shell command "grep '%!' */*.py".
+in the toolkit using the shell command "grep '%!' *.py".
 
 
 
@@ -76,10 +76,10 @@ coding guidelines:
   (purpose, calling syntax, output, approximations used, assumptions made...)
 * Instead of using multiple similar functions, use a single function
   performing multiple related tasks, see e.g. state.state.__init__
-* Add relevant literature references using the %! syntax
-* Use the error() function on invalid input
-* Use variables sparingly, give them descriptive (but short) names
-* Use brief comments to explain the logic of your code
+* Add relevant literature references using the %! syntax.
+* Raise an exception on invalid input.
+* Use variables sparingly, give them descriptive (but short) names.
+* Use brief comments to explain the logic of your code.
 * When you add new functions also add testing scripts for validating
   your code. If you modify existing code, make sure you didn't break
   anything by checking that the testing scripts still run flawlessly.

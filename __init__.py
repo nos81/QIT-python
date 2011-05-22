@@ -15,9 +15,9 @@ import scipy as sp
 import scipy.constants as const
 
 from base import *
-#from utils import *
+from utils import *
 from lmap import *
-#import state
+from state import *
 #import gate
 
 # toolkit version number
