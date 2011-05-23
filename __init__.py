@@ -18,7 +18,7 @@ from base import *
 from utils import *
 from lmap import *
 from state import *
-#import gate
+import gate
 
 # toolkit version number
 version = '0.9.10'
