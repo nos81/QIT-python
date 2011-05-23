@@ -419,7 +419,6 @@ class lmap(object):
         T2 = T1.reorder((p, p))
         assert_almost_equal((tensor(C, B, A) - T2).norm(), 0, decimal)
 
-        print('All tests passed.')
         ignore = """
         a = lmap(randn(2,4) +1j*randn(2,4), (None, (2,2)))
         b = lmap(randn(2,2) +1j*randn(2,2))

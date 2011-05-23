@@ -1,19 +1,21 @@
 # -*- coding: utf-8 -*-
 """Quantum gates and other linear maps."""
 
-
+from __future__ import print_function, division
 from copy import deepcopy
 
 from numpy import prod, diag, eye, zeros, trace, exp, sqrt
+
+from base import *
 from lmap import *
-from utils import qubits, op_list
+from utils import qubits, op_list, assert_o
 # TODO use sparse matrices
 #import scipy.sparse as sps
 # zeros => sps.xxx_matrix
 # eye => sps.eye
 
 # all gate funcs return lmaps
-# TODO make interface consistent, do we want arrays or lmaps?
+# TODO make input interface consistent, do we want arrays or lmaps?
 
 
 
@@ -28,7 +30,8 @@ def gcd(a, b):
 def dist(A, B):
     """Distance between two unitary lmaps.
 
-    Returns \inf_{\phi \in \reals} \|A - e^{i \phi} B\|^2.
+    Returns \inf_{\phi \in \reals} \|A - e^{i \phi} B\|_F^2
+      = 2 (\dim_A - |\trace(A^\dagger B)|)
 
     Ville Bergholm 2007-2010
     """
@@ -186,7 +189,7 @@ def qft(dim):
         cache = True  # we only cache n-qubit qft gates for now
         # check cache first
         if n in qft_cache:
-            return qft_cache[n]
+            return deepcopy(qft_cache[n])
 
     N = prod(dim)
     U = zeros((N, N))
@@ -353,6 +356,10 @@ def test():
 
     Ville Bergholm 2010
     """
+    dim = (2, 3)
 
-    # dist, id, mod_add, mod_inc, mod_mul, phase, qft, swap, walsh, controlled, single, two
-    U = gate.two(B, t, dim)
+    I = id(dim)
+    U = swap(*dim)
+    assert_o((U.ctranspose() * U - I).norm(), 0, tol)  # swap' * swap = I
+
+    # dist, mod_add, mod_inc, mod_mul, phase, qft, walsh, controlled, single, two

@@ -2,14 +2,18 @@
 # Author: Ville Bergholm 2011
 """Utility functions module."""
 
+from __future__ import print_function, division
+from copy import deepcopy
 
 import numpy as np
-from numpy import array, mat, sqrt, dot, sort, diag
+from numpy import array, mat, zeros, ones, eye, prod, sqrt, exp, dot, sort, diag, trace, kron, pi
 from numpy.random import rand, randn
 from numpy.linalg import qr, det
-from scipy.linalg import expm
+from scipy.linalg import expm, norm
 
 from base import *
+
+# As a rule the functions in this module return ndarrays, not lmaps.
 
 
 # internal utilities
@@ -30,6 +34,22 @@ def eigsort(A):
     d, v = np.linalg.eig(A)
     ind = d.argsort()[::-1]  # nonincreasing real part
     return d[ind], v[:, ind]
+
+
+def comm(A, B):
+    """Array commutator.
+    
+    Returns [A, B] := A*B - B*A 
+    """
+    return dot(A, B) - dot(B, A)
+
+
+def acomm(A, B):
+    """Array anticommutator.
+    
+    Returns {A, B} := A*B + B*A 
+    """
+    return dot(A, B) + dot(B, A)
 
 
 
@@ -90,7 +110,7 @@ def rand_U1(n):
 
     Ville Bergholm 2005-2009
     """
-    return diag(exp(1j * 2 * pi * rand(n)))
+    return diag(exp(2j * pi * rand(n)))
 
 
 
@@ -132,9 +152,9 @@ def vec(rho):
 def inv_vec(v, dim=None):
     """Reshapes a vector into a matrix.
     rho = inv_vec(v) 
-    rho = inv_vec(v, [n m]) 
+    rho = inv_vec(v, [n, m]) 
 
-    Reshapes vector v (length n*m) into a matrix rho (size [n m]),
+    Reshapes vector v (length n*m) into a matrix rho (size [n, m]),
     using column-major ordering. If n and m are not given, rho is assumed
     to be square.
 
@@ -148,14 +168,13 @@ def inv_vec(v, dim=None):
     if dim == None:
         # assume a square matrix
         n = sqrt(d)
-        if floor(n) != n:
+        if np.floor(n) != n:
             raise ValueError('Length of vector v is not a squared integer.')
         dim = (n, n)
     else:
         if prod(dim) != d:
             raise ValueError('Dimensions n, m are not compatible with given vector v.')
-
-    return v.reshape(dim)
+    return v.reshape(dim, order='F')
 
 
 def lmul(L, q=None):
@@ -163,25 +182,29 @@ def lmul(L, q=None):
 
     L*rho == inv_vec(lmul(L)*vec(rho))
 
+    Dimensions: L is [m, p], rho is [p, q].
+    If q is not given rho is assumed square.
+
     Ville Bergholm 2009
     """
     if q == None:
         q = L.shape[1]  # assume target is a square matrix
+    return kron(eye(q), L)
 
-    return kron(speye(q), L)
 
-
-def rmul(R, m=None):
+def rmul(R, p=None):
     """Superoperator equivalent for multiplying from the right.
 
     rho*R == inv_vec(rmul(R)*vec(rho))
 
+    Dimensions: rho is [p, q], R is [q, r].
+    If p is not given rho is assumed square.
+
     Ville Bergholm 2009
     """
-    if m == None:
-        m = R.shape[0]  # assume target is a square matrix
-
-    return kron(R.transpose(), speye(m))
+    if p == None:
+        p = R.shape[0]  # assume target is a square matrix
+    return kron(R.transpose(), eye(p))
 
 
 def lrmul(L, R):
@@ -191,15 +214,8 @@ def lrmul(L, R):
 
     Ville Bergholm 2009-2010
     """
-    def issquare(A):
-        return A.shape[0] == A.shape[1]
-
-    if issquare(L) and issquare(R):
-        return kron(R.transpose(), L) # simplifies to this when L and R are both square
-
-    m = L.shape[0]
-    q = R.shape[0] # FIXME [1]
-    return kron(R.transpose(), speye(m)) * kron(speye(q), L)
+    # L and R fix the shape of rho completely
+    return kron(R.transpose(), L)
 
 
 def superop_lindblad(A, H=0):
@@ -223,24 +239,25 @@ def superop_lindblad(A, H=0):
     L = 0
     acomm = 0
     for k in A:
-        acomm += 0.5 * k.ctranspose() * k
-        L += lrmul(k, k.ctranspose()) 
+        acomm += 0.5 * k.conj().transpose() * k
+        L += lrmul(k, k.conj().transpose()) 
 
     L += lmul(-acomm -iH) +rmul(-acomm +iH)
+    return L
 
 
 
 # physical operators
 
-angular_momentum_cache = []
+angular_momentum_cache = {}
 def angular_momentum(n):
     """Angular momentum matrices.
 
-    J = {Jx, Jy, Jz} = angular_momentum(d)
+    (Jx, Jy, Jz) = angular_momentum(d)
 
-    Returns the angular momentum matrices \vec(J)/\hbar
-    for the d-dimensional subspace defined by the
-    quantum number j == (d-1)/2, as a cell vector.
+    Returns a 3-tuple of angular momentum matrices \vec(J)/\hbar
+    for the n-dimensional subspace defined by the
+    quantum number j == (n-1)/2.
 
     Ville Bergholm 2009-2010
     """
@@ -249,29 +266,26 @@ def angular_momentum(n):
         raise ValueError('Dimension must be one or greater.')
 
     # check cache first
-    if len(angular_momentum_cache) >= n and angular_momentum_cache[n] != None:
-        return angular_momentum_cache[n]
+    if n in angular_momentum_cache:
+        return deepcopy(angular_momentum_cache[n])
 
     j = (n - 1) / 2 # angular momentum quantum number, n == 2*j + 1
-
     # raising operator in subspace J^2 = j*(j+1)
     m = j
-    Jplus = sparse(n,n)
+    Jplus = zeros((n, n))
     for k in range(n-1):
-        m = m - 1
+        m -= 1
         Jplus[k, k+1] = sqrt(j*(j+1) -m*(m+1))
 
     # lowering operator
-    Jminus = Jplus.ctranspose()
-
+    Jminus = Jplus.conj().transpose()
     # Jplus  = Jx + i*Jy
     # Jminus = Jx - i*Jy
-
-    J = [0.5*(Jplus + Jminus), 0.5*i*(Jminus - Jplus), spdiags(range(j, -j-1, -1), 0, n, n)]
+    J = (0.5*(Jplus + Jminus), 0.5j*(Jminus - Jplus), diag(np.arange(j, -j-1, -1)))
 
     # store them in the cache
-    angular_momentum_cache[n] = J
-
+    angular_momentum_cache[n] = deepcopy(J)
+    return J
 
 
 def boson_ladder(n):
@@ -285,13 +299,13 @@ def boson_ladder(n):
 
     Ville Bergholm 2009-2010
     """
-    return spdiags(sqrt(range(n)), 1, n, n)
+    return diag(sqrt(range(1, n)), 1)
 
 
 def fermion_ladder(grouping):
     """Fermionic ladder operators.
 
-    Returns a cell vector of fermionic annihilation operators for a
+    Returns a vector of fermionic annihilation operators for a
     system of n fermionic modes in the second quantization.
 
     The annihilation operators are built using the Jordan-Wigner
@@ -299,14 +313,14 @@ def fermion_ladder(grouping):
     qubit denotes the occupation number of the corresponding mode.
 
     First define annihilation and number operators for a lone fermion mode:
-    s := (sx + i*sy)/2   = [0 1 0 0],
-    n := s'*s = (I-sz)/2 = [0 0 0 1].
+    s := (sx + i*sy)/2   = [[0, 1], [0, 0]],
+    n := s'*s = (I-sz)/2 = [[0, 0], [0, 1]].
 
     s|0> = 0, s|1> = |0>, n|k> = k|k>
 
     Then define a phase operator to keep track of sign changes when
     permuting the order of the operators:
-    \phi_k := \sum_{j=1}^{k-1} n_j.
+    \phi_k := \sum_{j=0}^{k-1} n_j.
 
     Now, the fermionic annihilation operators for the n-mode system are given by
     f_k := (-1)^{\phi_k} s_k.
@@ -319,24 +333,24 @@ def fermion_ladder(grouping):
     Ville Bergholm 2009-2010
     """
     n = prod(grouping)
-    d = 2^n
+    d = 2 ** n
 
     # number and phase operators (diagonal, so we store them as such)
-    temp = zeros(d, 1)
-    phi[1] = temp
-    for k in range(n-1):
-        num = mkron(ones(2^(k-1), 1), [0, 1], ones(2^(n-k), 1)) # number operator n_k as a diagonal
-        temp = temp + num # sum of number ops up to n_k, diagonal
-        phi[k+1] = temp
-    end
+    temp = zeros(d)
+    phi = [temp]
+    for k in range(n-1):  # we don't need the last one
+        num = mkron(ones(2 ** k), array([0, 1]), ones(2 ** (n-k-1))) # number operator n_k as a diagonal
+        temp += num # sum of number ops up to n_k, diagonal
+        phi.append(temp)
 
-    s = sparse([0, 1, 0, 0])
+    s = array([[0, 1], [0, 0]]) # single annihilation op
 
-    # fermionic annihilation operators
+    # empty array for the annihilation operators
+    f = np.empty(grouping, object)
+    # annihilation operators for a set of fermions (Jordan-Wigner transform)
     for k in range(n):
-        f[k] = spdiags((-1) ** phi[k], 0, d, d) * mkron(speye(2^(k-1)), s, speye(2^(n-k)))
-
-    f = reshape(f, grouping)
+        f.flat[k] = ((-1) ** array(phi[k])) * mkron(eye(2 ** k), s, eye(2 ** (n-k-1)))
+    return f
 
 
 
@@ -418,7 +432,7 @@ def spectral_decomposition(A):
 
 # tensor bases
 
-gellmann_cache = [];
+gellmann_cache = {};
 def gellmann(n):
     """Gell-Mann matrices of dimension n.
 
@@ -427,25 +441,26 @@ def gellmann(n):
 
     Ville Bergholm 2006-2011
     """
-    if n <= 0:
-        raise ValueError('Dimension must be greater than one.')
+    if n < 1:
+        raise ValueError('Dimension must be >= 1.')
 
     # check cache first
-    if len(gellmann_cache) >= n and gellmann_cache[n] != None:
-        return gellmann_cache[n]
+    if n in gellmann_cache:
+        return deepcopy(gellmann_cache[n])
 
     G = []
     # diagonal
-    d = np.zeros(n)
+    d = zeros(n)
     d[0] = 1
     for k in range(1, n):
         for j in range(0, k):
             # nondiagonal
-            temp = np.zeros((n, n))
+            temp = zeros((n, n))
             temp[k,j] = 1 / sqrt(2)
             temp[j,k] = 1 / sqrt(2)
             G.append(temp)
   
+            temp = zeros((n, n), dtype=complex)
             temp[k,j] = 1j / sqrt(2)
             temp[j,k] = -1j / sqrt(2)
             G.append(temp)
@@ -455,14 +470,12 @@ def gellmann(n):
         d[k] = 1 
 
     # store them in the cache
-    gellmann_cache[n] = G
+    gellmann_cache[n] = deepcopy(G)
+    return G
 
 
-
-tensorbasis_cache = []
-#tensorbasislocal = []
-#function [B, local] = 
-def tensorbasis(n, d=None):
+tensorbasis_cache = {}
+def tensorbasis(n, d=None, get_locality=False):
     """Hermitian tensor-product basis for End(H).
     B = tensorbasis(n, d)   H = C_d^{\otimes n}.
     B = tensorbasis(dim)    H = C_{dim(1)} \otimes ... \otimes C_{dim(n)}
@@ -486,51 +499,50 @@ def tensorbasis(n, d=None):
         n = len(dim)
     else:
         # n qu(d)its
-        dim = np.ones(n, int) * d
+        dim = ones(n, int) * d
 
+    # check cache first
+    dim = tuple(dim)
+    if dim in tensorbasis_cache:
+        if get_locality:
+            # tuple: (matrices, locality)
+            return deepcopy(tensorbasis_cache[dim])
+        else:
+            # just the matrices
+            return deepcopy(tensorbasis_cache[dim][0])
 
-    # check cache first (we only cache "n qu(d)its" -type bases for convenience)
-    cache = False
-    if all(dim == dim[0]):
-        d = dim[0]
-        if (all(size(tensorbasis_cache) >= [n, d]) and ~tensorbasis_cache[n,d] != None):
-            B = tensorbasis_cache[n,d]
-            local = tensorbasis_cachelocal[n,d]
-            return
-
-        cache = True
-
-    n_elements = dim ** 2      # number of basis elements for each subsystem, incl. identity
+    n_elements = array(dim) ** 2    # number of basis elements for each subsystem, incl. identity
     n_all = prod(n_elements) # number of all tensor basis elements, incl. identity
 
-    B = cell(1, n_all) # basis
-    local = false(1, n_all) # logical array, is the corresponding basis element local?
-
+    B = []
+    locality = zeros(n_all, dtype = bool)  # logical array, is the corresponding basis element local?
     # create the tensor basis
     for k in range(n_all):  # loop over all basis elements
+        inds = np.unravel_index(k, n_elements)
         temp = 1 # basis element being built
-        rem = k # remainder
-        sum = 0 # number of non-id. matrices included in this element
+        nonid = 0  # number of non-id. matrices included in this element
+
         for j in range(n):  # loop over subsystems
-            ind = mod(rem, n_elements[j])  # which local basis element to use
-            rem = floor(rem / n_elements[j])
-            if (ind > 0):
-                sum += 1 # using a non-identity matrix
-
+            ind = inds[j]   # which local basis element to use
             d = dim[j]
-            L = hstack((eye(d)/sqrt(d),) +gellmann(d)) # Gell-Mann basis for the subsystem (cached)
-            temp = kron(temp, L[ind+1])  # tensor in another matrix
 
-        B[k+1] = temp  
-        local[k+1] = (sum < 2) # at least two non-identities => nonlocal element
+            if ind > 0:
+                nonid += 1 # using a non-identity matrix
+                L = gellmann(d)[ind - 1]  # Gell-Mann basis vector for the subsystem
+                # TODO gellmann copying the entire basis for a single matrix is inefficient...
+            else:
+                L = eye(d) / sqrt(d)  # identity (scaled)
+            temp = kron(temp, L)  # tensor in another matrix
 
-
+        B.append(temp)
+        locality[k] = (nonid < 2) # at least two non-identities => nonlocal element
 
     # store into cache
-    if (cache):
-        tensorbasis_cache[n,d] = B
-        tensorbasis_cachelocal[n,d] = local
-
+    tensorbasis_cache[dim] = deepcopy((B, locality))
+    if get_locality:
+        return (B, locality)
+    else:
+        return B
 
 
 def bloch_state(A, dim=None):
@@ -545,7 +557,7 @@ def bloch_state(A, dim=None):
 
       \rho_s == \sum_{ijk...} A_{ijk...} B_{ijk...} / \sqrt(D),
 
-    where D = prod(dim). For valid states norm(A) <= sqrt(D).
+    where D = prod(dim). For valid states norm(A, 2) <= sqrt(D).
 
     Ville Bergholm 2009-2011
     """
@@ -554,7 +566,7 @@ def bloch_state(A, dim=None):
 
     G = tensorbasis(dim)
     d = prod(dim)
-    rho = np.zeros((d, d))
+    rho = zeros((d, d))
     for k in A.flat:
         rho += k * G[k]
 
@@ -582,17 +594,17 @@ def plot_bloch_sphere(s=None):
     hold('off')
     h = surf(X,Y,Z, 2*ones(41,41))
     hold(on)
-    shading(flat)
+    shading('flat')
     alpha(0.2)
-    axis(square)
+    axis('square')
     xlabel('x')
     ylabel('y')
     zlabel('z')
     plot3(0,0,1,'r.')
     plot3(0,0,-1,'b.')
 
-    text(0, 0,  1.2, '|0\rangle')
-    text(0, 0, -1.2, '|1\rangle')
+    text(0, 0,  1.2, '$|0\rangle$')
+    text(0, 0, -1.2, '$|1\rangle$')
 
     if s != None:
         v = s.bloch_vector()
@@ -738,32 +750,28 @@ def op_list(G, dim):
     Ville Bergholm 2009-2010
     """
     # TODO we could try to infer dim from the operators
-    H = sparse(0)
+    H = 0
     for spec in G:
-        s = size(spec)
-
         a = -1  # last subsystem taken care of
         term = 1
         for j in spec:
             if len(j) != 2:
-                raise ValueError('Malformed term spec %d'.format(k))
+                raise ValueError('Malformed term spec {0}.'.format(k))
 
             b = j[1]  # subsystem number
             if (b <= a):
-                raise ValueError('Spec %d not in ascending order.'.format(k))
+                raise ValueError('Spec {0} not in ascending order.'.format(k))
 
             if j[0].shape[1] != dim[b]:
-                raise ValueError('The dimension of operator %d in spec %d does not match dim.'.format(j, k))
+                raise ValueError('The dimension of operator {0} in spec {1} does not match dim.'.format(j, k))
 
-            term = mkron(term, speye(prod(dim[a+1:b])), j[0])
+            term = mkron(term, eye(prod(dim[a+1:b])), j[0])
             a = b
 
         # final identity
-        term = mkron(term, speye(prod(dim[a+1:])))
+        term = mkron(term, eye(prod(dim[a+1:])))
         H += term
-
     return H
-
 
 
 def asongoficeandfire(n=None):
@@ -806,7 +814,7 @@ def qubits(n):
 
     Ville Bergholm 2010
     """
-    return 2 * np.ones(n, int)
+    return 2 * ones(n, int)
 
 
 def majorize(x, y):
@@ -856,38 +864,52 @@ def test():
     dim = 5
 
     # random matrices
-    H = rand_hermitian(dim)
-    assert_o(norm(H - H.ctranspose()), 0, tol)
+    H = mat(rand_hermitian(dim))
+    assert_o(norm(H - H.H), 0, tol) # hermitian
 
-    U = rand_U(dim)
-    assert_o(norm(U*U.ctranspose() -eye(dim)), 0, tol)
-    assert_o(norm(U.ctranspose()*U -eye(dim)), 0, tol)
+    U = mat(rand_U(dim))
+    assert_o(norm(U * U.H -eye(dim)), 0, tol) # unitary
+    assert_o(norm(U.H * U -eye(dim)), 0, tol)
 
-    U = rand_SU(dim)
-    assert_o(norm(U*U.ctranspose() -eye(dim)), 0, tol)
-    assert_o(norm(U.ctranspose()*U -eye(dim)), 0, tol)
-    assert_o(det(U), 1, tol)
+    U = mat(rand_SU(dim))
+    assert_o(norm(U * U.H -eye(dim)), 0, tol) # unitary
+    assert_o(norm(U.H * U -eye(dim)), 0, tol)
+    assert_o(det(U), 1, tol) # det 1
 
-    rho = rand_positive(dim)
-    assert_o(norm(rho-rho.ctranspose()), 0, tol) # hermitian
+    rho = mat(rand_positive(dim))
+    assert_o(norm(rho - rho.H), 0, tol) # hermitian
     assert_o(trace(rho), 1, tol) # trace 1
-    temp = eig(rho)
-    assert_o(norm(imag(temp)), 0, tol) # real eigenvalues
+    temp = np.linalg.eigvals(rho)
+    assert_o(norm(temp.imag), 0, tol) # real eigenvalues
     assert_o(norm(temp - abs(temp)), 0, tol) # nonnegative eigenvalues
 
 
     # superoperators
-    L = rand_U(dim)
-    R = rand_U(dim)
+    L = mat(rand_U(dim))
+    R = mat(rand_U(dim))
+    v = vec(array(rho))
 
-    assert_o(norm(rho -inv_vec(vec(rho))), 0, tol)
-    assert_o(norm(L*rho*R -inv_vec(lrmul(L, R)*vec(rho))), 0, tol)
-    assert_o(norm(L*rho -inv_vec(lmul(L)*vec(rho))), 0, tol)
-    assert_o(norm(rho*R -inv_vec(rmul(R)*vec(rho))), 0, tol)
+    assert_o(norm(rho -inv_vec(v)), 0, tol)
+    assert_o(norm(L*rho*R -inv_vec(dot(lrmul(L, R), v))), 0, tol)
+    assert_o(norm(L*rho -inv_vec(dot(lmul(L), v))), 0, tol)
+    assert_o(norm(rho*R -inv_vec(dot(rmul(R), v))), 0, tol)
 
 
     # physical operators
-    # angular_momentum, boson_ladder, fermion_ladder
+    J = angular_momentum(dim)
+    assert_o(norm(comm(J[0], J[1]) - 1j*J[2]), 0, tol)  # [Jx, Jy] == i Jz
+
+    a = mat(boson_ladder(dim))
+    temp = comm(a, a.H)
+    assert_o(norm(temp[:-1,:-1] - eye(dim-1)), 0, tol)  # [a, a'] == I  (truncated, so skip the last row/col!)
+
+    f = fermion_ladder(2)
+    temp = f[0].conj().transpose()
+    assert_o(norm(acomm(f[0], f[0]) ), 0, tol)  # {f_j, f_k} = 0
+    assert_o(norm(acomm(f[0], f[1]) ), 0, tol)
+    assert_o(norm(acomm(temp, f[0]) -eye(4)), 0, tol)  # {f_j^\dagger, f_k} = I \delta_{jk}
+    assert_o(norm(acomm(temp, f[1]) ), 0, tol)
+
 
     # SU(2) rotations
 
@@ -898,7 +920,7 @@ def test():
     for k in range(len(E)):
         temp += E[k] * P[k]
 
-    assert_o(norm(temp-H), 0, tol)
+    assert_o(norm(temp - H), 0, tol)
 
 
     # tensor bases
