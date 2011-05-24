@@ -20,6 +20,7 @@ from lmap import *
 from state import *
 from utils import *
 import gate
+import ho
 
 # toolkit version number
 version = '0.9.10'

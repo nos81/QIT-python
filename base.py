@@ -3,24 +3,28 @@
 """Basic definitions module."""
 
 
-import numpy as np
+from numpy import array, sqrt, finfo
 
 
 # Pauli matrices
 #I  = eye(2);
-sx = np.array([[0, 1], [1, 0]])
-sy = np.array([[0, -1j], [1j, 0]])
-sz = np.array([[1, 0], [0, -1]])
+sx = array([[0, 1], [1, 0]])
+sy = array([[0, -1j], [1j, 0]])
+sz = array([[1, 0], [0, -1]])
 
 # qubit projectors
-p0 = np.array([[1, 0], [0, 0]])
-p1 = np.array([[0, 0], [0, 1]])
+p0 = array([[1, 0], [0, 0]])
+p1 = array([[0, 0], [0, 1]])
 
 # easy Hadamard
-H = np.array([[1, 1], [1, -1]]) / np.sqrt(2)
+H = array([[1, 1], [1, -1]]) / sqrt(2)
+
+# magic basis
+Q_Bell = array([[1, 0, 0, 1j], [0, 1j, 1, 0], [0, 1j, -1, 0], [1, 0, 0, -1j]]) / sqrt(2)
+
 
 # error tolerance
-tol = max(1e-10, np.finfo(float).eps)
+tol = max(1e-10, finfo(float).eps)
 
 # some relevant physical constants (CODATA 2006)
 #hbar = 1.054571628e-34 # J s

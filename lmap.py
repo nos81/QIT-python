@@ -25,7 +25,7 @@ def array_to_numstr(s):
 
 
 class lmap(object):
-    """Multilinear maps between tensor products of finite-dimensional Hilbert spaces.
+    """Bounded linear maps between tensor products of finite-dimensional Hilbert spaces.
 
     Contains both the order-2 tensor and the dimensional information.
 

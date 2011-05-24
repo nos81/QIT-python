@@ -6,10 +6,11 @@ from __future__ import print_function, division
 from copy import deepcopy
 
 import numpy as np
-from numpy import array, mat, zeros, ones, eye, prod, sqrt, exp, dot, sort, diag, trace, kron, pi
+from numpy import array, mat, zeros, ones, eye, prod, sqrt, exp, dot, sort, diag, trace, kron, pi, r_
 from numpy.random import rand, randn
 from numpy.linalg import qr, det
 from scipy.linalg import expm, norm
+import matplotlib.pyplot as plt
 
 from base import *
 
@@ -612,7 +613,7 @@ def plot_bloch_sphere(s=None):
     return h
 
 
-def plot_pcolor(W, a, b, clim=[0, 1]):
+def plot_pcolor(W, a, b, clim=(0, 1)):
     """Easy pseudocolor plot.
 
     Plots the 2D function given in the matrix W.
@@ -623,12 +624,18 @@ def plot_pcolor(W, a, b, clim=[0, 1]):
 
     Ville Bergholm 2010
     """
-    h = pcolor(a, b, W)
-    axis(equal, tight)
-    shading(interp)
-    set(gca, 'CLim', clim)
-    colorbar
-    colormap(asongoficeandfire(256))
+    # a and b are quad midpoint coordinates but pcolor wants quad vertices, so
+    def to_quad(x):
+        return (r_[x, x[-1]] + r_[x[0], x]) / 2
+
+    h = plt.pcolor(to_quad(a), to_quad(b), W)
+    plt.axis('equal')
+    plt.axis('tight')
+    #shading('interp')
+    plt.set(gca, 'CLim', clim)
+    plt.colorbar
+    plt.colormap(asongoficeandfire(256))
+    return h
 
 
 def plot_adiabatic_evolution(t, st, H_func, n=4):
@@ -810,11 +817,11 @@ def asongoficeandfire(n=None):
 def qubits(n):
     """Dimension vector for an all-qubit system.
     
-    For the extemely lazy, returns dim == 2*ones(n, int)
+    For the extemely lazy, returns (2,) * n
 
     Ville Bergholm 2010
     """
-    return 2 * ones(n, int)
+    return (2,) * n
 
 
 def majorize(x, y):
