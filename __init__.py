@@ -21,6 +21,7 @@ from state import *
 from utils import *
 import gate
 import ho
+import examples
 
 # toolkit version number
 version = '0.9.10'
@@ -38,5 +39,6 @@ def test():
     state.test()
     utils.test()
     gate.test()
+    ho.test()
     #markov.test_markov
     print('All tests passed.')

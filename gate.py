@@ -4,11 +4,10 @@
 from __future__ import print_function, division
 from copy import deepcopy
 
-from numpy import prod, diag, eye, zeros, trace, exp, sqrt
+from numpy import prod, diag, eye, zeros, trace, exp, sqrt, mod, isscalar, kron, array
 
-from base import *
 from lmap import *
-from utils import qubits, op_list, assert_o
+from utils import qubits, op_list, assert_o, copy_memoize, gcd
 # TODO use sparse matrices
 #import scipy.sparse as sps
 # zeros => sps.xxx_matrix
@@ -17,14 +16,6 @@ from utils import qubits, op_list, assert_o
 # all gate funcs return lmaps
 # TODO make input interface consistent, do we want arrays or lmaps?
 
-
-
-def gcd(a, b):
-    """Calculate the greatest common divisor of a and b
-    From NumPy source, why isn't this in the API?"""
-    while b:
-        a, b = b, a%b
-        return a
 
 
 def dist(A, B):
@@ -49,6 +40,7 @@ def id(dim):
     Returns the identity gate I for the specified system.
     dim is a tuple of subsystem dimensions.
     """
+    if isscalar(dim): dim = (dim,)  # scalar into a tuple
     return lmap(eye(prod(dim)), (dim, dim))
 
 
@@ -108,6 +100,7 @@ def mod_inc(x, dim, N=None):
 
     If N is given, U will act trivially on computational states >= N.
     """
+    if isscalar(dim): dim = (dim,)  # scalar into a tuple
     d = prod(dim)
     if N == None:
         N = d
@@ -136,6 +129,7 @@ def mod_mul(x, dim, N=None):
 
     If N is given, U will act trivially on computational states >= N.
     """
+    if isscalar(dim): dim = (dim,)  # scalar into a tuple
     d = prod(dim)
     if N == None:
         N = d
@@ -165,16 +159,17 @@ def phase(theta, dim=None):
 
     Ville Bergholm 2010
     """
+    if isscalar(dim): dim = (dim,)  # scalar into a tuple
     n = len(theta)
     if dim == None:
-        dim = n
+        dim = (n,)
     elif prod(dim) != n:
         raise ValueError('Dimension mismatch.')
 
     return lmap(diag(exp(1j * theta)), (dim, dim))
 
 
-qft_cache = {}
+@copy_memoize
 def qft(dim):
     """Quantum Fourier transform gate.
 
@@ -183,25 +178,14 @@ def qft(dim):
 
     Ville Bergholm 2004-2010
     """
+    if isscalar(dim): dim = (dim,)  # scalar into a tuple
     n = len(dim)
-    cache = False
-    if np.array_equal(dim, qubits(n)):
-        cache = True  # we only cache n-qubit qft gates for now
-        # check cache first
-        if n in qft_cache:
-            return deepcopy(qft_cache[n])
-
     N = prod(dim)
     U = zeros((N, N))
     for j in range(N):
         for k in range(N):
             U[j, k] = exp(2j * np.pi * j * k / N) / sqrt(N)
-
-    U = lmap(U, (dim, dim))
-    if cache:
-        # store it in the cache
-        qft_cache[n] = deepcopy(U)
-    return U
+    return lmap(U, (dim, dim))
 
 
 def swap(d1, d2):
@@ -254,6 +238,7 @@ def controlled(U, ctrl=(1,), dim=None):
 
     Ville Bergholm 2009-2011
     """
+    if isscalar(dim): dim = (dim,)  # scalar into a tuple
     t = len(ctrl)
     if dim == None:
         dim = qubits(t) # qubits by default
@@ -261,7 +246,7 @@ def controlled(U, ctrl=(1,), dim=None):
     if t != len(dim):
         raise ValueError('ctrl and dim vectors have unequal lengths.')
 
-    if any(ctrl >= dim):
+    if any(array(ctrl) >= array(dim)):
         raise ValueError('Control on non-existant state.')
 
     yes = 1  # just the diagonal
@@ -282,8 +267,8 @@ def controlled(U, ctrl=(1,), dim=None):
         d2 = dim + list(U.dim[1])
         U = U.data
     else:
-        d1 = dim + list(U.shape[0])
-        d2 = dim + list(U.shape[1])
+        d1 = dim + [U.shape[0]]
+        d2 = dim + [U.shape[1]]
 
     out = kron(diag(no), eye(*(U.shape))) + kron(diag(yes), U)
     return lmap(out, (d1, d2))
@@ -300,12 +285,15 @@ def single(L, t, d_in):
     James Whitfield 2010
     Ville Bergholm 2010
     """
-    if d_in[t] != L.data.shape[1]:
+    if isinstance(L, lmap):
+        L = L.data  # into ndarray
+
+    d_in = list(d_in)
+    if d_in[t] != L.shape[1]:
         raise ValueError('Input dimensions do not match.')
     d_out = d_in
-    d_out[t] = L.data.shape[0]
-
-    return lmap(op_list([[L.data, t]], d_in), (d_out, d_in))
+    d_out[t] = L.shape[0]
+    return lmap(op_list([[[L, t]]], d_in), (d_out, d_in))
 
 
 def two(B, t, d_in):
@@ -324,9 +312,10 @@ def two(B, t, d_in):
 
     n = len(d_in)
     t = array(t)
-    if any(t < 0) or any(t >= n) or t(1) == t(2):
+    if any(t < 0) or any(t >= n) or t[0] == t[1]:
         raise ValueError('Bad target subsystem(s).')
 
+    d_in = array(d_in)
     if not np.array_equal(d_in[t], B.dim[1]):
         raise ValueError('Input dimensions do not match.')
 
@@ -356,10 +345,26 @@ def test():
 
     Ville Bergholm 2010
     """
-    dim = (2, 3)
+    from numpy.random import randn
+    from base import *
+
+    dim = (2, 4)
 
     I = id(dim)
     U = swap(*dim)
     assert_o((U.ctranspose() * U - I).norm(), 0, tol)  # swap' * swap = I
+
+    U = mod_add(2, 4, 3)
+    U = mod_inc(3, dim, 5)
+    V = mod_mul(2, dim, 5)
+    dist(U, V)
+    U = phase(randn(prod(dim)), dim)
+    U = qft(dim)
+    U = walsh(3)
+    U = controlled(sz, (1, 0), dim)
+    cnot = controlled(sx)
+    U = single(sy, 0, dim)
+    U = two(cnot, (2,0), (2,3,2))
+
 
     # dist, mod_add, mod_inc, mod_mul, phase, qft, walsh, controlled, single, two

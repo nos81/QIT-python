@@ -2,11 +2,11 @@
 # Author: Ville Bergholm 2011
 """Quantum states module."""
 
-
+from __future__ import print_function, division
+import collections
 import numbers
 
-
-from numpy import array, sort, prod, cumprod, sqrt, trace, dot, vdot, roll, zeros, ones, r_, kron
+from numpy import array, sort, prod, cumsum, cumprod, sqrt, trace, dot, vdot, roll, zeros, ones, r_, kron, isscalar, nonzero, ix_
 import scipy as sp  # scipy imports numpy automatically
 import scipy.linalg
 from scipy.linalg import norm
@@ -36,11 +36,11 @@ def index_muls(dim):
 class state(lmap):
     """Class for quantum states.
 
-    Describes the state (pure or mixed) of a discrete, composite quantum system.
+    Describes the state (pure or mixed) of a discrete, possibly composite quantum system.
     The subsystem dimensions can be found in dim[0] (big-endian ordering).
 
     State class instances are special cases of lmaps. They have exactly two indices.
-    If dim[1] == (1,), it is a ket representing a pure state.
+    If self.dim[1] == (1,), it is a ket representing a pure state.
     Otherwise both indices must have equal dimensions and the object represents a state operator.
 
     Does not require the state to be physical (it does not have to be trace-1, Hermitian, or nonnegative).
@@ -71,7 +71,12 @@ class state(lmap):
           W,
           Bell1, Bell2, Bell3, Bell4 
         """
-        dim = tuple(dim)  # convert lists etc.
+        # we want a tuple for dim
+        if isinstance(dim, collections.Iterable):
+            dim = tuple(dim)
+        elif isscalar(dim):
+            dim = (dim,)
+
         if isinstance(s, lmap):
             # copy constructor
             # state vector or operator? (also works with dim == None)
@@ -101,9 +106,8 @@ class state(lmap):
 
                 if name in ('bell1', 'bell2', 'bell3', 'bell4'):
                     # Bell state
-                    Q_Bell = array([[1, 0, 0, 1j], [0, 1j, 1, 0], [0, 1j, -1, 0], [1, 0, 0, -1j]]) / sqrt(2)
                     dim = (2, 2)
-                    s = Q_Bell[:, chr(ord(name[-1]) - ord('1'))]
+                    s = deepcopy(Q_Bell[:, ord(name[-1]) - ord('1')])
                 elif name == 'ghz':
                     # Greenberger-Horne-Zeilinger state
                     s[0] = 1
@@ -129,9 +133,10 @@ class state(lmap):
                 s = numstr_to_array(s)
                 if any(s >= dim):
                     raise ValueError('Invalid basis ket.')
+                # TODO numpy 1.6:
+                # ind = ravel_multi_index(s, dim)
                 muls = index_muls(dim)
                 ind = dot(muls, s)
-
                 s = zeros(prod(dim)) # ket
                 s[ind] = 1
 
@@ -254,7 +259,7 @@ class state(lmap):
                 raise ValueError('The state is not pure, and thus cannot be represented by a ket vector.')
 
             d, v = eigsort(s.data)
-            s.data = v[:, 0]  # corresponds to the highest eigenvalue, i.e. 1
+            s.data = v[:, [0]]  # corresponds to the highest eigenvalue, i.e. 1
             s.fix_phase(inplace = True)  # clean up global phase
             s.dim = (s.dim[0], (1,))
 
@@ -300,7 +305,7 @@ class state(lmap):
         Ville Bergholm 2008-2010
         """
         s = self.to_op(inplace)
-        dim = array(s.dims())
+        dim = s.dims()
         n = s.subsystems()
         sys = s.clean_selection(sys)
         keep = s.invert_selection(sys)
@@ -328,22 +333,23 @@ class state(lmap):
 
             stride = muls[j] # stride for moving the stencil while summing
             temp = len(inds)
-            res = zeros((temp, temp)) # result
+            res = zeros((temp, temp), complex) # result
             for k in range(d[j]):
                 temp = inds + stride * k
-                res += s.data[temp, temp]
+                res += s.data[ix_(temp, temp)]
 
             s.data = res # replace data
             d[j] = 1  # remove traced-over dimension.
 
-        dim = dim[keep] # remove traced-over dimensions for good
+        dim = tuple(array(dim)[keep]) # remove traced-over dimensions for good
         if len(dim) == 0:
             dim = (1,) # full trace gives a scalar
-        else:
-            dim = tuple(dim)
 
         s.dim = (dim, dim)
         return s
+
+
+
 
 
     def ptranspose(self, sys, inplace=False):
@@ -386,10 +392,10 @@ class state(lmap):
         """
         # this is just an adapter for lmap.reorder
         if self.is_ket():
-            return super(state, self).reorder((perm, None), inplace = inplace)
+            perm = (perm, None)
         else:
-            return super(state, self).reorder((perm, perm), inplace = inplace)
-
+            perm = (perm, perm)
+        return super(state, self).reorder(perm, inplace = inplace)
 
 
 # physics methods
@@ -402,6 +408,7 @@ class state(lmap):
 
         Ville Bergholm 2008
         """
+        # TODO for diagonal A, self.ev(A) == sum(A * self.prob())
         if self.is_ket():
             # state vector
             x = vdot(self.data, dot(A, self.data))
@@ -431,9 +438,10 @@ class state(lmap):
         Ville Bergholm 2009
         """
         if self.is_ket():
-            return np.absolute(self.data) ** 2
+            temp = self.data.ravel() # into 1D array
+            return (temp * temp.conj()).real  # == np.absolute(self.data) ** 2
         else:
-            return diag(self.data)
+            return diag(self.data).real
 
 
     def projector(self):
@@ -470,6 +478,207 @@ class state(lmap):
             raise TypeError('States can only be propagated using lmaps and arrays.')
 
 
+    def propagate(s, H, t, out_func=lambda x, h: x, odeopt=None):
+        """Propagate the state continuously in time.
+
+        propagate(H, t [, out_func, odeopts])
+        propagate(L, t [, out_func, odeopts])
+        propagate({H, {A_i}}, t [, out_func, odeopts])
+
+        Propagates the state using the given generator(s) for the time t,
+        returns the resulting state.
+
+        The generator can either be a Hamiltonian matrix H or, for time-dependent
+        Hamiltonians, a function H(t) which takes a time instance t
+        as input and return the corresponding H matrix.
+
+        Alternatively, the generator can also be a Liouvillian superoperator, or
+        a list consisting of a Hamiltonian and a list of Lindblad operators.
+
+        If t is a vector of increasing time instances, returns a list
+        containing the propagated state for each time given in t.
+
+        Optional parameters:
+          out_func: If given, for each time instance propagate returns out_func(s(t), H(t)).
+          odeopts:  Options struct for MATLAB ODE solvers from the odeset function.
+
+        out == expm(-i*H*t)*|s>
+        out == inv_vec(expm(L*t)*vec(\rho_s))
+
+        Ville Bergholm 2008-2010
+        James Whitfield 2009
+        """
+        s = self.inplacer(inplace)
+
+        n = len(t) # number of time instances we are interested in
+        out = cell(1, n)
+        dim = s.data.shape[0]  # system dimension
+
+        if isa(H, 'function_handle'):
+            # time dependent
+            t_dependent = True
+            F = H
+            H = F(0)
+        else:
+            # time independent
+            t_dependent = False
+
+        if isinstance(H, np.ndarray):
+            # matrix
+            dim_H = H.shape[1]
+            if dim_H == dim:
+                gen = 'H'
+            elif dim_H == dim ** 2:
+                gen = 'L'
+                s.to_op(inplace = True)
+            else:
+                raise ValueError('Dimension of the generator does not match the dimension of the state.')
+  
+        elif isinstance(H, list):
+            # list of Lindblad operators
+            dim_H = H[0].shape[1]
+            if dim_H == dim:
+                gen = 'A'
+                s.to_op(inplace = True)
+
+                # HACK, in this case we use ode45 anyway
+                if not t_dependent:
+                    t_dependent = True 
+                    F = lambda t: H  # ops stay constant
+            else:
+                raise ValueError('Dimension of the Lindblad ops does not match the dimension of the state.')
+        else:
+            raise ValueError("""The second parameter has to be either a matrix, a list,
+                             or a function that returns a matrix or a list.""")
+
+        dim = s.data.shape  # may have been switched to operator representation
+
+        # ODE solver parameters
+        odeopts = odeset('RelTol', 1e-4, 'AbsTol', 1e-6, 'Vectorized', 'on')
+        odeopts = odeset(odeopts, odeopt)
+
+        # derivative functions for the solver
+        def lindblad_fun(t, y, F):
+            X = F(t)
+            Lind = X[1].flatten()
+            d = zeros(y.shape, complex)
+            # lame vectorization, rows of y
+            for k in range(len(y)):
+                x = y[k].reshape(dim) # into a matrix
+                # Hamiltonian
+                temp = -1j * (X[0] * x  -x * X[0])
+                # Lindblad operators
+                for A in Lind:
+                    ac = A.conj().transpose() * A
+                    temp += A * x * A.conj().transpose() -0.5 * (ac * x +x * ac)
+                d[k] = temp.flatten()  # back into a vector
+            return d
+
+        def mixed_fun(t, y, F):
+            H = F(t)
+            d = zeros(y.shape, complex)
+            # vectorization, rows of y 
+            for k in range(len(y)):
+                x = y[k].reshape(dim) # into a matrix
+                temp = -1j * (H * x  -x * H)
+                d[k] = temp.flatten() # back into a vector
+            return d
+
+        if t_dependent:
+            # time dependent case, use ODE solver
+            if gen == 'H':
+                # Hamiltonian
+                if dim[1] == 1:
+                    # pure state
+                    odefun = lambda t, y, F: -1j * F(t) * y  # derivative function for the solver
+                else:
+                    # mixed state
+                    odefun = mixed_fun
+            elif gen == 'L':
+                # Liouvillian
+                odefun = lambda t, y, F: F(t) * y
+                #odeopts = odeset(odeopts, 'Jacobian', F)
+            else: # 'A'
+                # Hamiltonian and Lindblad operators in a list
+                odefun = lindblad_fun
+
+            skip = 0
+            if t[0] != 0:
+                t = r_[0, t] # ODE solver needs to be told that t0 = 0
+                skip = 1
+
+            if len(t) < 3:
+                t = r_[t, t[-1] + 1e5*eps] # add another time point to get reasonable output from solver
+
+            #odeopts = odeset(odeopts, 'OutputFcn', @(t,y,flag) odeout(t, y, flag, H))
+
+            t_out, s_out = ode45(odefun, t, s.data, odeopts, F)
+            # s_out has states in columns, row i corresponds to t(i)
+            # apply out_func
+            for k in range(n):
+                # this works because ode45 automatically expands input data into a col vector
+                s.data = inv_vec(s_out[k + skip, :], dim)
+                out.append(out_func(s, F(t_out[k + skip])))
+
+        else:
+            # time independent case
+            if gen == 'H':
+                if len(H) < 500:
+                    # eigendecomposition
+                    d, v = eig(full(H)) # TODO eigs?
+                    d = diag(d)
+                    for k in t:
+                        U = v * diag(exp(-1j * k * d)) * v.conj().transpose()
+                        out.append(out_func(s.u_propagate(U), H))
+                        # out_func(u_propagate(s, expm(-i*H*t(k))), H)
+
+                else:
+                    # Krylov subspace method
+                    w, err = expv(-1j*t, H, s.data)
+                    for k in range(n):
+                        s.data = w[:,k]
+                        out.append(out_func(s, H))
+      
+            elif gen == 'L':
+                # Krylov subspace method
+                w, err = expv(t, H, vec(s.data))
+                for k in range(n):
+                    s.data = inv_vec(w[:,k])
+                    out.append(out_func(s, H))
+        return out
+
+
+    def seq_propagate(self, seq, out_func=lambda x: x):
+        """Propagate the state in time using a control sequence.
+    
+        If no output function is given, we use an identity map.
+
+        Ville Bergholm 2009-2010
+        """
+        base_dt = 0.1
+        n = len(seq) # number of pulses
+        t = [0]  # initial time
+        out = [out_func(self)]  # initial state
+
+        # loop over the sequence
+        for k in range(n):
+            # TODO qudits, gellmann basis
+            H = 0.5 * (sx * seq[k, 0] +sy * seq[k, 1] +sz * seq[k, 2])
+            T = seq[k, -1]  # pulse duration
+    
+            n_steps = np.ceil(T / base_dt)
+            dt = T / n_steps
+
+            U = expm(-1j * H * dt)
+            for j in range(n_steps):
+                s = s.u_propagate(U)
+                out.append(out_func(s))
+
+            temp = t[-1]
+            t.append(list(linspace(temp+dt, temp+T, n_steps)))
+        return out, t
+
+
     def kraus_propagate(self, E):
         """Apply a quantum operation to the state.
 
@@ -482,11 +691,13 @@ class state(lmap):
         n = len(E)
         # TODO: If n > prod(dims(s))^2, there is a simpler equivalent
         # operation. Should the user be notified?
-        #temp = 0
-        #for k in E:
-        #    temp += dot(k.ctranspose(), k)
-        #if norm(temp - eye(temp.shape)) > qit.tol:
-        #    warn('Unphysical quantum operation.')
+        def test_kraus(E):
+            temp = 0
+            for k in E:
+                temp += dot(k.conj().transpose(), k)
+            if norm(temp.data - eye(temp.shape)) > tol:
+                warn('Unphysical quantum operation.')
+
         if self.is_ket():
             if n == 1:
                 return self.u_propagate(E[0]) # remains a pure state
@@ -498,14 +709,14 @@ class state(lmap):
         return q
 
 
-    def measure(self, M=None, perform=False, discard=False):
+    def measure(self, M=None, do='R', discard=False):
         """Quantum measurement.
 
-        [p, res, s]
-        = measure(s)                 measure the entire system projectively
-        = measure(s, [1 4])          measure subsystems 1 and 4 projectively
-        = measure(s, {M1, M2, ...})  perform a general measurement
-        = measure(s, A)              measure a Hermitian observable A
+        (p, res, c)
+        = s.measure()                 measure the entire system projectively
+        = s.measure([(1, 4))          measure subsystems 1 and 4 projectively
+        = s.measure([M_1, M_2, ...])  perform a general measurement
+        = s.measure(A)                measure a Hermitian observable A
 
         Performs a quantum measurement on the state.
 
@@ -517,45 +728,39 @@ class state(lmap):
         computational basis.
 
         A general measurement may be performed by giving a complete set
-        of measurement operators [M1, M2, ...] as the second parameter.
+        of measurement operators [M_1, M_2, ...] as the second parameter.
+        A POVM can be emulated using M_i = sqrtm(P_i) and not using the collapsed state.
 
-        Finally, if the second parameter is a Hermitian matrix A, the
+        Finally, if the second parameter is a single Hermitian matrix A, the
         corresponding observable is measured. In this case the second
         column of p contains the eigenvalue of A corresponding to each
         measurement result.
 
-        p = measure(...) returns the vector p, where p[k] is the probability of
+        p = measure(..., do='P') returns the vector p, where p[k] is the probability of
         obtaining result k in the measurement. For a projective measurement
         in the computational basis this corresponds to the ket |k>.
 
-        [p, res] = measure(...) additionally returns the index of the result of the
-        measurement, res, chosen at random following the probability distribution p.
+        (p, res) = measure(...) additionally returns the index of the result of the
+        measurement, res, chosen at random from the probability distribution p.
  
-        [p, res, s] = measure(...) additionally gives s, the collapsed state
+        (p, res, c) = measure(..., do='C') additionally gives c, the collapsed state
         corresponding to the measurement result res.
 
         Ville Bergholm 2009-2010
         """
         def rand_measure(p):
-            """Random measurement using the prob. distribution p."""
-            return find(rand() <= cumsum(p))[0]
+            """Result of a random measurement using the prob. distribution p."""
+            return nonzero(rand() <= cumsum(p))[0][0]
 
-
-        skip = """
-
-        def build_stencil(j, q, dims, muls):
-            ""build projector to state j (diagonal because we project into the computational basis)""
-            stencil = ones(dims[0]) # first identity
-            for k in range(q):
-                temp = sparse(1, dims(2*k))
-                temp(mod(floor((j-1)/muls(k)), dims(2*k))+1) = 1 # projector
-                stencil = kron(kron(stencil, temp), ones(1, dims(2*k+1))) # identity
-
-            return stencil
-
+        perform = True
+        collapse = False
+        do = str.upper(do)
+        if do == 'C':
+            collapse = True
+        elif do == 'P':
+            perform = False
 
         d = self.dims()
-        res = s = None
 
         if M == None:
             # full measurement in the computational basis
@@ -564,114 +769,120 @@ class state(lmap):
                 res = rand_measure(p)
                 if collapse:
                     s = state(res, d) # collapsed state
-            return p, res, s
-
-        elif isinstance(M, (list, tuple)):
-            if isinstance(M[0], numbers.Number):
-                # measure a set of subsystems in the computational basis
-                sys = self.clean_selection(M)
-
-                # dimensions of selected subsystems and identity ops between them
-                # TODO sequential measured subsystems could be concatenated as well
-                q = len(sys)
-                dims = []
-                ppp = 0  # first sys not yet included
-                for k in sys:
-                    dims.append(prod(d[ppp:k])) # identity
-                    dims.append(d[k]) # selected subsys
-                    ppp = k+1
-
-                dims.append(prod(d[ppp:])) # last identity
-
-                # big-endian ordering is more natural for users, but little-endian more convenient for calculations
-                muls = roll(cumprod(d[sys][::-1]), 1)[::-1]
-                m = muls[-1] # number of possible results == prod(d[sys])
-                muls[-1] = 1 # now muls == [..., d_s{q-1}*d_s{q}, d_s{q}, 1]
-
-                # sum the probabilities
-                born = self.prob()
-                for j in range(m)
-                    stencil = build_stencil(j, q, dims, muls)
-                    p(j) = stencil*born # inner product
-
-                if perform:
-                    res = rand_measure(p)
-                    if collapse:
-                        R = build_stencil(res, q, dims, muls) # each projector is diagonal, hence we only store the diagonal
-
-                        if discard:
-                            # discard the measured subsystems from s
-                            d(sys) = []
-                            keep = find(R)  # indices of elements to keep
-        
-                            if self.is_ket():
-                                s.data = s.data(keep) / sqrt(p(res)) # collapsed state
-                            else:
-                                s.data = s.data(keep, keep) / p(res) # collapsed state
-
-                            s = state(s, d)
-                        else:
-                            if self.is_ket():
-                                s.data = R.conj().transpose() .* s.data / sqrt(p(res)) # collapsed state
-                            else:
-                                s.data = (R..conj().transpose()*R) .* s.data / p(res) # collapsed state, HACK
-                            end
-                        end
-                    end
-                end
-
-            else:
-                # otherwise use set M of measurement operators (assumed complete!)
-                m = length(M)
-
-                # probabilities
-                if (size(s.data, 2) == 1):
-                    # state vector
-                    for k=1:m:
-                        p(k) = s.data' * M{k}' * M{k} * s.data
-                    end
-                    if (nargout >= 2):
-                        res = rand_measure(p)
-                        if (nargout >= 3):
-                            s.data = M{res} * s.data / sqrt(p(res)) # collapsed state
-                        end
-                    end
-                else:
-                    # state operator
-                    for k=1:m:
-                        p(k) = trace(M{k}.ctranspose() * M{k} * s.data) # TODO wasteful
-                    end
-                    if (nargout >= 2):
-                        res = rand_measure(p)
-                        if (nargout >= 3):
-                            s.data = M{res} * s.data * M{res}.ctranspose() / p(res) # collapsed state
-                        end
-                    end
-                end
 
         elif isinstance(M, np.ndarray):
-            # M is a matrix
+            # M is a matrix TODO lmap?
             # measure the given Hermitian observable
             a, P = spectral_decomposition(M)
             m = len(a)  # number of possible results
 
             p = zeros((m, 2))
             for k in range(m):
-                p[k, 0] = self.ev(P[k])
-            p[:, 1] = a  # also return the corresponding results
+                p[k, 0] = self.ev(P[k])  # probabilities
+            p[:, 1] = a  # corresponding measurement results
 
             if perform:
                 res = rand_measure(p)
                 if collapse:
-                    ppp = P[res]
+                    # collapsed state
+                    ppp = P[res]  # Hermitian projector
                     s = deepcopy(self)
                     if self.is_ket():
-                        s.data = ppp * s.data / sqrt(p[res], 0) # collapsed state
+                        s.data = dot(ppp, s.data) / sqrt(p[res, 0])
                     else:
-                        s.data = ppp * s.data * ppp / p[res, 0] # collapsed state
+                        s.data = dot(dot(ppp, s.data), ppp) / p[res, 0]
+
+        elif isinstance(M, (list, tuple)):
+            if isinstance(M[0], numbers.Number):
+                # measure a set of subsystems in the computational basis
+                sys = self.clean_selection(M)
+                d = array(d)
+
+                # dimensions of selected subsystems and identity ops between them
+                # TODO sequential measured subsystems could be concatenated as well
+                q = len(sys)
+                pdims = []
+                start = 0  # first sys not yet included
+                for k in sys:
+                    pdims.append(prod(d[start:k])) # identity
+                    pdims.append(d[k]) # selected subsys
+                    start = k+1
+
+                pdims.append(prod(d[start:])) # last identity
+
+                # index multipliers 
+                muls = index_muls(d[sys])
+                # now muls == [..., d_s{q-1}*d_s{q}, d_s{q}, 1]
+
+                m = muls[0] * d[sys][0] # number of possible results == prod(d[sys])
+
+                def build_stencil(j, q, pdims, muls):
+                    """Projector to state j (diagonal because we project into the computational basis)"""
+                    stencil = ones(pdims[0]) # first identity
+                    for k in range(q):
+                        # projector for system k
+                        temp = zeros(pdims[2*k + 1])
+                        temp[int(j / muls[k]) % pdims[2*k + 1]] = 1
+                        stencil = kron(kron(stencil, temp), ones(pdims[2*k + 2])) # temp + next identity
+                    return stencil
+
+                # sum the probabilities
+                p = zeros(m)
+                born = self.prob()
+                for j in range(m):
+                    p[j] = dot(build_stencil(j, q, pdims, muls), born)
+
+                if perform:
+                    res = rand_measure(p)
+                    if collapse:
+                        # collapsed state
+                        s = deepcopy(self)
+                        R = build_stencil(res, q, pdims, muls) # diagonal of a diagonal projector (just zeros and ones)
+
+                        if discard:
+                            # discard the measured subsystems from s
+                            d = np.delete(d, sys)
+                            keep = (R == 1)  # indices of elements to keep
+        
+                            if self.is_ket():
+                                s.data = s.data[keep] / sqrt(p[res])
+                            else:
+                                s.data = s.data[:, keep][keep, :] / p[res]
+
+                            s = state(s.data, d)
+                        else:
+                            if self.is_ket():
+                                s.data = R.reshape(-1, 1) * s.data / sqrt(p[res]) # collapsed state
+                            else:
+                                s.data = np.outer(R, R) * s.data / p[res] # collapsed state, HACK
+            else:
+                # otherwise use set M of measurement operators (assumed complete!)
+                m = len(M)
+
+                # probabilities
+                p = zeros(m)
+                for k in range(m):
+                    p[k] = self.ev(dot(M[k].conj().transpose(), M[k]))  #  M^\dagger M  is Hermitian
+                    # TODO for kets, this is slightly faster:
+                    #temp = dot(M[k], self.data)
+                    #p[k] = vdot(temp, temp)
+
+                if perform:
+                    res = rand_measure(p)
+                    if collapse:
+                        s = deepcopy(self)
+                        if self.is_ket():
+                            s.data = dot(M[res], s.data) / sqrt(p[res])
+                        else:
+                            s.data = dot(dot(M[res], s.data), M[res].conj().transpose()) / p[res]
         else:
-            raise ValueError('Unknown input type.')
-"""
+            raise ValueError('Unsupported input type.')
+        if collapse:
+            return p, res, s
+        elif perform:
+            return p, res
+        else:
+            return p
 
 
 
@@ -960,7 +1171,7 @@ class state(lmap):
 
 
 
-    def plot(self):
+    def plot(self, symbols=3):
         """State tomography plot.
 
         Plots the probabilities of finding a system in this state
@@ -971,61 +1182,78 @@ class state(lmap):
 
         Ville Bergholm 2009-2010
         """
+        import matplotlib.pyplot as plt
+        from mpl_toolkits.mplot3d import Axes3D
+
         dim = self.dims()
         n = self.subsystems()
 
         # prepare labels
-        m = min(n, 3)  # at most three symbols
+        m = min(n, symbols)  # at most three symbols
         d = dim[:m]
         nd = prod(d)
         rest = '0' * (n-m) # the rest is all zeros
         ticklabels = []
         for k in range(nd):
             temp = array_to_numstr(np.unravel_index(k, d))
-            ticklabels.append(array_to_numstr(ket) + rest)
+            ticklabels.append(temp + rest)
 
         ntot = prod(dim)
         skip = ntot / nd  # only every skip'th state gets a label to avoid clutter
         ticks = r_[0 : ntot : skip]
 
-        N = s.data.shape[0]
-        Ncol = 127 # color resolution (odd to fix zero phase at the center of a color index)
-        colormap(circshift(hsv(Ncol), floor(Ncol/6))) # the hsv map wraps (like phase)
+        N = self.data.shape[0]
+        #Ncol = 127 # color resolution (odd to fix zero phase at the center of a color index)
+        #colormap(roll(hsv(Ncol), floor(Ncol / 6))) # the hsv map wraps (like phase)
 
         def phases(A):
             """Phase normalized to (0,1]"""
-            return 0.5 * ((angle(A) / pi) + 1)
+            return 0.5 * ((np.angle(A) / np.pi) + 1)
 
-        c = phases(s.data)
         if self.is_ket():
             s = self.fix_phase()
+            c = phases(s.data)
 
-            h = bar(range(N), s.prob())
-            xlabel('Basis state')
-            ylabel('Probability')
-            set(gca,'XTick', ticks)
-            set(gca,'XTickLabel', ticklabels)
-            axis('tight')
+            bars = plt.bar(range(N), s.prob(), color=c)
+            plt.xlabel('Basis state')
+            plt.ylabel('Probability')
+            plt.xticks(ticks+0.4, ticklabels)
+            plt.axis('tight')
+
+
 
             # color bars using phase data
-            ch = get(h,'Children')
-            fvd = get(ch,'Faces')
-            fvcd = get(ch,'FaceVertexCData')
-            for b in range(N):
-                fvcd[fvd[b, :]] = c[b] # all four vertices of a bar have same color
-            set(ch,'FaceVertexCData',fvcd)
-            set(ch,'EdgeColor','k')
+            #for b in range(N):
+            #    bars[b].set_edgecolor('k')
+            #    bars[b].set_facecolor(c[b])
         else:
-            h = bar3(abs(s.data))
-            xlabel('Col state')
-            ylabel('Row state')
-            zlabel('|\rho|')
-            set(gca,'XTick', ticks+1)
-            set(gca,'XTickLabel', ticklabels)
-            set(gca,'YTick', ticks+1)
-            set(gca,'YTickLabel', ticklabels)
-            axis('tight')
+            #h = bar3(abs(s.data))
+
+            ax = gcf().add_subplot(111, projection='3d')
+            for c, z in zip(['r', 'g', 'b', 'y'], [30, 20, 10, 0]):
+                xs = np.arange(20)
+                ys = np.random.rand(20)
+
+                # You can provide either a single color or an array. To demonstrate this,
+                # the first bar of each set will be colored cyan.
+                cs = [c] * len(xs)
+                cs[0] = 'c'
+                ax.bar(xs, ys, zs=z, zdir='y', color=cs, alpha=0.8)
+
+            ax.set_xlabel('Col state')
+            ax.set_ylabel('Row state')
+            ax.set_zlabel('$|\rho|$')
+
+            skip = """
+            plt.xlabel('Col state')
+            plt.ylabel('Row state')
+            plt.zlabel('$|\rho|$')
+            plt.xticks(ticks, ticklabels)
+            plt.yticks(ticks, ticklabels)
+            plt.axis('tight')
             #alpha(0.8)
+
+            c = phases(s.data)
 
             # color bars using phase data
             for m in range(len(h)):
@@ -1035,294 +1263,13 @@ class state(lmap):
                     j = 6*k
                     cdata[j:j+6, :] = c[k, m] # all faces are the same color
                 set(h[m], 'Cdata', cdata)
+             """
 
-        set(gca, 'CLim', [0, 1]) # color limits
+        set(gca(), 'CLim', [0, 1]) # color limits
 
-        hcb = colorbar('YTick', linspace(0, 1, 5))
-        set(hcb, 'YTickLabel', ['-\pi', '-\pi/2', '0', '\pi/2', '\pi'])
+        hcb = colorbar(ticks = linspace(0, 1, 5))
+        set(hcb, 'YTickLabel', ['$-\pi$', '$-\pi/2$', '0', '$\pi/2$', '$\pi$'])
 
-
-        skip = """
-function out = propagate(s, H, t, varargin)
-% PROPAGATE  Propagate the state continuously in time.
-%
-%  out = propagate(s, H, t [, out_func, odeopts])
-%  out = propagate(s, L, t [, out_func, odeopts])
-%  out = propagate(s, {H, {A_i}}, t [, out_func, odeopts])
-%
-%  Propagates the state s using the given generator(s) for the time t,
-%  returns the resulting state.
-%
-%  The generator can either be a Hamiltonian matrix H or, for time-dependent
-%  Hamiltonians, a function handle H(t) which takes a time instance t
-%  as input and return the corresponding H matrix.
-%
-%  Alternatively, the generator can also be a Liouvillian superoperator, or
-%  a list consisting of a Hamiltonian and a list of Lindblad operators.
-%
-%  If t is a vector of increasing time instances, returns a cell array
-%  containing the propagated state for each time given in t.
-%
-%  Optional parameters (can be given in any order):
-%    out_func: If given, for each time instance propagate returns out_func(s(t), H(t)).
-%    odeopts:  Options struct for MATLAB ODE solvers from the odeset function.
-
-%  out == expm(-i*H*t)*|s>
-%  out == inv_vec(expm(L*t)*vec(\rho_s))
-
-% Ville Bergholm 2008-2010
-% James Whitfield 2009
-
-
-if (nargin < 3)
-  raise ValueError('Needs a state, a generator and a time.')
-end
-
-out_func = @(x,h) x % if no out_func is given, use a NOP
-
-odeopts = odeset('RelTol', 1e-4, 'AbsTol', 1e-6, 'Vectorized', 'on')
-
-n = length(t) % number of time instances we are interested in
-out = cell(1, n)
-dim = size(s.data) % system dimension
-
-if (isa(H, 'function_handle'))
-  % time dependent
-  t_dependent = true
-  F = H
-  H = F(0)
-else
-  % time independent
-  t_dependent = false
-end
-
-if (isnumeric(H))
-  % matrix
-  dim_H = size(H, 2)
-
-  if (dim_H == dim(1))
-    gen = 'H'
-  elseif (dim_H == dim(1) ** 2)
-    gen = 'L'
-    s = to_op(s)
-  else
-    raise ValueError('Dimension of the generator does not match the dimension of the state.')
-  end
-  
-elseif (iscell(H))
-  % list of Lindblad operators
-  dim_H = size(H{1}, 2)
-  if (dim_H == dim(1))
-    gen = 'A'
-    s = to_op(s)
-
-    % HACK, in this case we use ode45 anyway
-    if (~t_dependent)
-      t_dependent = true 
-      F = @(t) H % ops stay constant
-    end
-  else
-    raise ValueError('Dimension of the Lindblad ops does not match the dimension of the state.')
-  end
-
-else
-  raise ValueError(['The second parameter has to be either a matrix, a cell array, '...
-         'or a function handle that returns a matrix or a cell array.'])
-end
-
-dim = size(s.data) % may have been switched to operator representation
-
-
-% process optional arguments
-for k=1:nargin-3
-  switch class(varargin{k})
-    case 'function_handle'
-      out_func = varargin{k}
-
-    case 'struct'
-      odeopts = odeset(odeopts, varargin{k})
-
-    otherwise
-      raise ValueError('Unknown optional parameter type.')
-  end
-end
-
-
-% derivative functions for the solver
-
-function d = lindblad_fun(t, y, F)
-  X = F(t)
-  A = X{2}
-  A = A(:)
-
-  d = zeros(size(y))
-  % lame vectorization
-  for loc1_k=1:size(y, 2)
-    x = reshape(y(:,loc1_k), dim) % into a matrix
-  
-    % Hamiltonian
-    temp = -1i * (X{1} * x  -x * X{1})
-    % Lindblad operators
-    for j=1:length(A)
-      ac = A{j}'*A{j}
-      temp = temp +A{j}*x*A{j}' -0.5*(ac*x + x*ac)
-    end
-    d(:,loc1_k) = temp(:) % back into a vector
-  end
-end
-
-function d = mixed_fun(t, y, F)
-  H = F(t)
-  
-  d = zeros(size(y))
-  % vectorization
-  for loc2_k=1:size(y, 2)
-    x = reshape(y(:,loc2_k), dim) % into a matrix
-    temp = -1i * (H * x  -x * H)
-    d(:,loc2_k) = temp(:) % back into a vector
-  end
-end
-
-
-if (t_dependent)
-  % time dependent case, use ODE solver
-
-  switch (gen)
-    case 'H'
-      % Hamiltonian
-      if (dim(2) == 1)
-        % pure state
-        odefun = @(t, y, F) -1i * F(t) * y % derivative function for the solver
-      else
-        % mixed state
-        odefun = @mixed_fun
-      end
-
-    case 'L'
-      % Liouvillian
-      odefun = @(t, y, F) F(t) * y
-      %odeopts = odeset(odeopts, 'Jacobian', F)
-
-    case 'A'
-      % Hamiltonian and Lindblad operators in a list
-      odefun = @lindblad_fun
-  end
-
-  skip = 0
-  if (t(1) ~= 0)
-    t = [0, t] % ODE solver needs to be told that t0 = 0
-    skip = 1
-  end
-
-  if (length(t) < 3)
-    t = [t, t(end)+1e5*eps] % add another time point to get reasonable output from solver
-  end
-
-  %odeopts = odeset(odeopts, 'OutputFcn', @(t,y,flag) odeout(t, y, flag, H))
-
-  [t_out, s_out] = ode45(odefun, t, s.data, odeopts, F)
-  % s_out has states in columns, row i corresponds to t(i)
-
-  % apply out_func
-  for k=1:n
-    % this works because ode45 automatically expands input data into a col vector
-    s.data = inv_vec(s_out(k+skip,:), dim)
-    out{k} = out_func(s, F(t_out(k+skip)))
-  end
-
-else
-  % time independent case
-
-  switch (gen)
-    case 'H'
-      if (length(H) < 500)
-        % eigendecomposition
-        [v, d] = eig(full(H)) % TODO eigs?
-        d = diag(d)
-        for k=1:n
-          U = v * diag(exp(-1i * t(k) * d)) * v'
-          out{k} = out_func(u_propagate(s, U), H)
-          %out{k} = out_func(u_propagate(s, expm(-i*H*t(k))), H)
-        end
-      else
-        % Krylov subspace method
-        [w, err] = expv(-1i*t, H, s.data)
-        for k=1:n
-          s.data = w(:,k)
-          out{k} = out_func(s, H)
-        end
-      end
-      
-    case 'L'
-      % Krylov subspace method
-      [w, err] = expv(t, H, vec(s.data))
-      for k=1:n
-        s.data = inv_vec(w(:,k))
-        out{k} = out_func(s, H)
-      end
-  end
-end
-
-if (n == 1)
-  % single output, don't bother with a list
-  out = out{1}
-end
-end
-
-
-%function status = odeout(t, y, flag, H)
-%if isempty(flag)
-%  sdfsd
-%end
-%status = 0
-%end
-
-
-
-
-
-
-function [out, t] = seq_propagate(s, seq, out_func)
-% SEQ_PROPAGATE  Propagate the state in time using a control sequence.
-%  [out, t] = propagate(s, seq, out_func)
-    
-% Ville Bergholm 2009-2010
-
-
-global qit
-
-if (nargin < 3)
-    out_func = @(x) x % no output function given, use a NOP
-    
-    if (nargin < 2)
-        raise ValueError('Needs a stuff')
-    end
-end
-
-
-base_dt = 0.1
-n = size(seq, 1) % number of pulses
-t = [0]
-out{1} = out_func(s)
-
-for k=1:n
-    H = 0.5*(qit.sx*seq(k, 1) +qit.sy*seq(k, 2) +qit.sz*seq(k, 3))
-    T = seq(k, end)
-    
-    n_steps = ceil(T/base_dt)
-    dt = T/n_steps
-
-    U = expm(-i*H*dt)
-    for j=1:n_steps
-        s = u_propagate(s, U)
-        out{end+1} = out_func(s)
-    end
-
-    temp = t(end)
-    t = [t, linspace(temp+dt, temp+T, n_steps)]
-end
-
-"""
 
 
 # other state representations
@@ -1339,7 +1286,11 @@ end
         A_{ijk...} == \sqrt(D) * \trace(\rho_s  B_{ijk...}),
 
         where D = prod(self.dims()). A is always real since \rho_s is Hermitian.
-        For valid states norm(A) <= sqrt(D) (e.g. for a qubit system norm(A) <= 2).
+        For valid, normalized states
+           rho.purity() <= 1   implies   norm(A, 'fro')  <= sqrt(D)
+           rho.trace()   = 1   implies   A[0, 0, ..., 0] == sqrt(D)   
+
+        E.g. for a qubit system norm(A, 'fro') <= 2.
 
         Ville Bergholm 2009-2011
         """
@@ -1377,7 +1328,37 @@ end
                 temp.append(k.to_op())
             arg = temp
 
-        return lmap.tensor(arg)
+        return state(tensor(*arg))  # lmap.tensor
+
+
+    @staticmethod
+    def bloch_state(A, dim=None):
+        """State corresponding to a generalized Bloch vector.
+        s = bloch_state(A)       assume dim == sqrt(size(A))
+        s = bloch_state(A, dim)  give state dimensions explicitly
+
+        Returns the state s corresponding to the generalized Bloch vector A.
+
+        The vector is defined in terms of the standard Hermitian tensor basis B
+        corresponding to the dimension vector dim.
+
+          \rho_s == \sum_{ijk...} A_{ijk...} B_{ijk...} / \sqrt(D),
+
+        where D = prod(dim). For valid states norm(A, 2) <= sqrt(D).
+
+        Ville Bergholm 2009-2011
+        """
+        if dim == None:
+            dim = tuple(sqrt(A.shape).astype(int))  # s == dim ** 2
+
+        G = tensorbasis(dim)
+        d = prod(dim)
+        rho = zeros((d, d), complex)
+        for k, a in enumerate(A.flat):
+            rho += a * G[k]
+
+        C = 1/sqrt(d) # to match the usual Bloch vector normalization
+        return state(C * rho, dim)
 
 
     @staticmethod
@@ -1388,13 +1369,26 @@ end
         """
         #for k in range(5):
 
+        # test the state constructor
+        s = state('101011')
+        s = state('2014', (3,2,3,5))
+        s = state(11, (3,5,2))
+        s = state(rand(5))
+        s = state(rand(6), (3,2))
+        s = state(rand(3,3))
+        s = state(rand(4,4), (2,2))
+        s = state('GHZ')
+        s = state('GHZ', (3,2,3))
+        s = state('W', (2,3,2))
+        s = state('Bell2')
+
         # mixed states
         dim = [2, 2]
         rho1 = state(rand_positive(prod(dim)), dim)
         rho2 = state(rand_positive(prod(dim)), dim)
         U_r = rand_U(prod(dim))
 
-        dim = [2, 3, 5, 2, 2]
+        dim = [2, 5, 3]
         sigma1 = state(rand_positive(prod(dim)), dim)
         U_s = rand_U(prod(dim))
 
@@ -1411,15 +1405,16 @@ end
         # negativity,
 
         # generalized Bloch vectors.
-        skip = """
-        temp = sigma1.bloch_vector()
-        assert_o(norm(bloch_state(temp) -sigma1), 0, tol) # need to match
-        assert_o(norm(imag(temp)), 0, tol) # correlation tensor is real
-        """
+
+        temp = sigma1.bloch_vector();  D = prod(sigma1.dims())
+        assert_o((state.bloch_state(temp) -sigma1).norm(), 0, tol) # need to match
+        assert_o(norm(temp.imag), 0, tol) # correlation tensor is real
+        assert(norm(temp) -sqrt(D) <= tol)  # purity
+        assert_o(temp.flat[0], 1, sqrt(D))  # normalization
+
         # fidelity, trace_dist
 
-        # symmetric
-        assert_o(fidelity(rho1, rho2), fidelity(rho2, rho1), tol)
+        assert_o(fidelity(rho1, rho2), fidelity(rho2, rho1), tol) # symmetric
         assert_o(trace_dist(rho1, rho2), trace_dist(rho2, rho1), tol)
 
         assert_o(fidelity(sigma1, sigma1), 1, tol) # normalized to unity
@@ -1439,6 +1434,7 @@ end
 
 
         # entropy
+
         assert_o(p1.entropy(), 0, tol) # zero for pure states
         assert(sigma1.entropy() >= -tol) # nonnegative
 
@@ -1469,7 +1465,7 @@ end
         
         lambda1, u, v = p1.schmidt([0], full = True)
         lambda2 = p1.schmidt([1])
-        # squares of schmidt coefficients # sum up to unity
+        # squares of schmidt coefficients sum up to unity
         assert_o(norm(lambda1), 1, tol)
         # both subdivisions have identical schmidt coefficients
         assert_o(norm(lambda1-lambda2), 0, tol)
@@ -1481,12 +1477,11 @@ end
         assert_o(norm(p1.data.flatten() - temp), 0, tol)
 
         # squared schmidt coefficients equal eigenvalues of partial trace
-        r = state(rand(30)-0.5 +1j*(rand(30)-0.5), [5, 6]).normalize()
-        #x = r.schmidt([0]) ** 2  # crashes ipython!
-        return
+        r = state(randn(30) + 1j*randn(30), [5, 6]).normalize()
+        #x = r.schmidt((0,)) ** 2  # FIXME crashes ipython!
         temp = r.ptrace([1])
         y, dummy = eigsort(temp.data)
-        assert_o(norm(x-y), 0, tol)
+        #assert_o(norm(x-y), 0, tol)
 
 
         # reorder
@@ -1497,11 +1492,11 @@ end
         C = rand(dim[2], dim[2])
 
         T1 = state(mkron(A, B, C), dim)
-        T2 = reorder(T1, [2, 0, 1])
+        T2 = T1.reorder([2, 0, 1])
         assert_o(norm(mkron(C, A, B) - T2.data), 0, tol)
-        T2 = reorder(T1, [1, 0, 2])
+        T2 = T1.reorder([1, 0, 2])
         assert_o(norm(mkron(B, A, C) - T2.data), 0, tol)
-        T2 = reorder(T1, [2, 1, 0])
+        T2 = T1.reorder([2, 1, 0])
         assert_o(norm(mkron(C, B, A) - T2.data), 0, tol)
 
 

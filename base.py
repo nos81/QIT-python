@@ -3,11 +3,11 @@
 """Basic definitions module."""
 
 
-from numpy import array, sqrt, finfo
+from numpy import array, eye, sqrt, finfo
 
 
 # Pauli matrices
-#I  = eye(2);
+I  = eye(2);
 sx = array([[0, 1], [1, 0]])
 sy = array([[0, -1j], [1j, 0]])
 sz = array([[1, 0], [0, -1]])
@@ -24,7 +24,7 @@ Q_Bell = array([[1, 0, 0, 1j], [0, 1j, 1, 0], [0, 1j, -1, 0], [1, 0, 0, -1j]]) /
 
 
 # error tolerance
-tol = max(1e-10, finfo(float).eps)
+tol = max(1e-8, finfo(float).eps)
 
 # some relevant physical constants (CODATA 2006)
 #hbar = 1.054571628e-34 # J s

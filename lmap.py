@@ -109,7 +109,7 @@ class lmap(object):
                 # not specified, use default
                 self.dim.append(defdim[k])
             else:
-                self.dim.append(dim[k])
+                self.dim.append(tuple(dim[k]))
         self.dim = tuple(self.dim)
 
         # check dimensions

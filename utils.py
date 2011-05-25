@@ -7,7 +7,7 @@ from copy import deepcopy
 
 import numpy as np
 from numpy import array, mat, zeros, ones, eye, prod, sqrt, exp, dot, sort, diag, trace, kron, pi, r_
-from numpy.random import rand, randn
+from numpy.random import rand, randn, randint
 from numpy.linalg import qr, det
 from scipy.linalg import expm, norm
 import matplotlib.pyplot as plt
@@ -23,6 +23,14 @@ def assert_o(actual, desired, tolerance):
     """Octave-style assert."""
     if abs(actual - desired) > tolerance:
         raise AssertionError
+
+
+def gcd(a, b):
+    """Calculate the greatest common divisor of a and b
+    From NumPy source, why isn't this in the API?"""
+    while b:
+        a, b = b, a%b
+    return a
 
 
 def projector(v):
@@ -51,6 +59,25 @@ def acomm(A, B):
     Returns {A, B} := A*B + B*A 
     """
     return dot(A, B) + dot(B, A)
+
+
+def copy_memoize(func):
+    """Memoization decorator for functions with immutable args, returns deep copies."""
+    cache = {}
+    def wrapper(*args):
+        """Nonsense, this is an election year."""
+        if args in cache:
+            value = cache[args]
+        else:
+            value = func(*args)
+            cache[args] = value
+
+        return deepcopy(value)
+
+    # so that the help system still works
+    wrapper.__name__ = func.__name__
+    wrapper.__doc__  = func.__doc__
+    return wrapper
 
 
 
@@ -250,25 +277,20 @@ def superop_lindblad(A, H=0):
 
 # physical operators
 
-angular_momentum_cache = {}
+@copy_memoize
 def angular_momentum(n):
     """Angular momentum matrices.
 
     (Jx, Jy, Jz) = angular_momentum(d)
 
     Returns a 3-tuple of angular momentum matrices \vec(J)/\hbar
-    for the n-dimensional subspace defined by the
-    quantum number j == (n-1)/2.
+    for the d-dimensional subspace defined by the
+    quantum number j == (d-1)/2.
 
     Ville Bergholm 2009-2010
     """
-
     if n < 1:
         raise ValueError('Dimension must be one or greater.')
-
-    # check cache first
-    if n in angular_momentum_cache:
-        return deepcopy(angular_momentum_cache[n])
 
     j = (n - 1) / 2 # angular momentum quantum number, n == 2*j + 1
     # raising operator in subspace J^2 = j*(j+1)
@@ -282,13 +304,10 @@ def angular_momentum(n):
     Jminus = Jplus.conj().transpose()
     # Jplus  = Jx + i*Jy
     # Jminus = Jx - i*Jy
-    J = (0.5*(Jplus + Jminus), 0.5j*(Jminus - Jplus), diag(np.arange(j, -j-1, -1)))
-
-    # store them in the cache
-    angular_momentum_cache[n] = deepcopy(J)
-    return J
+    return (0.5*(Jplus + Jminus), 0.5j*(Jminus - Jplus), diag(np.arange(j, -j-1, -1)))
 
 
+@copy_memoize
 def boson_ladder(n):
     """Bosonic ladder operators.
 
@@ -303,6 +322,7 @@ def boson_ladder(n):
     return diag(sqrt(range(1, n)), 1)
 
 
+@copy_memoize
 def fermion_ladder(grouping):
     """Fermionic ladder operators.
 
@@ -433,7 +453,7 @@ def spectral_decomposition(A):
 
 # tensor bases
 
-gellmann_cache = {};
+@copy_memoize
 def gellmann(n):
     """Gell-Mann matrices of dimension n.
 
@@ -444,10 +464,6 @@ def gellmann(n):
     """
     if n < 1:
         raise ValueError('Dimension must be >= 1.')
-
-    # check cache first
-    if n in gellmann_cache:
-        return deepcopy(gellmann_cache[n])
 
     G = []
     # diagonal
@@ -470,11 +486,10 @@ def gellmann(n):
         G.append(diag(d) / norm(d))
         d[k] = 1 
 
-    # store them in the cache
-    gellmann_cache[n] = deepcopy(G)
     return G
 
 
+# TODO lazy evaluation/cache purging would be nice here to control memory usage
 tensorbasis_cache = {}
 def tensorbasis(n, d=None, get_locality=False):
     """Hermitian tensor-product basis for End(H).
@@ -544,35 +559,6 @@ def tensorbasis(n, d=None, get_locality=False):
         return (B, locality)
     else:
         return B
-
-
-def bloch_state(A, dim=None):
-    """State corresponding to a generalized Bloch vector.
-    s = bloch_state(A)       assume dim == sqrt(size(A))
-    s = bloch_state(A, dim)  give state dimensions explicitly
-
-    Returns the state s corresponding to the generalized Bloch vector A.
-
-    The vector is defined in terms of the standard Hermitian tensor basis B
-    corresponding to the dimension vector dim.
-
-      \rho_s == \sum_{ijk...} A_{ijk...} B_{ijk...} / \sqrt(D),
-
-    where D = prod(dim). For valid states norm(A, 2) <= sqrt(D).
-
-    Ville Bergholm 2009-2011
-    """
-    if dim == None:
-        dim = sqrt(A.shape)  # s == dim ** 2
-
-    G = tensorbasis(dim)
-    d = prod(dim)
-    rho = zeros((d, d))
-    for k in A.flat:
-        rho += k * G[k]
-
-    C = 1/sqrt(d) # to match the usual Bloch vector normalization
-    return state(C * rho, dim)
 
 
 

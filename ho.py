@@ -43,7 +43,7 @@ def displace(alpha, n=default_n):
         raise TypeError('alpha must be a scalar.')
 
     a = mat(boson_ladder(n))
-    return expm(alpha * a.H -alpha.conjugate() * a)
+    return array(expm(alpha * a.H -alpha.conjugate() * a))
 
 
 def squeeze(z, n=default_n):
@@ -58,7 +58,7 @@ def squeeze(z, n=default_n):
         raise TypeError('z must be a scalar.')
 
     a = mat(boson_ladder(n))
-    return expm(0.5 * (z.conjugate() * (a ** 2) - z * (a.H ** 2)))
+    return array(expm(0.5 * (z.conjugate() * (a ** 2) - z * (a.H ** 2))))
 
 
 def position(n=default_n):
@@ -79,7 +79,7 @@ def position(n=default_n):
     Ville Bergholm 2010
     """
     a = mat(boson_ladder(n))
-    return (a + a.H) / sqrt(2)
+    return array(a + a.H) / sqrt(2)
 
 
 def momentum(n=default_n):
@@ -100,7 +100,7 @@ def momentum(n=default_n):
     Ville Bergholm 2010
     """
     a = mat(boson_ladder(n))
-    return -1j*(a - a.H) / sqrt(2)
+    return -1j*array(a - a.H) / sqrt(2)
 
 
 def position_state(q, n=default_n):
@@ -117,7 +117,7 @@ def position_state(q, n=default_n):
 
     Ville Bergholm 2010
     """
-    ket = zeros(n)
+    ket = zeros(n, dtype=complex)
     temp = sqrt(2) * q
     ket[0] = 1  # arbitrary nonzero initial value r_0
     ket[1] = temp * ket[0]
@@ -141,7 +141,7 @@ def momentum_state(p, n=default_n):
 
     Ville Bergholm 2010
     """
-    ket = zeros(n)
+    ket = zeros(n, dtype=complex)
     temp = 1j * sqrt(2) * p
     ket[0] = 1  # arbitrary nonzero initial value r_0
     ket[1] = temp * ket[0]
@@ -241,7 +241,33 @@ def wigner(s, alpha=None, res=(20, 20), lim=(-2, 2, -2, 2)):
 
 def test():
     """Testing script for harmonic oscillator module."""
+    from numpy.random import randn
+    def randc():
+        """Random complex number."""
+        return randn() + 1j*randn()
 
-    # assert_o(1, 0, tol)
-    # [Q, P] = i
-    # (P^2 +Q^2) = 2a' * a + 1
+    a = mat(boson_ladder(default_n))
+
+    alpha = randc()
+    s = coherent_state(alpha)
+    s0 = state(0, default_n)
+    D = displace(alpha)
+    
+    assert_o((s - s0.u_propagate(D)).norm(), 0, tol)  # displacement
+
+    z = randc()
+    S = squeeze(z)
+
+    Q = position(); P = momentum()
+    q = randn(); p = randn()
+    sq = position_state(q)
+    sp = momentum_state(p)
+
+    temp = 1e-1 # the truncation accuracy is not amazing here
+    assert_o(sq.ev(Q), q, temp)  # Q, P eigenstates
+    assert_o(sp.ev(P), p, temp)
+
+    temp = ones(default_n);  temp[-1] = -default_n+1 # truncation...
+    assert_o(norm(comm(Q,P) - 1j * diag(temp)), 0, tol) # [Q, P] = i
+
+    assert_o(norm(mat(P)**2 +mat(Q)**2 - 2 * a.H * a -diag(temp)), 0, tol)  # P^2 +Q^2 = 2a' * a + 1
