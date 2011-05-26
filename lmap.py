@@ -443,5 +443,4 @@ def tensor(*arg):
         data = np.kron(data, k.data)
 
     s = lmap(data, (tuple(dout), tuple(din)))
-    s.remove_singletons()
     return s

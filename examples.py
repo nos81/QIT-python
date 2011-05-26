@@ -4,10 +4,12 @@
 
 from __future__ import print_function, division
 from math import asin
+from operator import mod
 
-from numpy import floor, ceil, log2
+from numpy import floor, ceil, log2, angle, arange
+from numpy.linalg import eig, matrix_power
 import matplotlib.pyplot as plt
-#from plt import title
+from matplotlib.pyplot import figure, hold, plot, bar, title, xlabel, ylabel, axis, legend
 
 from lmap import *
 from state import *
@@ -24,8 +26,8 @@ def bb84(n=50):
 
     Ville Bergholm 2009
     """
-    print('\n\n=== BB84 protocol ===\n\n')
-    print('Using {0} transmitted qubits.\n\n'.format(n))
+    print('\n\n=== BB84 protocol ===\n')
+    print('Using {0} transmitted qubits.\n'.format(n))
 
     # Alice generates two random bit vectors
     sent    = rand(n) > 0.5
@@ -33,11 +35,15 @@ def bb84(n=50):
 
     # Bob generates one random bit vector
     basis_B = rand(n) > 0.5
+    received = zeros(n, bool)
+
+    # Eve hasn't yet decided her basis
+    basis_E = zeros(n, bool)
+    eavesdrop = zeros(n, bool)
 
     print('Alice transmits a sequence of qubits to Bob using a quantum channel.')
     print('For every qubit, she randomly chooses a basis (computational or diagonal)')
-    print('and randomly prepares the qubit in either the |0> or the |1> state in that basis.')
-    print('\n')
+    print('and randomly prepares the qubit in either the |0> or the |1> state in that basis.\n')
     print('When Bob receives the qubits, he randomly measures them in either basis')
 
     temp = state('0')
@@ -86,12 +92,11 @@ def bb84(n=50):
     print('Alice then reveals the bases she used, and Bob compares them to his.')
     print('Whenever the bases match, so should the prepared/measured values unless there\'s an eavesdropper.')
 
-    match = not(xor(basis_A, basis_B))
-
-    key_A = sent(find(match))
-    key_B = received(find(match))
-    m = length(key_A)
-    print('\nMismatch frequency between Alice and Bob: %f\n\n', sum(xor(key_A, key_B))/m)
+    match = np.logical_not(np.logical_xor(basis_A, basis_B))
+    key_A = sent[match]
+    key_B = received[match]
+    m = len(key_A)
+    print('\nMismatch frequency between Alice and Bob: {0}\n'.format(sum(np.logical_xor(key_A, key_B)) / m))
 
     print('Alice and Bob then sacrifice k bits of their shared key to compare them.')
     print('If an nonmatching bit is found, the reason is either an eavesdropper or a noisy channel.')
@@ -116,9 +121,9 @@ def grover_search(n=8):
     sol = randint(N)
     reps = int(pi/(4*asin(sqrt(1/N))))
 
-    print('Using {0} qubits.\n'.format(n))
-    print('Probability maximized by {0} iterations.\n'.format(reps))
-    print('Correct solution: {0}\n'.format(sol))
+    print('Using {0} qubits.'.format(n))
+    print('Probability maximized by {0} iterations.'.format(reps))
+    print('Correct solution: {0}'.format(sol))
 
     # black box oracle capable of recognizing the correct answer (given as the diagonal)
     # TODO an oracle that actually checks the solutions by computing (using ancillas?)
@@ -144,9 +149,102 @@ def grover_search(n=8):
         s = s.u_propagate(A)
 
     p, res = s.measure()
-    print('\nMeasured {0}.\n'.format(res))
+    print('\nMeasured {0}.'.format(res))
     return p
 
+
+def phase_estimation(t, U, s, implicit=False):
+    """Quantum phase estimation algorithm.
+
+    Estimate an eigenvalue of unitary operator U using t qubits,
+    starting from the state s.
+
+    Returns the state of the index register after the phase estimation
+    circuit, but before final measurement.
+
+    To get a result accurate to n bits with probability >= (1-epsilon),
+    choose  t >= n + ceil(log2(2+1/(2*epsilon))).
+
+    %! R. Cleve et al., "Quantum Algorithms Revisited", Proc. R. Soc. London A454, 339 (1998).
+    %! M.A. Nielsen, I.L. Chuang, "Quantum Computation and Quantum Information" (2000), chapter 5.2.
+    Ville Bergholm 2009-2010
+    """
+    T = 2 ** t
+    S = U.shape[0]
+
+    # index register in uniform superposition
+    #reg_t = u_propagate(state(0, qubits(t)), gate.walsh(t)) # use Hadamards
+    reg_t = state(ones(T) / sqrt(T), qubits(t)) # skip the Hadamards
+
+    # state register (ignore the dimensions)
+    reg_s = state(s, S)
+
+    # full register
+    reg = reg_t.tensor(reg_s)
+
+    # controlled unitaries
+    for k in range(t):
+        ctrl = -ones(t)
+        ctrl[k] = 1
+        temp = gate.controlled(matrix_power(U, 2 ** (t-1-k)), ctrl)
+        reg = reg.u_propagate(temp)
+    # from this point forward the state register is not used anymore
+
+    if implicit:
+        # save memory and CPU: make an implicit measurement of the state reg, discard the results
+        dummy, res, reg = reg.measure(t, do = 'D')
+        #print('Implicit measurement of state register: {0}\n', res)
+    else:
+        # more expensive computationally: trace over the state register
+        reg = reg.ptrace((t,))
+
+    # do an inverse quantum Fourier transform on the index reg
+    QFT = gate.qft(qubits(t))
+    return reg.u_propagate(QFT.ctranspose())
+
+
+
+def phase_estimation_precision(t, U, u=None):
+    """Quantum phase estimation demo.
+
+    Estimate an eigenvalue of unitary operator U using t bits, starting from the state u.
+    Plots and returns the probability distribution of the resulting t-bit approximations.
+    If u is not given, use a random eigenvector of U.
+
+    %! R. Cleve et al., "Quantum Algorithms Revisited", Proc. R. Soc. London A454, 339 (1998).
+    %! M.A. Nielsen, I.L. Chuang, "Quantum Computation and Quantum Information" (2000), chapter 5.2.
+    Ville Bergholm 2009-2010
+    """
+    print('\n\n=== Phase estimation ===\n\n')
+
+    # find eigenstates of the operator
+    N = U.shape[0]
+    d, v = eig(U)
+    if u == None:
+        u = state(v[:, 0], N) # exact eigenstate
+
+    print('Use {0} qubits to estimate the phases of the eigenvalues of a U({1}) operator.\n'.format(t, N))
+    p = phase_estimation(t, U, u).prob()
+    T = 2 ** t
+    x = arange(T) / T
+    w = 0.8 / T
+
+    # plot probability distribution
+    figure()
+    hold(True)
+    bar(x, p, width = w) # TODO align = 'center' ???
+    xlabel('phase / $2\pi$')
+    ylabel('probability')
+    title('Phase estimation')
+    #axis([-1/(T*2), 1-1/(T*2), 0, 1])
+
+    # compare to correct answer
+    target = angle(d) / (2*pi) + 1
+    target -= floor(target)
+    plot(target, 0.5*max(p)*ones(len(target)), 'mo')
+
+    legend(('Target phases', 'Measurement probability distribution'))
+    return p
 
 
 
@@ -164,7 +262,7 @@ def qft_circuit(dim=(2, 3, 3, 2)):
 
     Ville Bergholm 2010-2011
     """
-    print('\n\n=== Quantum Fourier transform using a quadratic circuit ===\n\n')
+    print('\n\n=== Quantum Fourier transform using a quadratic circuit ===\n')
 
     def Rgate(d):
         """R = \sum_{xy} exp(i*2*pi * x*y/prod(dim)) |xy><xy|"""
@@ -178,12 +276,12 @@ def qft_circuit(dim=(2, 3, 3, 2)):
         H = gate.qft((dim[k],))
         U = gate.single(H, k, dim) * U
         for j in range(k+1, n):
-            temp = Rgate(dim[k : j])
-            U = gate.two(temp, [k, j], dim) * U
+            temp = Rgate(dim[k : j+1])
+            U = gate.two(temp, (k, j), dim) * U
 
     for k in range(n // 2):
         temp = gate.swap(dim[k], dim[n-1-k])
-        U = gate.two(temp, [k, n-1-k], dim) * U
+        U = gate.two(temp, (k, n-1-k), dim) * U
 
     #U.data = todense(U.data) # it's a QFT anyway
     #temp = U - gate.qft(dim)
@@ -209,7 +307,7 @@ def shor_factorization(N=9, cheat=False):
     """
     def find_order_cheat(a, N):
         """Classical order-finding algorithm."""
-        for r in range(N):
+        for r in range(1, N+1):
             if mod_pow(a, r, N) == 1:
                 return r
 
@@ -226,32 +324,32 @@ def shor_factorization(N=9, cheat=False):
         return res
 
 
-    print('\n\n=== Shor\'s factorization algorithm ===\n\n')
+    print('\n\n=== Shor\'s factorization algorithm ===\n')
     if cheat:
-        print('(cheating)\n\n')
+        print('(cheating)\n')
 
     # number of bits needed to represent mod N arithmetic:
-    m = ceil(log2(N))
-    print('Trying to factor N = {0} ({1} bits).\n'.format(N, m))
+    m = int(ceil(log2(N)))
+    print('Trying to factor N = {0} ({1} bits).'.format(N, m))
 
     # maximum allowed failure probability for the quantum order-finding part
     epsilon = 0.25
 
     # number of index qubits required for the phase estimation
-    t = 2*m +1 +ceil(log2(2 + 1 / (2 * epsilon)))
+    t = 2*m +1 +int(ceil(log2(2 + 1 / (2 * epsilon))))
 
-    print('The quantum order-finding subroutine will need {0}+{1} qubits.\n\n'.format(t, m))
+    print('The quantum order-finding subroutine will need {0} + {1} qubits.\n'.format(t, m))
 
     # classical reduction of factoring to order-finding
     while True:
         a = randint(2, N) # random integer, 2 <= a < N
-        print('Random integer: a = {0}\n'.format(a))
+        print('Random integer: a = {0}'.format(a))
   
         p = gcd(a, N)
         if p != 1:
             # a and N have a nontrivial common factor p.
             # This becomes extremely unlikely as N grows.
-            print('Lucky guess, we found a common factor!\n')
+            print('Lucky guess, we found a common factor!')
             break
 
         print('Trying to find the period of f(x) = a^x mod N')
@@ -272,13 +370,13 @@ def shor_factorization(N=9, cheat=False):
                     r = lcm(r1, r2)
                     break
 
-        print('\n  =>  r = {0}\n'.format(r))
+        print('\n  =>  r = {0}'.format(r))
 
         # if r is odd, try again
         if gcd(r, 2) == 2:
             # r is even
 
-            x = mod_pow(a, r/2, N)
+            x = mod_pow(a, r // 2, N)
             if mod(x, N) != N-1:
                 # factor found
                 p = gcd(x-1, N) # ok?
@@ -286,11 +384,11 @@ def shor_factorization(N=9, cheat=False):
                     p = gcd(x+1, N) # no, try this
                 break
             else:
-                print('a^(r/2) = -1 (mod N), try again...\n\n')
+                print('a^(r/2) = -1 (mod N), try again...\n')
         else:
-            print('r is odd, try again...\n\n')
+            print('r is odd, try again...\n')
 
-    print('\nFactor found: {0}\n'.format(p))
+    print('\nFactor found: {0}'.format(p))
     return p
 
 
@@ -309,50 +407,43 @@ def find_order(a, N, t, m):
     st = state(1, M)
 
     # run the phase estimation algorithm
-    reg = phase_estimation(t, U, st, True) # use implicit measurement to save memory
+    reg = phase_estimation(t, U, st, implicit = True) # use implicit measurement to save memory
 
     # measure index register
-    dummy, num = reg.measure((0,))
+    dummy, num = reg.measure()  # FIXME?
+
+    def find_denominator(x, y, max_den):
+        """
+        Finds the denominator q for p/q \approx x/y such that q < max_den
+        using a continued fraction representation for x.
+
+        We use floor and mod here, which could be both implemented using
+        the classical Euclidean algorithm.
+        """
+        d_2 = 1
+        d_1 = 0
+        while True:
+            a = x // y # integer part == a_n
+            temp = a*d_1 +d_2 # n:th convergent denumerator d_n = a_n*d_{n-1} +d_{n-2}
+            if temp >= max_den:
+                break
+
+            d_2 = d_1
+            d_1 = temp
+            temp = mod(x, y)  # x - a*y # subtract integer part
+            if temp == 0:
+            #if (temp/y < 1 / (2*max_den ** 2))
+                break
+
+            # invert the remainder (swap numerator and denominator)
+            x = y
+            y = temp
+        return d_1
 
     # another classical part
     r = find_denominator(num, T, T+1)
-    s = num * r / T
+    s = num * r // T
     return s, r
-
-
-def find_denominator(x, y, max_den):
-    """
-    Finds the denominator q for p/q \approx x/y such that q < max_den
-    using a continued fraction representation for x.
-
-    We use floor and mod here, which could be both implemented using
-    the classical Euclidean algorithm.
-    """
-    d_2 = 1
-    d_1 = 0
-
-    while True:
-        a = floor(x / y) # integer part == a_n
-        temp = a*d_1 +d_2 # n:th convergent denumerator d_n = a_n*d_{n-1} +d_{n-2}
-
-        if temp >= max_den:
-            break
-
-        d_2 = d_1
-        d_1 = temp
-        temp = mod(x, y)  # x - a*y # subtract integer part
-
-        if temp == 0:
-        #if (temp/y < 1 / (2*max_den ** 2))
-            break
-
-        # invert the remainder (swap numerator and denominator)
-        x = y
-        y = temp
-
-    return d_1
-
-
 
 
 def superdense_coding(d=2):
@@ -363,7 +454,7 @@ def superdense_coding(d=2):
 
     Ville Bergholm 2010-2011
     """
-    print('\n\n=== Superdense coding ===\n\n')
+    print('\n\n=== Superdense coding ===\n')
 
     H   = gate.qft(d)        # qft (generalized Hadamard) gate
     add = gate.mod_add(d, d) # modular adder (generalized CNOT) gate
@@ -379,7 +470,7 @@ def superdense_coding(d=2):
 
     # two random d-its
     a = floor(d * rand(2)).astype(int)
-    print('Alice wishes to send two d-its of information (d = {0}) to Bob: a = {1}.\n'.format(d, a))
+    print('Alice wishes to send two d-its of information (d = {0}) to Bob: a = {1}.'.format(d, a))
 
     Z = H * gate.mod_inc(a[0], d) * H.ctranspose()
     X = gate.mod_inc(-a[1], d)
@@ -392,7 +483,7 @@ def superdense_coding(d=2):
 
     p, b = reg.measure()
     b = array(np.unravel_index(b, dim))
-    print('and measures both qudits in the computational basis, obtaining the result  b = {0}.\n'.format(b))
+    print('and measures both qudits in the computational basis, obtaining the result  b = {0}.'.format(b))
 
     if all(a == b):
         print('The d-its were transmitted succesfully.')
@@ -407,7 +498,7 @@ def teleportation(d=2):
 
     Ville Bergholm 2009-2011
     """
-    print('\n\n=== Quantum teleportation ===\n\n')
+    print('\n\n=== Quantum teleportation ===\n')
 
     H   = gate.qft(d)        # qft (generalized Hadamard) gate
     add = gate.mod_add(d, d) # modular adder (generalized CNOT) gate
@@ -433,7 +524,7 @@ def teleportation(d=2):
 
     p, b, reg = reg.measure((0, 1), do = 'C')
     b = array(np.unravel_index(b, dim))
-    print('and measures her qudits, getting the result {0}.\n'.format(b))
+    print('and measures her qudits, getting the result {0}.'.format(b))
     print('She then transmits the two d-its to Bob using a classical channel. The shared state is now')
     reg
 
@@ -448,7 +539,7 @@ def teleportation(d=2):
     reg_B = reg_B.u_propagate(Z*X).fix_phase()
 
     ov = fidelity(payload, reg_B)
-    print('The overlap between the resulting state and the original payload state is |<payload|B>| = {0}\n'.format(ov))
+    print('The overlap between the resulting state and the original payload state is |<payload|B>| = {0}'.format(ov))
     if abs(ov-1) > tol:
         raise RuntimeError('Should not happen.')
     else:
@@ -477,24 +568,24 @@ def tour():
     pause()
 
     #adiabatic_qc_3sat(5, 25)
-    pause()
+    #pause()
 
-    #phase_estimation_precision(5, rand_U(4))
-    #title('Phase estimation, eigenstate')
-    #phase_estimation_precision(5, rand_U(4), state(0, [4]))
-    #title('Phase estimation, random state')
+    phase_estimation_precision(5, rand_U(4))
+    title('Phase estimation, eigenstate')
+    phase_estimation_precision(5, rand_U(4), state(0, [4]))
+    title('Phase estimation, random state')
     pause()
 
     #nmr_sequences
-    pause()
+    #pause()
 
     #quantum_channels(0.3)
-    pause()
+    #pause()
 
     grover_search(6)
     pause()
 
-    shor_factorization(9)
+    # shor_factorization(9) # TODO need to use sparse matrices to get even this far(!)
     shor_factorization(311*269, cheat = True)
     pause()
 
@@ -502,9 +593,12 @@ def tour():
     pause()
 
     #markov_decoherence(7e-10, 1e-9)
-    pause()
+    #pause()
 
     #qubit_and_resonator()
-    pause()
+    #pause()
 
-    #qft_circuit([2 3 2])
+    dim = (2,3,2)
+    U = qft_circuit(dim)
+    (U - gate.qft(dim)).norm()
+    

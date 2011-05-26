@@ -26,11 +26,19 @@ def assert_o(actual, desired, tolerance):
 
 
 def gcd(a, b):
-    """Calculate the greatest common divisor of a and b
+    """Greatest common divisor.
+
+    Euclidean algorithm.
     From NumPy source, why isn't this in the API?"""
     while b:
         a, b = b, a%b
     return a
+
+
+def lcm(a, b):
+    """Least common multiple.
+    """
+    return a * (b // gcd(a, b))
 
 
 def projector(v):
@@ -641,20 +649,23 @@ def plot_adiabatic_evolution(t, st, H_func, n=4):
     H = H_func(T)
 
     n = min(n, H.shape[0])
+    m = len(t)
 
     # find the n lowest eigenstates of the final Hamiltonian
     d, v = scipy.sparse.linalg.eigs(H, n, which = 'SR')
     ind = d.argsort()  # increasing real part
+    lowest = []
     for j in range(n):
-        lowest[j] = state(v[:, ind[j]])
+        lowest.append(state(v[:, ind[j]]))
     # TODO with degenerate states these are more or less random linear combinations of the basis states... overlaps are not meaningful
 
-    for k in range(len(t)):
+    overlaps = zeros((n, m))
+    for k in range(m):
         tt = t[k]
         H = H_func(tt)
         energies[:, k] = sort(real(eig(full(H))), 'ascend')
         for j in range(n):
-            overlaps[j,k] = lowest[j].fidelity(st[k]) ** 2 # squared overlap with lowest final states
+            overlaps[j, k] = lowest[j].fidelity(st[k]) ** 2 # squared overlap with lowest final states
 
     subplot(2,1,1)
     plot(t/T, energies)
@@ -671,9 +682,9 @@ def plot_adiabatic_evolution(t, st, H_func, n=4):
     title('Squared overlap of current state and final eigenstates')
     xlabel('Adiabatic time')
     ylabel('Probability')
-    temp = char([])
+    temp = []
     for k in range(n):
-        temp[k, :] = sprintf('|%d\\rangle', k-1)
+        temp.append('|{0}\\rangle'.format(k))
     legend(temp)
     axis([0, 1, 0, 1])
     # axis([0, 1, 0, max(max(overlaps))])

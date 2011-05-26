@@ -709,7 +709,7 @@ class state(lmap):
         return q
 
 
-    def measure(self, M=None, do='R', discard=False):
+    def measure(self, M=None, do='R'):
         """Quantum measurement.
 
         (p, res, c)
@@ -755,7 +755,7 @@ class state(lmap):
         perform = True
         collapse = False
         do = str.upper(do)
-        if do == 'C':
+        if do in ('C', 'D'):
             collapse = True
         elif do == 'P':
             perform = False
@@ -839,7 +839,7 @@ class state(lmap):
                         s = deepcopy(self)
                         R = build_stencil(res, q, pdims, muls) # diagonal of a diagonal projector (just zeros and ones)
 
-                        if discard:
+                        if do == 'D':
                             # discard the measured subsystems from s
                             d = np.delete(d, sys)
                             keep = (R == 1)  # indices of elements to keep

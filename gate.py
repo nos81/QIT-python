@@ -4,7 +4,7 @@
 from __future__ import print_function, division
 from copy import deepcopy
 
-from numpy import prod, diag, eye, zeros, trace, exp, sqrt, mod, isscalar, kron, array
+from numpy import prod, diag, eye, zeros, trace, exp, sqrt, mod, isscalar, kron, array, ones
 
 from lmap import *
 from utils import qubits, op_list, assert_o, copy_memoize, gcd
@@ -92,8 +92,8 @@ def mod_add(dim1, dim2, N=None):
 def mod_inc(x, dim, N=None):
     """Modular incrementation gate.
 
-    U = mod_inc(x, dim)    # N == prod(dim)
-    U = mod_inc(x, dim, N) % gate dimension prod(dim) must be >= N
+    U = mod_inc(x, dim)     N == prod(dim)
+    U = mod_inc(x, dim, N)  gate dimension prod(dim) must be >= N
 
     Returns the gate U, which, operating on the computational state
     |y>, increments it by x (mod N):  U |y> = |y+x (mod N)>.
@@ -181,7 +181,7 @@ def qft(dim):
     if isscalar(dim): dim = (dim,)  # scalar into a tuple
     n = len(dim)
     N = prod(dim)
-    U = zeros((N, N))
+    U = zeros((N, N), complex)
     for j in range(N):
         for k in range(N):
             U[j, k] = exp(2j * np.pi * j * k / N) / sqrt(N)
@@ -225,6 +225,8 @@ def controlled(U, ctrl=(1,), dim=None):
     """Controlled gate.
 
     Returns the (t+1)-qudit controlled-U gate, where t == length(ctrl).
+    U has to be a square matrix.
+
     ctrl is an integer vector defining the control nodes. It has one entry k per
     control qudit, denoting the required computational basis state |k>
     for that particular qudit. Value k == -1 denotes no control.
@@ -270,7 +272,8 @@ def controlled(U, ctrl=(1,), dim=None):
         d1 = dim + [U.shape[0]]
         d2 = dim + [U.shape[1]]
 
-    out = kron(diag(no), eye(*(U.shape))) + kron(diag(yes), U)
+    # controlled gates only make sense for square matrices...
+    out = diag(kron(no, ones(U.shape[1]))) + kron(diag(yes), U)
     return lmap(out, (d1, d2))
 
 
@@ -346,7 +349,7 @@ def test():
     Ville Bergholm 2010
     """
     from numpy.random import randn
-    from base import *
+    from base import sx, sy, sz
 
     dim = (2, 4)
 
