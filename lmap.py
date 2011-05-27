@@ -5,7 +5,7 @@
 
 from __future__ import print_function, division
 import sys
-from copy import deepcopy
+from copy import copy, deepcopy
 
 import numpy as np
 
@@ -218,37 +218,25 @@ class lmap(object):
 
     def conj(self):
         """Complex conjugate."""
-        # complex conjugate data
-        # TODO compare performance
-        #s = deepcopy(self)
-        #s.data.conj(s.data)
-        #return s
-        return lmap(self.data.conj(), self.dim)
+        s = copy(self)  # preserves the type, important for subclasses
+        s.data = np.conj(self.data) # copy
+        return s
 
 
     def transpose(self):
         """Transpose."""
-        # TODO compare
-        #s = deepcopy(self)
-        #s.dim = (s.dim[1], s.dim[0])
-        #s.data = s.data.transpose()
-        # swap dims
-        dim = (self.dim[1], self.dim[0])
-        # transpose data
-        return lmap(self.data.transpose(), dim)
+        s = copy(self)
+        s.dim = (s.dim[1], s.dim[0]) # swap dims
+        s.data = self.data.transpose().copy()
+        return s
 
 
     def ctranspose(self):
         """Hermitian conjugate."""
-        # TODO compare
-        #s = deepcopy(self)
-        #s.dim = (s.dim[1], s.dim[0])
-        #s.data = s.data.transpose()
-        #s.data.conj(s.data)
-        # swap dims
-        dim = (self.dim[1], self.dim[0])
-        # conjugate transpose data
-        return lmap(self.data.conj().transpose(), dim)
+        s = copy(self)
+        s.dim = (s.dim[1], s.dim[0]) # swap dims
+        s.data = np.conj(self.data).transpose() # view to a copy
+        return s
 
 
     def __mul__(self, t):
@@ -257,9 +245,14 @@ class lmap(object):
             if self.dim[1] != t.dim[0]:
                 raise ValueError('The dimensions do not match.')
             else:
-                return lmap(np.dot(self.data, t.data), (self.dim[0], t.dim[1]))
+                s = copy(self)
+                s.dim = (self.dim[0], t.dim[1])
+                s.data = np.dot(self.data, t.data)
         else:
-            return lmap(self.data * t, self.dim)
+            # t is a scalar
+            s = copy(self)
+            s.data = self.data * t
+        return s
 
 
     def __rmul__(self, t):
@@ -270,31 +263,36 @@ class lmap(object):
 
     def __truediv__(self, t):
         """Division of lmaps by scalars from the right."""
-        #s = deepcopy(self)
-        #s.data /= t
-        #return s
-        return lmap(self.data / t, self.dim)
+        s = copy(self)
+        s.data = self.data / t
+        return s
 
 
     def __add__(self, t):
         """Addition of lmaps."""
         if not self.is_compatible(t):
             raise ValueError('The lmaps are not compatible.')
-        return lmap(self.data + t.data, self.dim)
+        s = copy(self)
+        s.data = self.data + t.data
+        return s
 
 
     def __sub__(self, t):
         """Subtraction of lmaps."""
         if not self.is_compatible(t):
             raise ValueError('The lmaps are not compatible.')
-        return lmap(self.data - t.data, self.dim)
+        s = copy(self)
+        s.data = self.data - t.data
+        return s
 
 
     def __pow__(self, n):
         """Exponentiation of lmaps by integer scalars."""
         if self.dim[0] != self.dim[1]:
             raise ValueError('The dimensions do not match.')
-        return lmap(np.linalg.matrix_power(self.data, n), self.dim)
+        s = copy(self)
+        s.data = np.linalg.matrix_power(self.data, n)
+        return s
 
 
     def __imul__(self, t):

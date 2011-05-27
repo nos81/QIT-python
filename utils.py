@@ -8,8 +8,8 @@ from copy import deepcopy
 import numpy as np
 from numpy import array, mat, zeros, ones, eye, prod, sqrt, exp, dot, sort, diag, trace, kron, pi, r_
 from numpy.random import rand, randn, randint
-from numpy.linalg import qr, det
-from scipy.linalg import expm, norm
+from numpy.linalg import qr, det, eig, eigvals
+from scipy.linalg import expm, norm, svdvals
 import matplotlib.pyplot as plt
 
 from base import *
@@ -41,6 +41,12 @@ def lcm(a, b):
     return a * (b // gcd(a, b))
 
 
+def rank(A, eps=1e-8):
+    """Matrix rank."""
+    s = svdvals(A)
+    return sum(s > eps)
+
+
 def projector(v):
     """Projector corresponding to vector v."""
     return np.outer(v, v.conj())
@@ -48,7 +54,7 @@ def projector(v):
 
 def eigsort(A):
     """Returns eigenvalues and eigenvectors sorted with a nonincreasing real part."""
-    d, v = np.linalg.eig(A)
+    d, v = eig(A)
     ind = d.argsort()[::-1]  # nonincreasing real part
     return d[ind], v[:, ind]
 
@@ -626,9 +632,9 @@ def plot_pcolor(W, a, b, clim=(0, 1)):
     plt.axis('equal')
     plt.axis('tight')
     #shading('interp')
-    plt.set(gca, 'CLim', clim)
-    plt.colorbar
-    plt.colormap(asongoficeandfire(256))
+    #plt.set(gca, 'CLim', clim)
+    plt.colorbar()
+    #plt.colormap(asongoficeandfire(256))
     return h
 
 
@@ -883,7 +889,7 @@ def test():
     rho = mat(rand_positive(dim))
     assert_o(norm(rho - rho.H), 0, tol) # hermitian
     assert_o(trace(rho), 1, tol) # trace 1
-    temp = np.linalg.eigvals(rho)
+    temp = eigvals(rho)
     assert_o(norm(temp.imag), 0, tol) # real eigenvalues
     assert_o(norm(temp - abs(temp)), 0, tol) # nonnegative eigenvalues
 

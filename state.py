@@ -27,6 +27,8 @@ def equal_dims(s, t):
 
 def index_muls(dim):
     """Index multipliers for C-ordered data"""
+    if len(dim) == 0:
+        return array(())
     muls = roll(cumprod(dim[::-1]), 1)[::-1]
     muls[-1] = 1  # muls == [d_{n-1}*...*d_1, d_{n-1}*...*d_2, ..., d_{n-1}, 1]
     return muls
@@ -103,6 +105,7 @@ class state(lmap):
 
                 n = len(dim) # subsystems
                 s = zeros(prod(dim)) # ket
+                dmin = min(dim)
 
                 if name in ('bell1', 'bell2', 'bell3', 'bell4'):
                     # Bell state
@@ -110,8 +113,9 @@ class state(lmap):
                     s = deepcopy(Q_Bell[:, ord(name[-1]) - ord('1')])
                 elif name == 'ghz':
                     # Greenberger-Horne-Zeilinger state
-                    s[0] = 1
-                    s[-1] = 1
+                    muls = index_muls(dim)
+                    for k in range(dmin):
+                        s[dot(k * ones(n), muls)] = 1
                 elif name == 'w':
                     # W state
                     ind = 1
