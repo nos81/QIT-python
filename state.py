@@ -6,7 +6,7 @@ from __future__ import print_function, division
 import collections
 import numbers
 
-from numpy import array, sort, prod, cumsum, cumprod, sqrt, trace, dot, vdot, roll, zeros, ones, r_, kron, isscalar, nonzero, ix_, linspace
+from numpy import array, sort, prod, cumsum, cumprod, sqrt, trace, dot, vdot, roll, zeros, ones, r_, kron, isscalar, nonzero, ix_, linspace, meshgrid
 import scipy as sp  # scipy imports numpy automatically
 import scipy.linalg
 from scipy.linalg import norm
@@ -1188,7 +1188,7 @@ class state(lmap):
         """
         import matplotlib.pyplot as plt
         from matplotlib import cm, colors
-        #from mpl_toolkits.mplot3d import Axes3D
+        from mpl_toolkits.mplot3d import Axes3D
 
         dim = self.dims()
         n = self.subsystems()
@@ -1209,7 +1209,6 @@ class state(lmap):
 
         N = self.data.shape[0]
         colormapper = cm.ScalarMappable(norm=colors.Normalize(vmin=-1, vmax=1, clip=True), cmap=cm.hsv)
-        #colormap(roll(hsv(Ncol), floor(Ncol / 6))) # the hsv map wraps (like phase)
         plt.gcf().clf() # clear the figure
 
         def phases(A):
@@ -1232,43 +1231,34 @@ class state(lmap):
                 bars[b].set_edgecolor('k')
                 bars[b].set_facecolor(colormapper.to_rgba(c[b]))
         else:
-            #h = bar3(abs(s.data))
+            c = phases(self.data)  # use phases as colors
+            colormapper.set_array(c)
 
-            ax = gcf().add_subplot(111, projection='3d')
-            for c, z in zip(['r', 'g', 'b', 'y'], [30, 20, 10, 0]):
-                xs = np.arange(20)
-                ys = np.random.rand(20)
+            # TODO ax = gcf().add_subplot(111, projection='3d')
+            ax = Axes3D(plt.gcf())
+            width = 0.6  # bar width
+            temp = np.arange(-width/2, N-1) # center the labels
 
-                # You can provide either a single color or an array. To demonstrate this,
-                # the first bar of each set will be colored cyan.
-                cs = [c] * len(xs)
-                cs[0] = 'c'
-                ax.bar(xs, ys, zs=z, zdir='y', color=cs, alpha=0.8)
+            x, y = meshgrid(temp, temp)
+            x = x.ravel()
+            y = y.ravel()
+            z = abs(self.data.ravel())
+            dx = width * ones(x.shape)
+            ax.bar3d(x, y, zeros(x.shape), dx, dx, z, color='b')
+
+            # the way it should work (using np.broadcast)
+            #x, y = meshgrid(temp, temp)
+            #ax.bar3d(x, y, 0, width, width, abs(self.data), c, align='center')
 
             ax.set_xlabel('Col state')
             ax.set_ylabel('Row state')
-            ax.set_zlabel('$|\rho|$')
+            ax.set_zlabel('$|\\rho|$')
+            #plt.xticks(ticks, ticklabels)
+            #plt.yticks(ticks, ticklabels)
+            ax.set_alpha(0.8)
+            # TODO ticklabels, colors, alpha
+            plt.show()
 
-            skip = """
-            plt.xlabel('Col state')
-            plt.ylabel('Row state')
-            plt.zlabel('$|\rho|$')
-            plt.xticks(ticks, ticklabels)
-            plt.yticks(ticks, ticklabels)
-            plt.axis('tight')
-            #set_alpha(0.8)
-
-            c = phases(s.data)
-
-            # color bars using phase data
-            for m in range(len(h)):
-                # get color data
-                cdata = get(h[m], 'Cdata') # [one row of 3d bars * six faces, four vertices per face]
-                for k in range(size(cdata, 1) / 6):
-                    j = 6*k
-                    cdata[j:j+6, :] = c[k, m] # all faces are the same color
-                set(h[m], 'Cdata', cdata)
-             """
         # add a colorbar
         cb = plt.colorbar(colormapper, ticks = linspace(-1, 1, 5))
         cb.ax.set_yticklabels(['$-\pi$', '$-\pi/2$', '0', '$\pi/2$', '$\pi$'])
