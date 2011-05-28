@@ -6,7 +6,7 @@ from __future__ import print_function, division
 import collections
 import numbers
 
-from numpy import array, sort, prod, cumsum, cumprod, sqrt, trace, dot, vdot, roll, zeros, ones, r_, kron, isscalar, nonzero, ix_
+from numpy import array, sort, prod, cumsum, cumprod, sqrt, trace, dot, vdot, roll, zeros, ones, r_, kron, isscalar, nonzero, ix_, linspace
 import scipy as sp  # scipy imports numpy automatically
 import scipy.linalg
 from scipy.linalg import norm
@@ -564,7 +564,7 @@ class state(lmap):
         # derivative functions for the solver
         def lindblad_fun(t, y, F):
             X = F(t)
-            Lind = X[1].flatten()
+            Lind = X[1].ravel()
             d = zeros(y.shape, complex)
             # lame vectorization, rows of y
             for k in range(len(y)):
@@ -575,7 +575,7 @@ class state(lmap):
                 for A in Lind:
                     ac = A.conj().transpose() * A
                     temp += A * x * A.conj().transpose() -0.5 * (ac * x +x * ac)
-                d[k] = temp.flatten()  # back into a vector
+                d[k] = temp.ravel()  # back into a vector
             return d
 
         def mixed_fun(t, y, F):
@@ -585,7 +585,7 @@ class state(lmap):
             for k in range(len(y)):
                 x = y[k].reshape(dim) # into a matrix
                 temp = -1j * (H * x  -x * H)
-                d[k] = temp.flatten() # back into a vector
+                d[k] = temp.ravel() # back into a vector
             return d
 
         if t_dependent:
@@ -1187,7 +1187,8 @@ class state(lmap):
         Ville Bergholm 2009-2010
         """
         import matplotlib.pyplot as plt
-        from mpl_toolkits.mplot3d import Axes3D
+        from matplotlib import cm, colors
+        #from mpl_toolkits.mplot3d import Axes3D
 
         dim = self.dims()
         n = self.subsystems()
@@ -1207,29 +1208,29 @@ class state(lmap):
         ticks = r_[0 : ntot : skip]
 
         N = self.data.shape[0]
-        #Ncol = 127 # color resolution (odd to fix zero phase at the center of a color index)
+        colormapper = cm.ScalarMappable(norm=colors.Normalize(vmin=-1, vmax=1, clip=True), cmap=cm.hsv)
         #colormap(roll(hsv(Ncol), floor(Ncol / 6))) # the hsv map wraps (like phase)
+        plt.gcf().clf() # clear the figure
 
         def phases(A):
-            """Phase normalized to (0,1]"""
-            return 0.5 * ((np.angle(A) / np.pi) + 1)
+            """Phase normalized to (-1,1]"""
+            return np.angle(A) / np.pi
 
         if self.is_ket():
             s = self.fix_phase()
-            c = phases(s.data)
+            c = phases(s.data.ravel())  # use phases as colors
+            colormapper.set_array(c)
 
-            bars = plt.bar(range(N), s.prob(), color=c)
+            bars = plt.bar(range(N), s.prob())
             plt.xlabel('Basis state')
             plt.ylabel('Probability')
-            plt.xticks(ticks+0.4, ticklabels)
+            plt.xticks(ticks+0.4, ticklabels) # shift by half the bar width
             plt.axis('tight')
 
-
-
             # color bars using phase data
-            #for b in range(N):
-            #    bars[b].set_edgecolor('k')
-            #    bars[b].set_facecolor(c[b])
+            for b in range(N):
+                bars[b].set_edgecolor('k')
+                bars[b].set_facecolor(colormapper.to_rgba(c[b]))
         else:
             #h = bar3(abs(s.data))
 
@@ -1255,7 +1256,7 @@ class state(lmap):
             plt.xticks(ticks, ticklabels)
             plt.yticks(ticks, ticklabels)
             plt.axis('tight')
-            #alpha(0.8)
+            #set_alpha(0.8)
 
             c = phases(s.data)
 
@@ -1268,11 +1269,9 @@ class state(lmap):
                     cdata[j:j+6, :] = c[k, m] # all faces are the same color
                 set(h[m], 'Cdata', cdata)
              """
-
-        set(gca(), 'CLim', [0, 1]) # color limits
-
-        hcb = colorbar(ticks = linspace(0, 1, 5))
-        set(hcb, 'YTickLabel', ['$-\pi$', '$-\pi/2$', '0', '$\pi/2$', '$\pi$'])
+        # add a colorbar
+        cb = plt.colorbar(colormapper, ticks = linspace(-1, 1, 5))
+        cb.ax.set_yticklabels(['$-\pi$', '$-\pi/2$', '0', '$\pi/2$', '$\pi$'])
 
 
 
@@ -1478,7 +1477,7 @@ class state(lmap):
         temp = 0
         for k in range(len(lambda1)):
             temp += kron(lambda1[k]*u[:,k], v[:,k])
-        assert_o(norm(p1.data.flatten() - temp), 0, tol)
+        assert_o(norm(p1.data.ravel() - temp), 0, tol)
 
         # squared schmidt coefficients equal eigenvalues of partial trace
         r = state(randn(30) + 1j*randn(30), [5, 6]).normalize()

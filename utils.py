@@ -6,7 +6,7 @@ from __future__ import print_function, division
 from copy import deepcopy
 
 import numpy as np
-from numpy import array, mat, zeros, ones, eye, prod, sqrt, exp, dot, sort, diag, trace, kron, pi, r_
+from numpy import array, mat, zeros, ones, eye, prod, sqrt, exp, tanh, dot, sort, diag, trace, kron, pi, r_, c_
 from numpy.random import rand, randn, randint
 from numpy.linalg import qr, det, eig, eigvals
 from scipy.linalg import expm, norm, svdvals
@@ -618,9 +618,9 @@ def plot_pcolor(W, a, b, clim=(0, 1)):
 
     Plots the 2D function given in the matrix W.
     The vectors x and y define the coordinate grid.
-    clim is an optional parameter for color limits (default is [0 1]).
+    clim is an optional parameter for color limits.
 
-    Returns the handle to the surface object.
+    Returns the plot object.
 
     Ville Bergholm 2010
     """
@@ -628,14 +628,13 @@ def plot_pcolor(W, a, b, clim=(0, 1)):
     def to_quad(x):
         return (r_[x, x[-1]] + r_[x[0], x]) / 2
 
-    h = plt.pcolor(to_quad(a), to_quad(b), W)
+    plt.gcf().clf()  # clear the figure
+    p = plt.pcolor(to_quad(a), to_quad(b), W, clim = clim, cmap = asongoficeandfire())
     plt.axis('equal')
     plt.axis('tight')
     #shading('interp')
-    #plt.set(gca, 'CLim', clim)
     plt.colorbar()
-    #plt.colormap(asongoficeandfire(256))
-    return h
+    return p
 
 
 def plot_adiabatic_evolution(t, st, H_func, n=4):
@@ -673,27 +672,27 @@ def plot_adiabatic_evolution(t, st, H_func, n=4):
         for j in range(n):
             overlaps[j, k] = lowest[j].fidelity(st[k]) ** 2 # squared overlap with lowest final states
 
-    subplot(2,1,1)
-    plot(t/T, energies)
-    grid(on)
-    title('Energy spectrum')
-    xlabel('Adiabatic time')
-    ylabel('Energy')
-    axis([0, 1, min(min(energies)), max(max(energies))])
+    plt.subplot(2,1,1)
+    plt.plot(t/T, energies)
+    plt.grid(True)
+    plt.title('Energy spectrum')
+    plt.xlabel('Adiabatic time')
+    plt.ylabel('Energy')
+    plt.axis([0, 1, min(energies), max(energies)])
 
 
-    subplot(2,1,2)
-    plot(t/T, overlaps) #, 'LineWidth', 1.7)
-    grid(on)
-    title('Squared overlap of current state and final eigenstates')
-    xlabel('Adiabatic time')
-    ylabel('Probability')
+    plt.subplot(2,1,2)
+    plt.plot(t/T, overlaps) #, 'LineWidth', 1.7)
+    plt.grid(True)
+    plt.title('Squared overlap of current state and final eigenstates')
+    plt.xlabel('Adiabatic time')
+    plt.ylabel('Probability')
     temp = []
     for k in range(n):
-        temp.append('|{0}\\rangle'.format(k))
-    legend(temp)
-    axis([0, 1, 0, 1])
-    # axis([0, 1, 0, max(max(overlaps))])
+        temp.append('|{0}$\\rangle$'.format(k))
+    plt.legend(temp)
+    plt.axis([0, 1, 0, 1])
+    # axis([0, 1, 0, max(overlaps)])
 
 
 def makemovie(filename, frameset, plot_func, *arg):
@@ -784,37 +783,26 @@ def op_list(G, dim):
     return H
 
 
-def asongoficeandfire(n=None):
+def asongoficeandfire(n=127):
     """Colormap with blues and reds. Wraps.
 
-    Returns an n * 3 matrix containing the colormap.
-    If n is not given, the colormap is the same length
-    as the current figure's colormap. 
+    Returns a matplotlib.colors.Colormap object.
+    n is the number of color definitions in the map.
 
-    Ville Bergholm 2010
+    Ville Bergholm 2010-2011
     """
-    if n == None:
-        n = size(get(gcf, 'colormap'), 1)
-
+    from matplotlib import colors
+    # exponent
     d = 3.1
     p = np.linspace(-1, 1, n)
-
+    # negative values: reds
     x = p[p < 0]
-    c = [1 -((1+x) ** d), 0.5*(tanh(4*(-x -0.5)) + 1), (-x) ** d]
-
+    c = c_[1 -((1+x) ** d), 0.5*(tanh(4*(-x -0.5)) + 1), (-x) ** d]
+    # positive values: blues
     x = p[p >= 0]
-    c = [c, [x ** d, 0.5*(tanh(4*(x -0.5)) + 1), 1 -((1-x) ** d)]]
-
-    return c
-
-    figure
-    subplot(2,1,1)
-    plot(p, y.tranpose())
-
-    subplot(2,1,2)
-    pcolor(kron(range(n), ones(10,1)))
-    shading('flat')
-    colormap(y)
+    c = r_[c, c_[x ** d, 0.5*(tanh(4*(x -0.5)) + 1), 1 -((1-x) ** d)]]
+    return colors.ListedColormap(c, name='asongoficeandfire')
+    # TODO colors.LinearSegmentedColormap(name, segmentdata, N=256, gamma=1.0)
 
 
 def qubits(n):
