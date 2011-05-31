@@ -5,11 +5,13 @@
 from __future__ import print_function, division
 import collections
 import numbers
+import types
 
-from numpy import array, sort, prod, cumsum, cumprod, sqrt, trace, dot, vdot, roll, zeros, ones, r_, kron, isscalar, nonzero, ix_, linspace, meshgrid
+from numpy import array, asarray, sort, prod, cumsum, cumprod, sqrt, trace, dot, vdot, roll, zeros, ones, r_, kron, isscalar, nonzero, ix_, linspace, meshgrid
 import scipy as sp  # scipy imports numpy automatically
-import scipy.linalg
 from scipy.linalg import norm
+from scipy.integrate import ode
+
 
 from lmap import *
 from utils import *
@@ -482,43 +484,45 @@ class state(lmap):
             raise TypeError('States can only be propagated using lmaps and arrays.')
 
 
-    def propagate(s, H, t, out_func=lambda x, h: x, odeopt=None):
+    def propagate(self, H, t, out_func=lambda x, h: x, **kwargs):
         """Propagate the state continuously in time.
 
-        propagate(H, t [, out_func, odeopts])
-        propagate(L, t [, out_func, odeopts])
-        propagate({H, {A_i}}, t [, out_func, odeopts])
+        propagate(H, t)
+        propagate(L, t)
+        propagate([H, A_1, A_2, ...], t)
 
         Propagates the state using the given generator(s) for the time t,
         returns the resulting state.
 
-        The generator can either be a Hamiltonian matrix H or, for time-dependent
-        Hamiltonians, a function H(t) which takes a time instance t
-        as input and return the corresponding H matrix.
+        The generator can either be a Hamiltonian H, a Liouvillian superoperator L,
+        or a list consisting of a Hamiltonian followed by Lindblad operators.
 
-        Alternatively, the generator can also be a Liouvillian superoperator, or
-        a list consisting of a Hamiltonian and a list of Lindblad operators.
+        For time-dependent cases, the generator can be replaced with a function
+        F(t) which takes a time instance t as input and returns the corresponding
+        generator(s).
 
         If t is a vector of increasing time instances, returns a list
         containing the propagated state for each time given in t.
 
         Optional parameters:
-          out_func: If given, for each time instance propagate returns out_func(s(t), H(t)).
-          odeopts:  Options struct for MATLAB ODE solvers from the odeset function.
+          out_func: If given, for each time instance t returns out_func(s(t), H(t)).
+          Any unrecognized keyword args are passed on to the ODE solver.
 
         out == expm(-i*H*t)*|s>
         out == inv_vec(expm(L*t)*vec(\rho_s))
 
-        Ville Bergholm 2008-2010
+        Ville Bergholm 2008-2011
         James Whitfield 2009
         """
-        s = self.inplacer(inplace)
-
+        s = self.inplacer(False)
+        if isscalar(t):
+            t = [t]
+        t = asarray(t)
         n = len(t) # number of time instances we are interested in
-        out = cell(1, n)
+        out = []
         dim = s.data.shape[0]  # system dimension
 
-        if isa(H, 'function_handle'):
+        if isinstance(H, types.FunctionType):
             # time dependent
             t_dependent = True
             F = H
@@ -531,15 +535,14 @@ class state(lmap):
             # matrix
             dim_H = H.shape[1]
             if dim_H == dim:
-                gen = 'H'
+                gen = 'H'  # Hamiltonian
             elif dim_H == dim ** 2:
-                gen = 'L'
+                gen = 'L'  # Liouvillian
                 s.to_op(inplace = True)
             else:
                 raise ValueError('Dimension of the generator does not match the dimension of the state.')
-  
         elif isinstance(H, list):
-            # list of Lindblad operators
+            # list: Hamiltonian and the Lindblad operators
             dim_H = H[0].shape[1]
             if dim_H == dim:
                 gen = 'A'
@@ -557,92 +560,109 @@ class state(lmap):
 
         dim = s.data.shape  # may have been switched to operator representation
 
-        # ODE solver parameters
-        odeopts = odeset('RelTol', 1e-4, 'AbsTol', 1e-6, 'Vectorized', 'on')
-        odeopts = odeset(odeopts, odeopt)
-
-        # derivative functions for the solver
-        def lindblad_fun(t, y, F):
-            X = F(t)
-            Lind = X[1].ravel()
-            d = zeros(y.shape, complex)
-            # lame vectorization, rows of y
-            for k in range(len(y)):
-                x = y[k].reshape(dim) # into a matrix
-                # Hamiltonian
-                temp = -1j * (X[0] * x  -x * X[0])
-                # Lindblad operators
-                for A in Lind:
-                    ac = A.conj().transpose() * A
-                    temp += A * x * A.conj().transpose() -0.5 * (ac * x +x * ac)
-                d[k] = temp.ravel()  # back into a vector
-            return d
-
-        def mixed_fun(t, y, F):
-            H = F(t)
-            d = zeros(y.shape, complex)
-            # vectorization, rows of y 
-            for k in range(len(y)):
-                x = y[k].reshape(dim) # into a matrix
-                temp = -1j * (H * x  -x * H)
-                d[k] = temp.ravel() # back into a vector
-            return d
-
         if t_dependent:
             # time dependent case, use ODE solver
-            if gen == 'H':
-                # Hamiltonian
-                if dim[1] == 1:
-                    # pure state
-                    odefun = lambda t, y, F: -1j * F(t) * y  # derivative function for the solver
+
+            # derivative functions for the solver TODO vectorization?
+            # H, ket
+            def pure_fun(t, y, F):
+                return -1j * dot(F(t), y)
+            def pure_jac(t, y, F):
+                return -1j * F(t)
+
+            # H, state op
+            def mixed_fun(t, y, F):
+                H = -1j * F(t)
+                if y.ndim == 1:
+                    rho = inv_vec(y, dim)  # into a matrix
+                    return vec(dot(H, rho) - dot(rho, H)) # back into a vector
                 else:
-                    # mixed state
-                    odefun = mixed_fun
-            elif gen == 'L':
-                # Liouvillian
-                odefun = lambda t, y, F: F(t) * y
-                #odeopts = odeset(odeopts, 'Jacobian', F)
-            else: # 'A'
-                # Hamiltonian and Lindblad operators in a list
-                odefun = lindblad_fun
+                    # vectorization, rows of y 
+                    d = empty(y.shape, complex)
+                    for k in range(len(y)):
+                        rho = inv_vec(y[k], dim) # into a matrix
+                        d[k] = vec(dot(H, rho) - dot(rho, H)) # back into a vector
+                    return d
 
-            skip = 0
-            if t[0] != 0:
-                t = r_[0, t] # ODE solver needs to be told that t0 = 0
-                skip = 1
+            # L, state op, same as the H/ket ones, only without the -1j
+            def liouvillian_fun(t, y, F):
+                return dot(F(t), y)
+            def liouvillian_jac(t, y, F):
+                return F(t)
 
-            if len(t) < 3:
-                t = r_[t, t[-1] + 1e5*eps] # add another time point to get reasonable output from solver
+            # A, state op
+            def lindblad_fun(t, y, F):
+                X = F(t)  # X == [H, A_1, A_2, ..., A_n]
+                H = -1j * X[0] # -1j * Hamiltonian
+                Lind = X[1:]   # Lindblad ops
+                if y.ndim == 1:
+                    rho = inv_vec(y, dim)  # into a matrix
+                    temp = dot(H, rho) - dot(rho, H)
+                    for A in Lind:
+                        ac = 0.5 * dot(A.conj().transpose(), A)
+                        temp += dot(dot(A, rho), A.conj().transpose()) -dot(ac, rho) -dot(rho, ac)
+                    return vec(temp) # back into a vector
+                else:
+                    # vectorization, rows of y
+                    d = empty(y.shape, complex)
+                    for k in range(len(y)):
+                        rho = inv_vec(y[k], dim)  # into a matrix
+                        temp = dot(H, rho) - dot(rho, H)
+                        for A in Lind:
+                            ac = 0.5 * dot(A.conj().transpose(), A)
+                            temp += dot(dot(A, rho), A.conj().transpose()) -dot(ac, rho) -dot(rho, ac)
+                        d[k] = vec(temp)  # back into a vector
+                    return d
 
-            #odeopts = odeset(odeopts, 'OutputFcn', @(t,y,flag) odeout(t, y, flag, H))
+            # what kind of generator are we using?
+            if gen == 'H':  # Hamiltonian
+                if dim[1] == 1:
+                    func, jac = pure_fun, pure_jac
+                else:
+                    func, jac = mixed_fun, None
+            elif gen == 'L':  # Liouvillian
+                func, jac = liouvillian_fun, liouvillian_jac
+            else: # 'A'  # Hamiltonian and Lindblad operators in a list
+                func, jac = lindblad_fun, None
 
-            t_out, s_out = ode45(odefun, t, s.data, odeopts, F)
-            # s_out has states in columns, row i corresponds to t(i)
-            # apply out_func
-            for k in range(n):
-                # this works because ode45 automatically expands input data into a col vector
-                s.data = inv_vec(s_out[k + skip, :], dim)
-                out.append(out_func(s, F(t_out[k + skip])))
+            # do we want the initial state too? (the integrator can't handle t=0!)
+            if t[0] == 0:
+                out.append(out_func(deepcopy(s), F(0)))
+                t = t[1:]
+
+            # ODE solver default parameters
+            odeopts = {'rtol' : 1e-4,
+                       'atol' : 1e-6,
+                       'method' : 'bdf', # 'adams' for non-stiff cases
+                       'with_jacobian' : True}
+            odeopts.update(kwargs) # user options
+
+            # run the solver
+            r = ode(func, jac).set_integrator('zvode', **odeopts)
+            r.set_initial_value(vec(s.data), 0.0).set_f_params(F).set_jac_params(F)
+            for k in t:
+                r.integrate(k)  # times must be in increasing order, NOT include zero(!)
+                if not r.successful():
+                    raise RuntimeError('ODE integrator failed.')
+                s.data = inv_vec(r.y, dim)
+                out.append(out_func(deepcopy(s), F(k)))
 
         else:
             # time independent case
             if gen == 'H':
-                if len(H) < 500:
+                if dim_H < 500:
                     # eigendecomposition
-                    d, v = eig(full(H)) # TODO eigs?
-                    d = diag(d)
+                    d, v = eig(H) # TODO eigs?
                     for k in t:
-                        U = v * diag(exp(-1j * k * d)) * v.conj().transpose()
+                        # propagator
+                        U = dot(dot(v, diag(exp(-1j * k * d))), v.conj().transpose())
                         out.append(out_func(s.u_propagate(U), H))
-                        # out_func(u_propagate(s, expm(-i*H*t(k))), H)
-
                 else:
                     # Krylov subspace method
-                    w, err = expv(-1j*t, H, s.data)
+                    w, err = expv(-1j * t, H, s.data)
                     for k in range(n):
-                        s.data = w[:,k]
+                        s.data = w[:,k]  # TODO state ops
                         out.append(out_func(s, H))
-      
             elif gen == 'L':
                 # Krylov subspace method
                 w, err = expv(t, H, vec(s.data))
