@@ -6,16 +6,156 @@ from __future__ import print_function, division
 from math import asin
 from operator import mod
 
-from numpy import floor, ceil, log2, angle, arange
+import numpy as np
+from numpy import floor, ceil, log2, angle, arange, logical_not, sin, cos, arctan2, empty
 from numpy.linalg import eig, matrix_power
+from scipy.misc import factorial
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import figure, hold, plot, bar, title, xlabel, ylabel, axis, legend
 
-from lmap import *
 from state import *
-from utils import *
+from plot import *
 import gate
 import ho
+
+
+
+
+
+
+def adiabatic_qc_3sat(n=6, n_clauses=None, clauses=None, problem='3sat'):
+    """Adiabatic quantum computing demo.
+
+    This example solves random 3-SAT problems by simulating the
+    adiabatic quantum algorithm of Farhi et al.
+
+    Note that this is incredibly inefficient because we first essentially
+    solve the NP-complete problem classically using an exhaustive
+    search when computing the problem Hamiltonian H1, and then
+    simulate an adiabatic quantum computer solving the same problem
+    using the quantum algorithm.
+
+    %! E. Farhi et al., "Quantum Computation by Adiabatic Evolution", arXiv.org:quant-ph/0001106.
+    Ville Bergholm 2009-2011
+    """
+    print('\n\n=== Solving 3-SAT using adiabatic qc ===\n')
+
+    if n < 3:
+        n = 3
+
+    if clauses == None:
+        if n_clauses == None:
+            if problem == '3sat':
+                n_clauses = 5*n
+            else:  # exact cover
+                n_clauses = n//2
+
+        # generate clauses
+        clauses = zeros((n_clauses, 3), int)
+        for k in range(n_clauses):
+            bits = range(n)
+            for j in range(3):
+                clauses[k, j] = bits.pop(randint(len(bits))) + 1 # zero can't be negated, add one
+        clauses = sort(clauses, 1)
+
+        if problem == '3sat':
+            for k in range(n_clauses):
+                for j in range(3):
+                    clauses[k, j] *= (-1) ** (rand() < 0.5) # negate if bit should be inverted
+    else:
+        n_clauses = clauses.shape[0]
+
+    # cache some stuff (all the matrices in this example are diagonal, so)
+    zb  = array([0, 1], int) # 0.5*(I - sz)
+    z_op = []
+    for k in range(n):
+        z_op.append(mkron(ones(2 ** k, int), zb, ones(2 ** (n-k-1), int)))
+
+    print('{0} bits, {1} clauses'.format(n, n_clauses))
+    # Encode the problem into the final Hamiltonian.
+    H1 = 0
+    if problem == '3sat':
+        b = [0, 0, 0]
+        for k in range(n_clauses):
+            # h_c = (b1(*) v b2(*) v b3(*))
+            for j in range(3):
+                temp = clauses[k, j]
+                b[j] = z_op[abs(temp) - 1] # into zero-based index
+                if temp < 0:
+                    b[j] = logical_not(b[j])
+            H1 += logical_not(b[0] + b[1] + b[2]) # the not makes this a proper OR
+        print('Find a bit string such that all the following "(b_i or b_j or b_k)" clauses are satisfied.')
+        print('Minus sign means the bit is negated.')
+    else:
+        # exact cover
+        for k in range(n_clauses):
+            # h_c = (b1 ^ b2* ^ b3*) v (b1* ^ b2 ^ b3*) v (b1* ^ b2* ^ b3)
+            b1 = z_op[clauses[k, 0] - 1]
+            b2 = z_op[clauses[k, 1] - 1]
+            b3 = z_op[clauses[k, 2] - 1]
+            s1 = b1 * logical_not(b2) * logical_not(b3)
+            s2 = b2 * logical_not(b3) * logical_not(b1)
+            s3 = b3 * logical_not(b1) * logical_not(b2)
+            H1 += logical_not(s1 + s2 + s3 -s1*s2 -s2*s3 -s3*s1 +s1*s2*s3)
+        print('Find a bit string such that all the following "exactly one of bits {a, b, c} is 1" clauses are satisfied:')
+    print(clauses)
+
+    # build initial Hamiltonian
+    xb = 0.5 * (I - sx)
+    H0 = 0
+    for k in range(n):
+        H0 += mkron(eye(2 ** k), xb, eye(2 ** (n-k-1)))
+
+    # initial state (ground state of H0)
+    s0 = state(ones(2 ** n) / sqrt(2 ** n), qubits(n)) # n qubits, uniform superposition
+
+    # adiabatic simulation
+    adiabatic_qc(H0, H1, s0)
+    return H1, clauses
+
+
+
+
+def adiabatic_qc(H0, H1, s0, tmax=50):
+    """Adiabatic quantum computing.
+
+    This is a helper function for simulating the adiabatic quantum
+    algorithm of Farhi et al. and plotting the results.
+
+    %! E. Farhi et al., "Quantum Computation by Adiabatic Evolution", arXiv.org:quant-ph/0001106.
+    Ville Bergholm 2009-2011
+    """
+    H1_full = diag(H1) # into a full matrix
+
+    # adiabatic simulation
+    steps = tmax*10
+    t = linspace(0, tmax, steps)
+
+    # linear path
+    H_func = lambda t: (1-t/tmax)*H0 +(t/tmax)*H1_full
+    res = s0.propagate(H_func, t)
+
+    # plots
+    # final state probabilities
+    plt.figure()
+    plot_adiabatic_evolution(t, res, H_func)
+
+    plt.figure()
+    res[-1].plot()
+    title('Final state')
+
+    print('Final Hamiltonian (diagonal):')
+    print(H1)
+
+    print('Measured result:')
+    dummy, dummy, res = res[-1].measure(do = 'C')
+    print(res)
+    if H1[nonzero(res.data)[0]] == 0:
+        print('Which is a valid solution!')
+    else:
+        print('Which is not a solution!')
+        if np.min(H1) > 0:
+            print('(In this problem instance there aren''t any.)')
 
 
 
@@ -96,7 +236,7 @@ def bb84(n=50):
     key_A = sent[match]
     key_B = received[match]
     m = len(key_A)
-    print('\nMismatch frequency between Alice and Bob: {0}\n'.format(sum(np.logical_xor(key_A, key_B)) / m))
+    print('\nMismatch frequency between Alice and Bob: {0}\n'.format(np.sum(np.logical_xor(key_A, key_B)) / m))
 
     print('Alice and Bob then sacrifice k bits of their shared key to compare them.')
     print('If an nonmatching bit is found, the reason is either an eavesdropper or a noisy channel.')
@@ -283,10 +423,203 @@ def qft_circuit(dim=(2, 3, 3, 2)):
         temp = gate.swap(dim[k], dim[n-1-k])
         U = gate.two(temp, (k, n-1-k), dim) * U
 
-    #U.data = todense(U.data) # it's a QFT anyway
-    #temp = U - gate.qft(dim)
-    #norm(temp.data)
     return U
+
+
+
+def qubit_and_resonator(d_r=30):
+    """Qubit coupled to a microwave resonator demo.
+
+    Simulates a qubit coupled to a microwave resonator.
+    Reproduces plots from the experiment in the reference.
+
+    %! M. Hofheinz et al., "Synthesizing arbitrary quantum states in a superconducting resonator", Nature 459, 546-549 (2009), doi:10.1038/nature08005
+    Ville Bergholm 2010
+    """
+    print('\n\n=== Qubit coupled to a single-mode microwave resonator ===\n')
+    if d_r < 10:
+        d_r = 10 # truncated resonator dim
+
+    omega0 = 1e9 # Energy scale/\hbar, Hz
+    T = 0.025 # K
+
+    # omega_r = 2*pi* 6.570 # GHz, resonator angular frequency
+    # qubit-resonator detuning Delta(t) = omega_q(t) -omega_r
+
+    Omega     =  2*pi* 19e-3  # GHz, qubit-resonator coupling
+    Delta_off = -2*pi* 463e-3 # GHz, detuning at off-resonance point
+    Omega_q   =  2*pi* 0.5    # GHz, qubit microwave drive amplitude
+    #  Omega << |Delta_off| < Omega_q << omega_r
+
+    # decoherence times
+    T1_q = 650e-9 # s
+    T2_q = 150e-9 # s
+
+    T1_r = 3.5e-6 # s
+    T2_r = 2*T1_r # s
+
+    # TODO heat bath and couplings
+    #bq = markov.bath('ohmic', omega0, T)
+    #[H, Dq] = fit(bq, Delta_off, T1_q, T2_q)
+    #[H, Dr] = fit_ho(bq, ???, T1_r, T2_r???)
+    #D = kron(eye(d_r), D) # +kron(Dr, qit.I)
+
+    #=================================
+    # Hamiltonians etc.
+
+    # qubit raising and lowering ops
+    sp = 0.5*(sx -1j*sy)
+    sm = sp.conj().transpose()
+
+    # resonator annihilation op
+    a = boson_ladder(d_r)
+    # resonator identity op
+    I_r = eye(d_r)
+
+    # qubit H
+    Hq = kron(I_r, dot(sp, sm))
+    # resonator H
+    #Hr = kron(a'*a, I_q)
+
+    # coupling H, rotating wave approximation
+    Hint = Omega/2 * (kron(a, sp) +kron(a.conj().transpose(), sm))
+    # microwave control H
+    HOq = lambda ampl, phase: kron(I_r, ampl * 0.5 * Omega_q * (cos(phase) * sx + sin(phase) * sy))
+    #Q = ho.position(d_r)
+    #P = ho.momentum(d_r)
+    #HOr = lambda ampl, phase: kron(ampl*Omega_r/sqrt(2)*(cos(phase)*Q +sin(phase)*P), qit.I)
+
+    # system Hamiltonian, in rotating frame defined by H0 = omega_r * (Hq + Hr)
+    # D = omega_q - omega_r is the detuning between the qubit and the resonator
+    H = lambda D, ampl, phase:  D*Hq + Hint + HOq(ampl, phase)
+
+    # readout: qubit in excited state?
+    readout = lambda s, h: s.ev(kron(I_r, p1))
+
+    s0 = state(0, (d_r, 2)) # resonator + qubit, ground state
+
+
+    #=================================
+    # Rabi test
+
+    t = linspace(0, 500, 100)
+    detunings = linspace(0, 2*pi* 40e-3, 100) # GHz
+    out = empty((len(detunings), len(t)))
+
+    #L = markov.superop(H(0, 1, 0), D, bq)
+    L = H(0, 1, 0)  # zero detuning, sx pulse
+    for k, d in enumerate(detunings):
+        s = s0.propagate(L, (2/Omega_q)*pi/2) # Q (pi pulse for the qubit)
+        #LL = markov.superop(H(d, 0, 0), D, bq)
+        LL = H(d, 0, 0)  # detuned propagation
+        out[k, :] = s.propagate(LL, t, out_func = readout)
+
+    plt.figure()
+    plot_pcolor(out, t, detunings / (2*pi*1e-3))
+    #plt.colorbar(orientation = 'horizontal')
+    plt.xlabel('Interaction time $\\tau$ (ns)')
+    plt.ylabel('Detuning, $\\Delta/(2\\pi)$ (MHz)')
+    plt.title('One photon Rabi-swap oscillations between qubit and resonator, $P_e$')
+
+    #figure
+    #f = fft(out, [], 2)
+    #pcolor(abs(fftshift(f, 2)))
+    #=================================
+    # state preparation
+
+    def demolish_state(targ):
+        """Convert a desired (possibly truncated) resonator state ket into a program for constructing that state.
+        State preparation in reverse, uses approximate idealized Hamiltonians.
+        """
+        # Ideal H without interaction
+        A = lambda D, ampl, phase: D*Hq +HOq(ampl, phase)
+
+        # resonator ket into a full normalized qubit+resonator state
+        n = len(targ)
+        targ = state(r_[targ, zeros(d_r-n)], (d_r,)).normalize().tensor(state(0, (2,)))
+        t = deepcopy(targ)
+
+        n = n-1 # highest excited level in resonator
+        prog = zeros((n, 4))
+        for k in reversed(range(n)):
+            # |k+1,g> to |k,e> 
+            dd = targ.data.reshape(d_r, 2)
+            prog[k, 3] = (angle(dd[k, 1]) -angle(dd[k+1, 0]) -pi/2 +2*pi) / -Delta_off
+            targ = targ.propagate(A(-Delta_off, 0, 0), prog[k, 3]) # Z
+
+            dd = targ.data.reshape(d_r, 2)
+            prog[k, 2] = (2/(sqrt(k+1) * Omega)) * arctan2(abs(dd[k+1, 0]), abs(dd[k, 1]))
+            targ = targ.propagate(-Hint, prog[k, 2]) # S
+
+            # |k,e> to |k,g>
+            dd = targ.data.reshape(d_r, 2)
+            phi = angle(dd[k, 1]) -angle(dd[k, 0]) +pi/2
+            prog[k, 1] = phi
+            prog[k, 0] = (2/Omega_q) * arctan2(abs(dd[k, 1]), abs(dd[k, 0]))
+            targ = targ.propagate(A(0, -1, phi), prog[k, 0]) # Q
+        return prog, t
+
+    def prepare_state(prog):
+        """Prepare a state according to the program."""
+        s = s0 # start with ground state
+        #s = tensor(ho.coherent_state(0.5, d_r), state(0, 2)) # coherent state
+        for k in prog:
+            # Q, S, Z
+            s = s.propagate(H(0, 1, k[1]), k[0]) # Q
+            s = s.propagate(H(0, 0, 0), k[2]) # S
+            s = s.propagate(H(Delta_off, 0, 0), k[3]) # Z
+        return s
+
+
+    #=================================
+    # readout plot (not corrected for limited visibility)
+
+    prog, dummy = demolish_state([0, 1, 0, 1]) # |1> + |3>
+    s1 = prepare_state(prog)
+
+    prog, dummy = demolish_state([0, 1, 0, 1j]) # |1> + i|3>
+    s2 = prepare_state(prog)
+
+    t = linspace(0, 350, 200)
+    out1 = s1.propagate(H(0, 0, 0), t, readout)
+    out2 = s2.propagate(H(0, 0, 0), t, readout)
+
+    plt.figure()
+    plot(t, out1, 'b-', t, out2, 'r-')
+    xlabel('Interaction time $\\tau$ (ns)')
+    ylabel('P_e')
+    title('Resonator readout through qubit.')
+    legend(('$|1\\rangle + |3\\rangle$', '$|1\\rangle + i|3\\rangle$'))
+
+
+    #=================================
+    # Wigner spectroscopy
+
+    if False:
+        # "voodoo cat"
+        targ = zeros(d_r)
+        for k in range(0, d_r, 3):
+            targ[k] = (2 ** k) / sqrt(factorial(k))
+    else:
+        targ = [1, 0, 0, exp(1j * pi * 3/8), 0, 0, 1]
+
+    # calculate the pulse sequence for constructing targ
+    prog, t = demolish_state(targ)
+    s = prepare_state(prog)
+
+    print('Trying to prepare the state')
+    print(t)
+    print('Fidelity of prepared state with target state: {0:g}'.format(fidelity(s, t)))
+    print('Time required for state preparation: {0:g} ns'.format(np.sum(prog[:, [0, 2, 3]])))
+    print('\nComputing the Wigner function...')
+    s = s.ptrace((1,))
+    W, a, b = ho.wigner(s, res = (80, 80), lim = (-2.5, 2.5, -2.5, 2.5))
+    figure()
+    plot_pcolor(W, a, b, (-1, 1))
+    title('Wigner function $W(\\alpha)$')
+    xlabel('Re($\\alpha$)')
+    ylabel('Im($\\alpha$)')
+
 
 
 def shor_factorization(N=9, cheat=False):
@@ -465,25 +798,28 @@ def superdense_coding(d=2):
     # EPR preparation circuit
     U = add * tensor(H, I)
 
-    print('Alice and Bob start with a shared EPR pair.')
+    print('Alice and Bob start with a shared EPR pair:')
     reg = state('00', dim).u_propagate(U)
+    print(reg)
 
     # two random d-its
     a = floor(d * rand(2)).astype(int)
-    print('Alice wishes to send two d-its of information (d = {0}) to Bob: a = {1}.'.format(d, a))
+    print('\nAlice wishes to send two d-its of information (d = {0}) to Bob: a = {1}.'.format(d, a))
 
     Z = H * gate.mod_inc(a[0], d) * H.ctranspose()
     X = gate.mod_inc(-a[1], d)
 
     print('Alice encodes the d-its to her half of the EPR pair using local transformations,')
     reg = reg.u_propagate(tensor(Z*X, I))
+    print(reg)
 
-    print('and sends it to Bob. He then disentangles the pair,')
+    print('\nand sends it to Bob. He then disentangles the pair,')
     reg = reg.u_propagate(U.ctranspose())
+    print(reg)
 
     p, b = reg.measure()
     b = array(np.unravel_index(b, dim))
-    print('and measures both qudits in the computational basis, obtaining the result  b = {0}.'.format(b))
+    print('\nand measures both qudits in the computational basis, obtaining the result  b = {0}.'.format(b))
 
     if all(a == b):
         print('The d-its were transmitted succesfully.')
@@ -509,37 +845,41 @@ def teleportation(d=2):
     # EPR preparation circuit
     U = add * tensor(H, I)
 
-    print('Alice and Bob start with a shared EPR pair.')
+    print('Alice and Bob start with a shared EPR pair:')
     epr = state('00', dim).u_propagate(U)
+    print(epr)
 
-    print('Alice wants to transmit this payload to Bob:')
+    print('\nAlice wants to transmit this payload to Bob:')
     payload = state('0', d).u_propagate(rand_SU(d)).fix_phase()
     # choose a nice global phase
+    print(payload)
 
-    print('The total |payload> \otimes |epr> register looks like')
+    print('\nThe total |payload> \otimes |epr> register looks like')
     reg = payload.tensor(epr)
+    print(reg)
 
-    print('Now Alice entangles the payload with her half of the EPR pair')
+    print('\nNow Alice entangles the payload with her half of the EPR pair,')
     reg = reg.u_propagate(tensor(U.ctranspose(), I))
+    print(reg)
 
     p, b, reg = reg.measure((0, 1), do = 'C')
     b = array(np.unravel_index(b, dim))
-    print('and measures her qudits, getting the result {0}.'.format(b))
-    print('She then transmits the two d-its to Bob using a classical channel. The shared state is now')
-    reg
-
+    print('\nand measures her qudits, getting the result {0}.'.format(b))
+    print('She then transmits the two d-its to Bob using a classical channel.')
     print('Since Alice\'s measurement has unentangled the state,')
     print('Bob can ignore her qudits. His qudit now looks like')
     reg_B = reg.ptrace((0, 1)).to_ket() # pure state
+    print(reg_B)
 
-    print('Using the two classical d-its of data Alice sent him,')
+    print('\nUsing the two classical d-its of data Alice sent him,')
     print('Bob performs a local transformation on his half of the EPR pair.')
     Z = H * gate.mod_inc(b[0], d) * H.ctranspose()
     X = gate.mod_inc(-b[1], d)
     reg_B = reg_B.u_propagate(Z*X).fix_phase()
+    print(reg_B)
 
     ov = fidelity(payload, reg_B)
-    print('The overlap between the resulting state and the original payload state is |<payload|B>| = {0}'.format(ov))
+    print('\nThe overlap between the resulting state and the original payload state is |<payload|B>| = {0}'.format(ov))
     if abs(ov-1) > tol:
         raise RuntimeError('Should not happen.')
     else:
@@ -567,8 +907,8 @@ def tour():
     superdense_coding(2)
     pause()
 
-    #adiabatic_qc_3sat(5, 25)
-    #pause()
+    adiabatic_qc_3sat(5, 25)
+    pause()
 
     phase_estimation_precision(5, rand_U(4))
     title('Phase estimation, eigenstate')
@@ -595,10 +935,9 @@ def tour():
     #markov_decoherence(7e-10, 1e-9)
     #pause()
 
-    #qubit_and_resonator()
-    #pause()
+    qubit_and_resonator(20)
+    pause()
 
     dim = (2,3,2)
     U = qft_circuit(dim)
     (U - gate.qft(dim)).norm()
-    

@@ -17,11 +17,13 @@ import matplotlib.pyplot as plt
 
 from base import *
 from lmap import *
-from state import *
 from utils import *
+from state import *
+from plot import *
 import gate
 import ho
 import examples
+
 
 # toolkit version number
 version = '0.9.10'
@@ -36,8 +38,8 @@ def test():
     Ville Bergholm 2009-2011
     """
     lmap.test()
-    state.test()
     utils.test()
+    state.test()
     gate.test()
     ho.test()
     #markov.test_markov

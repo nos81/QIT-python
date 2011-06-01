@@ -669,7 +669,11 @@ class state(lmap):
                 for k in range(n):
                     s.data = inv_vec(w[:,k])
                     out.append(out_func(s, H))
-        return out
+
+        if len(out) == 1:
+            return out[0] # don't bother to wrap a single output in a list
+        else:
+            return out
 
 
     def seq_propagate(self, seq, out_func=lambda x: x):

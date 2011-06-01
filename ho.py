@@ -180,7 +180,7 @@ def husimi(s, alpha=None, z=0, res=(40, 40), lim=(-2, 2, -2, 2)):
         return_ab = False
 
     # reference state
-    n = prod(s.dim)
+    n = prod(s.dims())
     ref = state(0, n).u_propagate(squeeze(z, n))
     ref /= sqrt(pi) # normalization included for convenience
 
@@ -223,7 +223,7 @@ def wigner(s, alpha=None, res=(20, 20), lim=(-2, 2, -2, 2)):
         return_ab = False
 
     # parity operator (diagonal)
-    n = prod(s.dim)
+    n = prod(s.dims())
     P = ones(n)
     P[1:n:2] = -1
     P *= 2 / pi  # include Wigner normalization here for convenience

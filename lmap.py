@@ -157,7 +157,7 @@ class lmap(object):
                     out += ' {0:+.4g}j'.format(temp.imag)
                 else:
                     # both
-                    out += ' +' + str(temp)
+                    out += ' +({0:.4g}{1:+.4g}j)'.format(temp.real, temp.imag) #' +' + str(temp)
 
                 # ket or bra symbol
                 temp = array_to_numstr(np.unravel_index(ind, dim))
