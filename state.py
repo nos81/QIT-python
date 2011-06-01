@@ -1212,7 +1212,6 @@ class state(lmap):
         """
         import matplotlib.pyplot as plt
         from matplotlib import cm, colors
-        from mpl_toolkits.mplot3d import Axes3D
 
         dim = self.dims()
         n = self.subsystems()
@@ -1232,8 +1231,8 @@ class state(lmap):
         ticks = r_[0 : ntot : skip]
 
         N = self.data.shape[0]
-        colormapper = cm.ScalarMappable(norm=colors.Normalize(vmin=-1, vmax=1, clip=True), cmap=cm.hsv)
-        plt.gcf().clf() # clear the figure
+        fig = plt.gcf()
+        fig.clf() # clear the figure
 
         def phases(A):
             """Phase normalized to (-1,1]"""
@@ -1242,27 +1241,37 @@ class state(lmap):
         if self.is_ket():
             s = self.fix_phase()
             c = phases(s.data.ravel())  # use phases as colors
-            colormapper.set_array(c)
+            ax = fig.gca()
 
-            bars = plt.bar(range(N), s.prob())
-            plt.xlabel('Basis state')
-            plt.ylabel('Probability')
-            plt.xticks(ticks+0.4, ticklabels) # shift by half the bar width
-            plt.axis('tight')
-
+            width = 0.8
+            bars = ax.bar(range(N), s.prob(), width)
             # color bars using phase data
+            colormapper = cm.ScalarMappable(norm=colors.Normalize(vmin=-1, vmax=1, clip=True), cmap=cm.hsv)
+            colormapper.set_array(c)
             for b in range(N):
                 bars[b].set_edgecolor('k')
                 bars[b].set_facecolor(colormapper.to_rgba(c[b]))
-        else:
-            c = phases(self.data)  # use phases as colors
-            colormapper.set_array(c)
 
-            # TODO ax = gcf().add_subplot(111, projection='3d')
-            ax = Axes3D(plt.gcf())
+            # add a colorbar
+            cb = fig.colorbar(colormapper, ax = ax, ticks = linspace(-1, 1, 5))
+            cb.ax.set_yticklabels(['$-\pi$', '$-\pi/2$', '0', '$\pi/2$', '$\pi$'])
+
+            # the way it should work (using np.broadcast, ScalarMappable)
+            #bars = ax.bar(range(N), s.prob(), color=c, cmap=cm.hsv, norm=whatever, align='center')
+            #cb = fig.colorbar(bars, ax = ax, ticks = linspace(-1, 1, 5))
+
+            ax.set_xlabel('Basis state')
+            ax.set_ylabel('Probability')
+            ax.set_xticks(ticks + width / 2) # shift by half the bar width
+            ax.set_xticklabels(ticklabels)
+        else:
+            from mpl_toolkits.mplot3d import Axes3D
+            c = phases(self.data)  # use phases as colors
+            # TODO ax = fig.add_subplot(111, projection='3d')
+            ax = Axes3D(fig)
+
             width = 0.6  # bar width
             temp = np.arange(-width/2, N-1) # center the labels
-
             x, y = meshgrid(temp, temp)
             x = x.ravel()
             y = y.ravel()
@@ -1270,23 +1279,32 @@ class state(lmap):
             dx = width * ones(x.shape)
             ax.bar3d(x, y, zeros(x.shape), dx, dx, z, color='b')
 
-            # the way it should work (using np.broadcast)
+            # now the colors
+            pcol = ax.get_children()[2]  # poly3Dcollection
+            pcol.set_norm(colors.Normalize(vmin=-1, vmax=1, clip=True))
+            pcol.set_cmap(cm.hsv)
+            pcol.set_array(kron(c.ravel(), (1,)*6))  # six faces per bar
+
+            # add a colorbar
+            cb = fig.colorbar(pcol, ax = ax, ticks = linspace(-1, 1, 5))
+            cb.ax.set_yticklabels(['$-\pi$', '$-\pi/2$', '0', '$\pi/2$', '$\pi$'])
+
+            # the way it should work (using np.broadcast, ScalarMappable)
             #x, y = meshgrid(temp, temp)
-            #ax.bar3d(x, y, 0, width, width, abs(self.data), c, align='center')
+            #pcol = ax.bar3d(x, y, 0, width, width, abs(self.data), color=c, cmap=cm.hsv, norm=whatever, align='center')
 
             ax.set_xlabel('Col state')
             ax.set_ylabel('Row state')
             ax.set_zlabel('$|\\rho|$')
-            #plt.xticks(ticks, ticklabels)
-            #plt.yticks(ticks, ticklabels)
-            ax.set_alpha(0.8)
-            # TODO ticklabels, colors, alpha
-            plt.show()
+            #ax.set_xticks(ticks)
+            ax.set_xticklabels(ticklabels)
+            #ax.set_yticks(ticks)
+            ax.set_yticklabels(ticklabels)
+            #ax.set_alpha(0.8)
+            # TODO ticks, ticklabels, alpha
 
-        # add a colorbar
-        cb = plt.colorbar(colormapper, ticks = linspace(-1, 1, 5))
-        cb.ax.set_yticklabels(['$-\pi$', '$-\pi/2$', '0', '$\pi/2$', '$\pi$'])
-
+        plt.show()
+        return ax
 
 
 # other state representations
