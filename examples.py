@@ -479,6 +479,7 @@ def qft_circuit(dim=(2, 3, 3, 2)):
     Ville Bergholm 2010-2011
     """
     print('\n\n=== Quantum Fourier transform using a quadratic circuit ===\n')
+    print('Subsystem dimensions: {0}'.format(dim))
 
     def Rgate(d):
         """R = \sum_{xy} exp(i*2*pi * x*y/prod(dim)) |xy><xy|"""
@@ -499,6 +500,8 @@ def qft_circuit(dim=(2, 3, 3, 2)):
         temp = gate.swap(dim[k], dim[n-1-k])
         U = gate.two(temp, (k, n-1-k), dim) * U
 
+    err = norm(U.data - gate.qft(dim).data)
+    print('Error: {0}'.format(err))
     return U
 
 
@@ -547,6 +550,69 @@ def quantum_channels(p=0.3):
         plt.show()
     return
 
+
+
+def quantum_walk(steps=7, n=11, p=0.05, n_coin=2):
+    """Quantum random walk demo.
+
+    Simulates a 1D quantum walker controlled by a unitary quantum coin.
+    On each step the coin is flipped and the walker moves either to the left
+    or to the right depending on the result.
+
+    After each step, the position of the walker is measured with probability p.
+    p == 1 results in a fully classical random walk, whereas
+    p == 0 corresponds to the "fully quantum" case.
+
+    Ville Bergholm 2010-2011
+    """
+    print('\n\n=== Quantum walk ===\n')
+    # initial state: coin shows heads, walker in center node
+    coin   = state('0', n_coin)
+    walker = state(n // 2, n)
+
+    s = coin.tensor(walker).to_op(inplace = True)
+
+    # translation operators (wrapping)
+    left  = gate.mod_inc(-1, n)
+    right = left.ctranspose()
+
+    if n_coin == 2:
+        # coin flip operator
+        #C = R_x(pi / 2)
+        C = H
+        # shift operator: heads, move left; tails, move right
+        S = kron(p0, left.data) +kron(p1, right.data)
+    else:
+        C = rand_U(n_coin)
+        S = kron(diag([1, 0, 0]), left.data) +kron(diag([0, 1, 0]), right.data) +kron(diag([0, 0, 1]), eye(n))
+
+    # propagator for a single step (flip + shift)
+    U = dot(S, kron(C, eye(n)))
+
+    # Kraus ops for position measurement
+    M = []
+    for k in range(n):
+        temp = zeros((n, n))
+        temp[k, k] = sqrt(p)
+        M.append(kron(eye(n_coin), temp))
+
+    # "no measurement"
+    M.append(sqrt(1-p) * eye(n_coin * n))
+
+    for k in range(steps):
+        s = s.u_propagate(U)
+        #s = s.kraus_propagate(M)
+        s.data = p*diag(diag(s.data)) + (1-p)*s.data  # equivalent but faster...
+
+    s = s.ptrace([0]) # ignore the coin
+    plt.figure()
+    s.plot()
+    plt.title('Walker state after {0} steps'.format(steps))
+
+    plt.figure()
+    plt.bar(arange(n), s.prob(), width = 0.8)
+    plt.title('Walker position probability distribution after {0} steps'.format(steps))
+    return s
 
 
 def qubit_and_resonator(d_r=30):
@@ -1023,10 +1089,10 @@ def tour():
 
     pause()
 
-    teleportation(2)
+    teleportation()
     pause()
 
-    superdense_coding(2)
+    superdense_coding()
     pause()
 
     adiabatic_qc_3sat(5, 25)
@@ -1041,7 +1107,7 @@ def tour():
     nmr_sequences()
     pause()
 
-    quantum_channels(0.3)
+    quantum_channels()
     pause()
 
     grover_search(6)
@@ -1060,6 +1126,6 @@ def tour():
     qubit_and_resonator(20)
     pause()
 
-    dim = (2,3,2)
-    U = qft_circuit(dim)
-    (U - gate.qft(dim)).norm()
+    U = qft_circuit((2,3,2))
+
+    #quantum_walk()

@@ -700,7 +700,7 @@ class state(lmap):
                 return self.u_propagate(E[0]) # remains a pure state
 
         s = self.to_op()
-        q = state(zeros(s.data.shape), s.dims())
+        q = state(zeros(s.data.shape, complex), s.dims())
         for k in E:
             q += s.u_propagate(k)
         return q

@@ -338,7 +338,7 @@ def two(B, t, d_in):
     U = tensor(lmap(eye(before)), U, lmap(eye(after)))
 
     # restore dimensions
-    d_out = d_in
+    d_out = d_in.copy()
     d_out[t] = B.dim[0]
     return lmap(U, (d_out, d_in))
 

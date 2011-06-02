@@ -73,12 +73,8 @@ class lmap(object):
             self.data = deepcopy(s.data)
             defdim = s.dim  # copy the dimensions too, unless redefined
         else:
-            if isinstance(s, np.ndarray):
-                # NOTE that s is not copied here
-                self.data = s
-            else:
-                # makes a copy of s
-                self.data = np.array(s)
+            # valid array initializer
+            self.data = np.asarray(s) # NOTE that if s is an ndarray it is not copied here
 
             # into a 2d array
             if self.data.ndim == 0:
