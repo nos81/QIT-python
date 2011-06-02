@@ -4,7 +4,7 @@
 
 from __future__ import print_function, division
 
-from numpy import sin, cos, arcsin, arccos, pi, asarray, eye, zeros, r_, c_, dot, nonzero
+from numpy import sin, cos, arcsin, arccos, pi, asarray, eye, zeros, r_, c_, dot, nonzero, ceil, linspace
 from scipy.linalg import expm
 from scipy.optimize import brentq
 
@@ -110,7 +110,6 @@ def scrofulous(theta, phi=0):
     Ville Bergholm 2006-2009
     """
     th1 = brentq(lambda t: (sin(t)/t -(2 / pi) * cos(theta / 2)), 0.1, 4.6)
-    print(th1)
     ph1 = arccos(-pi * cos(th1) / (2 * th1 * sin(theta / 2)))
     ph2 = ph1 - arccos(-pi / (2 * th1))
 
@@ -119,7 +118,7 @@ def scrofulous(theta, phi=0):
     return r_[u1, u2, u1]
 
 
-def seq2prop(s):
+def seq2prop(seq):
     """SU(2) propagator corresponding to a single-qubit control sequence.
 
     Returns the SU(2) rotation matrix U corresponding to the
@@ -130,8 +129,39 @@ def seq2prop(s):
     Ville Bergholm 2009
     """
     U = eye(2)
-    for k in s:
-        H = 0.5 * (sx * s[0] + sy * s[1] + sz * s[2])
-        t = s[-1]
+    for k in seq:
+        H = 0.5 * (sx * k[0] + sy * k[1] + sz * k[2])
+        t = k[-1]
         U = dot(expm(-1j * H * t), U)
     return U
+
+
+
+def propagate(s, seq, out_func=lambda x: x):
+    """Propagate a state in time using a control sequence.
+    
+    If no output function is given, we use an identity map.
+
+    Ville Bergholm 2009-2010
+    """
+    base_dt = 0.1
+    t = [0]  # initial time
+    out = [out_func(s)]  # initial state
+
+    # loop over the sequence
+    for q in seq:
+        # TODO qudits, gellmann basis
+        H = 0.5 * (sx * q[0] +sy * q[1] +sz * q[2])
+        T = q[-1]  # pulse duration
+    
+        n_steps = int(ceil(T / base_dt))
+        dt = T / n_steps
+
+        U = expm(-1j * H * dt)
+        for j in range(n_steps):
+            s = s.u_propagate(U)
+            out.append(out_func(s))
+
+        temp = t[-1]
+        t.extend(list(linspace(temp+dt, temp+T, n_steps)))
+    return out, t

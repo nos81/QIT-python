@@ -22,6 +22,7 @@ from state import *
 from plot import *
 import gate
 import ho
+import seq
 import examples
 
 

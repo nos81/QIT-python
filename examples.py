@@ -20,9 +20,6 @@ import ho
 
 
 
-
-
-
 def adiabatic_qc_3sat(n=6, n_clauses=None, clauses=None, problem='3sat'):
     """Adiabatic quantum computing demo.
 
@@ -293,6 +290,85 @@ def grover_search(n=8):
     return p
 
 
+
+def nmr_sequences():
+    """NMR control sequences demo.
+
+    Compares the performance of different single-qubit NMR control
+    sequences in the presence of systematic errors.
+    Plots the fidelity of each control sequence as a function
+    of both off-resonance error f and fractional pulse length error g.
+
+    %! Cummins et al., "Tackling systematic errors in quantum logic gates with composite rotations", PRA 67, 042308 (2003).
+    Ville Bergholm 2006-2011
+    """
+    import seq
+    from mpl_toolkits.mplot3d import Axes3D
+    print('\n\n=== NMR control sequences for correcting systematic errors ===\n')
+
+    seqs = [seq.nmr([[pi, 0]]), seq.corpse(pi), seq.scrofulous(pi), seq.bb1(pi)]
+    titles = ['Plain $\pi$ pulse', 'CORPSE', 'SCROFULOUS', 'BB1']
+
+    psi = state('0') # initial state
+    f = arange(-1, 1, 0.05)
+    g = arange(-1, 1, 0.08)
+    nf = len(f)
+    ng = len(g)
+
+    def helper(s_error):
+        """Apply the sequence on the state psi, plot the evolution."""
+        out, t = seq.propagate(psi, s_error, out_func = state.bloch_vector)
+        a = array(out)
+        ax = plot_bloch_sphere()
+        ax.plot(a[:,1], a[:,2], a[:,3])
+        ax.scatter(array(a[-1,1]), [a[-1,2]], [a[-1,3]], color = 'k', marker = 'o')  # endpoint        
+
+    for k, s in enumerate(seqs):
+        plt.figure()
+        U = seq.seq2prop(s) # target propagator
+
+        # in this simple example the errors can be fully included in the control sequence
+        #==================================================
+        s_error = deepcopy(s)
+        s_error[:, 2] += 0.1 # off-resonance error
+
+        plt.subplot(2,2,1)
+        helper(s_error)
+        plt.title(titles[k] + ' evolution, off-resonance error')
+
+        #==================================================
+        s_error = deepcopy(s)
+        s_error[:, -1] *= 1.1 # pulse length error
+
+        plt.subplot(2,2,3)
+        helper(s_error)
+        plt.title(titles[k] + ' evolution, pulse length error')
+
+        #==================================================
+        s_error = deepcopy(s)
+        fid = empty((ng, nf))
+
+        def u_fidelity(a, b):
+            """fidelity of two unitary rotations, [0,1]"""
+            return 0.5 * abs(trace(dot(a.conj().transpose(), b)))
+
+        for u in range(nf):
+            s_error[:, 2] = s[:, 2] + f[u] # off-resonance error (constant \sigma_z interaction)
+            for v in range(ng):
+                s_error[:, -1] = s[:, -1] * (1 + g[v]) # proportional pulse length error
+                fid[v, u] = u_fidelity(U, seq.seq2prop(s_error))
+
+        plt.subplot(2, 2, 4)  # FIXME colspan...
+        X, Y = meshgrid(f, g)
+        plt.contour(X, Y, 1-fid)
+        #surf(X, Y, 1-fid)
+        plt.xlabel('Off-resonance error')
+        plt.ylabel('Pulse length error')
+        plt.title(titles[k] + ' fidelity')
+
+
+
+
 def phase_estimation(t, U, s, implicit=False):
     """Quantum phase estimation algorithm.
 
@@ -424,6 +500,52 @@ def qft_circuit(dim=(2, 3, 3, 2)):
         U = gate.two(temp, (k, n-1-k), dim) * U
 
     return U
+
+
+
+def quantum_channels(p=0.3):
+    """Visualization of simple one-qubit channels.
+
+    Visualizes the effect of different quantum channels on a qubit.
+
+    Ville Bergholm 2009
+    """
+    print('\n\n=== Quantum channels ===\n')
+
+    E_bitflip      = [sqrt(1-p)*I, sqrt(p)*sx]
+    E_phaseflip    = [sqrt(1-p)*I, sqrt(p)*sz]
+    E_bitphaseflip = [sqrt(1-p)*I, sqrt(p)*sy]
+    E_depolarize   = [sqrt(1-3*p/4)*I, sqrt(p)*sx/2, sqrt(p)*sy/2, sqrt(p)*sz/2]
+    #t = arcsin(sqrt(gamma))
+    t = pi/3
+    E_amplitudedamp = [sqrt(p)*diag([1, cos(t)]), sqrt(p)*array([[0, sin(t)], [0, 0]]), sqrt(1-p)*diag([cos(t), 1]), sqrt(1-p)*array([[0, 0], [sin(t), 0]])]
+    channels = [E_bitflip, E_phaseflip, E_bitphaseflip, E_depolarize, E_amplitudedamp]
+    titles   = ['Bit flip', 'Phase flip', 'Bit and phase flip', 'Depolarization', 'Amplitude damping']
+
+    X, Y, Z = sphere()
+    S = array([X, Y, Z])
+
+    def present(S, E, T):
+        """Helper"""
+        s = S.shape
+        res = empty(s)
+
+        for a in range(s[1]):
+            for b in range(s[2]):
+                temp = state.bloch_state(r_[1, S[:,a,b]])
+                res[:, a, b] = temp.kraus_propagate(E).bloch_vector()[1:]  # skip the normalization
+
+        ax = plot_bloch_sphere()
+        ax.plot_surface(res[0], res[1], res[2], rstride = 1, cstride = 1, color = 'm', alpha = 0.2, linewidth = 0)
+        plt.title(T)
+
+    plt.figure()
+    n = len(channels)
+    for k in range(n):
+        plt.subplot(2, int(ceil(n/2)), k+1)
+        present(S, channels[k], titles[k])
+        plt.show()
+    return
 
 
 
@@ -916,11 +1038,11 @@ def tour():
     title('Phase estimation, random state')
     pause()
 
-    #nmr_sequences
-    #pause()
+    nmr_sequences()
+    pause()
 
-    #quantum_channels(0.3)
-    #pause()
+    quantum_channels(0.3)
+    pause()
 
     grover_search(6)
     pause()

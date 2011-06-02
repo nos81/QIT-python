@@ -676,37 +676,6 @@ class state(lmap):
             return out
 
 
-    def seq_propagate(self, seq, out_func=lambda x: x):
-        """Propagate the state in time using a control sequence.
-    
-        If no output function is given, we use an identity map.
-
-        Ville Bergholm 2009-2010
-        """
-        base_dt = 0.1
-        n = len(seq) # number of pulses
-        t = [0]  # initial time
-        out = [out_func(self)]  # initial state
-
-        # loop over the sequence
-        for k in range(n):
-            # TODO qudits, gellmann basis
-            H = 0.5 * (sx * seq[k, 0] +sy * seq[k, 1] +sz * seq[k, 2])
-            T = seq[k, -1]  # pulse duration
-    
-            n_steps = np.ceil(T / base_dt)
-            dt = T / n_steps
-
-            U = expm(-1j * H * dt)
-            for j in range(n_steps):
-                s = s.u_propagate(U)
-                out.append(out_func(s))
-
-            temp = t[-1]
-            t.append(list(linspace(temp+dt, temp+T, n_steps)))
-        return out, t
-
-
     def kraus_propagate(self, E):
         """Apply a quantum operation to the state.
 
@@ -731,9 +700,9 @@ class state(lmap):
                 return self.u_propagate(E[0]) # remains a pure state
 
         s = self.to_op()
-        q = 0
+        q = state(zeros(s.data.shape), s.dims())
         for k in E:
-            q += u_propagate(s, k)
+            q += s.u_propagate(k)
         return q
 
 

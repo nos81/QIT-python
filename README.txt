@@ -1,6 +1,6 @@
 README file for the Python Quantum Information Toolkit
 Version 0.9.10 (beta)
-Released 2011-05-??
+Released 2011-06-??
 
 
 
@@ -11,10 +11,14 @@ Python 2.6 package for various quantum information and computing
 -related purposes, distributed under GPL.
 
 It is a sister project of the MATLAB Quantum Information Toolkit
-and has equivalent functionality. PyQIT uses the PyLab suite (which
-consists of the IPython interactive shell, the NumPy and SciPy
-scientific computing packages, and the Matplotlib data plotting
-package).
+and has equivalent functionality. PyQIT requires the following
+Python libraries:
+
+  * NumPy       1.3.0+  (TODO 1.6.0+)
+  * SciPy       0.7.2+
+  * Matplotlib  0.99.3+ (TODO 1.0.0+)
+
+For interactive use the IPython interactive shell is recommended.
 
 The latest version can be downloaded from the project website,
 

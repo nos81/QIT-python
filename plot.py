@@ -5,12 +5,23 @@
 from __future__ import print_function, division
 
 import numpy as np
-from numpy import array, mat, zeros, ones, eye, prod, sqrt, exp, tanh, dot, sort, diag, trace, kron, pi, r_, c_
+from numpy import array, zeros, ones, sin, cos, tanh, dot, sort, pi, r_, c_, linspace, outer
 from numpy.linalg import eigvals
 import matplotlib.pyplot as plt
 
 from state import *
 
+
+
+
+def sphere(N=15):
+    """X, Y, Z coordinate meshes for a unit sphere."""
+    theta = linspace(0, pi, N)
+    phi = linspace(0, 2*pi, 2*N)
+    X = outer(sin(theta), cos(phi))
+    Y = outer(sin(theta), sin(phi))
+    Z = outer(cos(theta), ones(phi.shape))
+    return X, Y, Z
 
 
 def plot_adiabatic_evolution(t, st, H_func, n=4):
@@ -86,27 +97,32 @@ def plot_bloch_sphere(s=None):
     Ville Bergholm  2005-2010
     James Whitfield 2010
     """
-    X,Y,Z = sphere(40)
+    from mpl_toolkits.mplot3d import Axes3D
 
-    hold('off')
-    h = surf(X,Y,Z, 2*ones(41,41))
-    hold(on)
-    shading('flat')
-    alpha(0.2)
-    axis('square')
-    xlabel('x')
-    ylabel('y')
-    zlabel('z')
-    plot3(0,0,1,'r.')
-    plot3(0,0,-1,'b.')
+    fig = plt.gcf()
+    ax = Axes3D(fig)
+    #TODO ax = fig.add_subplot(111, projection='3d')
+    plt.hold(True)
+    X, Y, Z = sphere()
+    ax.plot_surface(X, Y, Z, rstride = 1, cstride = 1, color = 'g', alpha = 0.2, linewidth = 0) #cmap = xxx
+    ax.axis('equal')
+    ax.scatter(zeros(2), zeros(2), [1, -1], c = ['r', 'b'], marker = 'o')  # poles
+    # TODO ax.scatter(*coord_array, c = ['r', 'b'], marker = 'o')  # poles
+    # labels
+    ax.text(0, 0,  1.1, '$|0\\rangle$')
+    ax.text(0, 0, -1.3, '$|1\\rangle$')
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_zlabel('z')
 
-    text(0, 0,  1.2, '$|0\rangle$')
-    text(0, 0, -1.2, '$|1\rangle$')
-
+    # plot a given state as well?
     if s != None:
         v = s.bloch_vector()
-        quiver3(0, 0, 0, v(1), v(2), v(3), 0)
-    return h
+        ax.scatter(array([v[1]]), [v[2]], [v[3]], c = 'k', marker = 'x')
+
+    plt.show()
+    return ax
+
 
 
 def plot_pcolor(W, a, b, clim=(0, 1)):
@@ -175,7 +191,7 @@ def asongoficeandfire(n=127):
     from matplotlib import colors
     # exponent
     d = 3.1
-    p = np.linspace(-1, 1, n)
+    p = linspace(-1, 1, n)
     # negative values: reds
     x = p[p < 0]
     c = c_[1 -((1+x) ** d), 0.5*(tanh(4*(-x -0.5)) + 1), (-x) ** d]

@@ -311,14 +311,16 @@ class lmap(object):
         """In-place addition of lmaps."""
         if not self.is_compatible(t):
             raise ValueError('The lmaps are not compatible.')
-        s.data += t.data
+        self.data += t.data
+        return self
 
 
     def __isub__(self, t):
         """In-place subtraction of lmaps."""
         if not self.is_compatible(t):
             raise ValueError('The lmaps are not compatible.')
-        s.data -= t.data
+        self.data -= t.data
+        return self
 
 
     def norm(self):
