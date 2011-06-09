@@ -55,7 +55,7 @@ def bb1(theta, phi=0, location=0.5):
 def corpse(theta, phi=0):
     """Sequence for fixing off-resonance (\sigma_z bias) errors.
 
-    Returns the CORPSE control sequence s for fixing off-resonance
+    Returns the CORPSE control sequence for fixing off-resonance
     errors, i.e. ones arising from a constant but unknown
     \sigma_z bias in the Hamiltonian.
 

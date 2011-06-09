@@ -6,7 +6,7 @@ from __future__ import print_function, division
 from copy import deepcopy
 
 import numpy as np
-from numpy import array, mat, zeros, ones, eye, prod, sqrt, exp, tanh, dot, sort, diag, trace, kron, pi, r_, c_
+from numpy import array, mat, empty, zeros, ones, eye, prod, sqrt, exp, tanh, dot, sort, diag, trace, kron, pi, r_, c_, inf, isscalar, floor, ceil, log10, vdot
 from numpy.random import rand, randn, randint
 from numpy.linalg import qr, det, eig, eigvals
 from scipy.linalg import expm, norm, svdvals
@@ -23,6 +23,28 @@ def assert_o(actual, desired, tolerance):
     if abs(actual - desired) > tolerance:
         raise AssertionError
 
+
+def copy_memoize(func):
+    """Memoization decorator for functions with immutable args, returns deep copies."""
+    cache = {}
+    def wrapper(*args):
+        """Nonsense, this is an election year."""
+        if args in cache:
+            value = cache[args]
+        else:
+            value = func(*args)
+            cache[args] = value
+
+        return deepcopy(value)
+
+    # so that the help system still works
+    wrapper.__name__ = func.__name__
+    wrapper.__doc__  = func.__doc__
+    return wrapper
+
+
+
+# math functions
 
 def gcd(a, b):
     """Greatest common divisor.
@@ -74,23 +96,146 @@ def acomm(A, B):
     return dot(A, B) + dot(B, A)
 
 
-def copy_memoize(func):
-    """Memoization decorator for functions with immutable args, returns deep copies."""
-    cache = {}
-    def wrapper(*args):
-        """Nonsense, this is an election year."""
-        if args in cache:
-            value = cache[args]
-        else:
-            value = func(*args)
-            cache[args] = value
+def expv(t, A, v, tol=1.0e-7, m=None):
+    """Multiply a vector by an exponentiated matrix.
 
-        return deepcopy(value)
+    Approximates exp(t * A) * v, efficient for large sparse matrices.
+    The Krylov subspace is constructed using Arnoldi iteration.
 
-    # so that the help system still works
-    wrapper.__name__ = func.__name__
-    wrapper.__doc__  = func.__doc__
-    return wrapper
+    Input:
+    t       vector of nondecreasing time instances >= 0
+    A       (usually sparse) n*n matrix
+    v       n-dimensional vector
+    tol     tolerance
+    m       Krylov subspace dimension, <= n
+
+    Output:
+    W       result matrix, W[i,:] \\approx exp(t[i] * A) * v, 
+    error   total truncation error estimate
+    hump    \\max_{s \\in [0, t]}  | \\exp(s A) |
+
+    Uses the sparse algorithm from
+    %! Sidje, R.B., "EXPOKIT: A Software Package for Computing Matrix Exponentials", ACM Trans. Math. Softw. 24, 130 (1998).
+
+    Ville Bergholm 2009-2011
+    """
+    n = A.shape[0]
+    if m == None:
+        m = min(n, 30)  # default Krylov space dimension
+
+    if isscalar(t):
+        tt = array([t])
+    else:
+        tt = t
+
+    a_norm = norm(A, inf)
+    v_norm = norm(v)
+
+    happy_tol  = 1.0e-7  # "happy breakdown" tolerance
+    min_error = a_norm * np.finfo(float).eps # due to roundoff
+
+    # step size control
+    max_stepsize_changes = 10
+    # safety factors
+    gamma = 0.9
+    delta = 1.2
+    # initial stepsize
+    fact = sqrt(2 * pi * (m + 1)) * ((m + 1) / exp(1)) ** (m + 1)
+
+    def ceil_at_nsd(x, n = 2):
+        temp = 10 ** (floor(log10(x))-n+1)
+        return ceil(x / temp) * temp
+
+    def update_stepsize(step, err_loc, r):
+        step *= gamma  * (tol * step / err_loc) ** (1 / r)
+        return ceil_at_nsd(step, 2)
+
+    # TODO shortcuts for Hessenberg matrix exponentiation?
+    H = zeros((m+2, m+2), complex) # upper Hessenberg matrix for the Arnoldi process + two extra rows/columns for the error estimate trick
+    H[m + 1, m] = 1
+    V = zeros((n, m+1), complex)   # orthonormal basis for the Krylov subspace
+
+    W = empty((len(tt), len(v)), complex)  # results
+    t = 0  # current time
+    beta = v_norm
+    error = 0  # error estimate
+    hump = [[v_norm, t]]
+    #v_norm_max = v_norm  # for estimating the hump
+
+    # loop over the time instances (which must be in increasing order)
+    for kk in range(len(tt)):
+        t_end = tt[kk]
+        # initial stepsize
+        # TODO we should inherit the stepsize from the previous interval
+        r = m
+        t_step = (1 / a_norm) * ((fact * tol) / (4 * beta * a_norm)) ** (1 / r)
+        t_step = ceil_at_nsd(t_step, 2)
+
+        while t < t_end:
+            t_step = min(t_end - t, t_step)  # step at most the remaining distance
+            happy = False
+
+            # Arnoldi iteration  TODO Lanczos for symmetric/Hermitian matrices...
+            V[:, 0] = (1 / beta) * v  # the first basis vector v_0 is just v, normalized
+            for j in range(1, m+1):
+                p = dot(A, V[:, j-1])  # construct the Krylov vector v_j
+                # orthogonalize it with the previous ones
+                for i in range(j):
+                    H[i, j-1] = vdot(V[:, i], p)
+                    p -= H[i, j-1] * V[:, i]
+                temp = norm(p) 
+                if temp < happy_tol: # "happy breakdown": iteration terminates, Krylov approximation is exact
+                    happy = True
+                    break
+                # store the now orthonormal basis vector
+                H[j, j-1] = temp
+                V[:, j] = (1 / temp) * p
+
+            if happy:
+                # using j Krylov basis vectors
+                t_step = t_end - t  # step all the rest of the way
+                F = expm(t_step * H[:j, :j])
+                err_loc = happy_tol
+                r = m
+            else:
+                # no happy breakdown, we need the error estimate
+                j = m + 1  # number of Krylov basis vectors to use
+                av_norm = norm(dot(A, V[:, m]))
+                # find a reasonable step size
+                for k in range(max_stepsize_changes + 1):
+                    F = expm(t_step * H)
+                    err1 = beta * abs(F[m, 0])
+                    err2 = beta * abs(F[m+1, 0]) * av_norm
+                    if err1 > 10 * err2:  # quick convergence
+                        err_loc = err2
+                        r = m 
+                    elif err1 > err2:  # slow convergence
+                        err_loc = (err2 * err1) / (err1 - err2)
+                        r = m 
+                    else:  # asymptotic convergence
+                        err_loc = err1
+                        r = m-1
+                    # should we accept the step?
+                    if err_loc <= delta * tol * t_step:
+                        break
+                    if k >= max_stepsize_changes:
+                        raise RuntimeError('Requested tolerance cannot be achieved in {0} stepsize changes.'.format(max_stepsize_changes))
+                    t_step = update_stepsize(t_step, err_loc, r)
+
+            # step accepted, update v, beta, error, hump
+            v = dot(V[:, :j], beta * F[:j, 0])
+            beta = norm(v)
+            error += max(err_loc, min_error)
+            #v_norm_max = max(v_norm_max, beta)
+
+            t += t_step
+            t_step = update_stepsize(t_step, err_loc, r)
+            hump.append([beta, t])
+
+        W[kk, :] = v
+
+    hump = array(hump) / v_norm
+    return W, error, hump
 
 
 
@@ -277,10 +422,10 @@ def superop_lindblad(A, H=0):
     # Hamiltonian
     iH = 1j * H
 
-    L = 0
-    acomm = 0
+    L = zeros(array(H.shape) ** 2, complex)
+    acomm = zeros(H.shape, complex)
     for k in A:
-        acomm += 0.5 * k.conj().transpose() * k
+        acomm += 0.5 * dot(k.conj().transpose(), k)
         L += lrmul(k, k.conj().transpose()) 
 
     L += lmul(-acomm -iH) +rmul(-acomm +iH)
@@ -460,7 +605,7 @@ def spectral_decomposition(A):
         else:
             # same eigenvalue, extend current P
             P[-1] += temp
-    return a, P
+    return array(a), P
 
 
 
@@ -687,6 +832,16 @@ def test():
     Ville Bergholm 2009-2011
     """
     dim = 5
+
+    # math funcs
+    A = randn(dim, dim) + 1j * randn(dim, dim)
+    v = randn(dim) + 1j * randn(dim)
+
+    w, err, hump = expv(1, A, v, m = dim - 2)
+    assert_o(norm(w - dot(expm(1*A), v)), 0, 1e2*tol)
+    w, err, hump = expv(1, A, v, m = dim)
+    assert_o(norm(w - dot(expm(1*A), v)), 0, 1e2*tol)
+
 
     # random matrices
     H = mat(rand_hermitian(dim))

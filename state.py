@@ -548,7 +548,7 @@ class state(lmap):
                 gen = 'A'
                 s.to_op(inplace = True)
 
-                # HACK, in this case we use ode45 anyway
+                # HACK, in this case we use an ODE solver anyway
                 if not t_dependent:
                     t_dependent = True 
                     F = lambda t: H  # ops stay constant
@@ -659,15 +659,16 @@ class state(lmap):
                         out.append(out_func(s.u_propagate(U), H))
                 else:
                     # Krylov subspace method
-                    w, err = expv(-1j * t, H, s.data)
+                    # FIXME imaginary time doesn't yet work
+                    w, err, hump = expv(-1j * t, H, s.data)
                     for k in range(n):
-                        s.data = w[:,k]  # TODO state ops
+                        s.data = w[k,:]  # TODO state ops
                         out.append(out_func(s, H))
             elif gen == 'L':
                 # Krylov subspace method
-                w, err = expv(t, H, vec(s.data))
+                w, err, hump = expv(t, H, vec(s.data))
                 for k in range(n):
-                    s.data = inv_vec(w[:,k])
+                    s.data = inv_vec(w[k,:])
                     out.append(out_func(s, H))
 
         if len(out) == 1:

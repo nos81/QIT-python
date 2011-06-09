@@ -22,6 +22,7 @@ from state import *
 from plot import *
 import gate
 import ho
+import markov
 import seq
 import examples
 
@@ -43,5 +44,5 @@ def test():
     state.test()
     gate.test()
     ho.test()
-    #markov.test_markov
+    markov.test()
     print('All tests passed.')

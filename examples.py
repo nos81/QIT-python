@@ -19,7 +19,6 @@ import gate
 import ho
 
 
-
 def adiabatic_qc_3sat(n=6, n_clauses=None, clauses=None, problem='3sat'):
     """Adiabatic quantum computing demo.
 
@@ -288,6 +287,58 @@ def grover_search(n=8):
     p, res = s.measure()
     print('\nMeasured {0}.'.format(res))
     return p
+
+
+
+def markov_decoherence(T1, T2, B=None):
+    """Markovian decoherence demo.
+
+    Given decoherence times T1 and T2, creates a markovian bath B
+    and a coupling operator D which reproduce them on a single-qubit system.
+
+    Ville Bergholm 2009-2011
+    """
+    import markov
+    print('\n\n=== Markovian decoherence in a qubit ===\n')
+
+    omega0 = 2*pi* 1e9 # Hz
+    T = 1 # K
+    delta = 3 + 3*rand() # qubit energy splitting (GHz)
+
+    # setup the bath
+    if B == None:
+        B = markov.bath('ohmic', omega0, T) # defaults
+
+    # find the correct qubit-bath coupling
+    H, D = B.fit(delta, T1*omega0, T2*omega0)
+    L = markov.superop(H, D, B)
+    t = linspace(0, 10, 200)
+
+    # T1 demo
+    eq = 1 / (1 + exp(delta * B.scale)) # equilibrium rho_11
+    s = state('1') # qubit in the |1> state
+    out = s.propagate(L, t, lambda x, h: x.ev(p1))
+    plt.figure()
+    plt.subplot(2, 1, 1)
+    plt.plot(t, out, 'r-', t, eq +(1-eq)*exp(-t/(T1*omega0)), 'b-.', [0, t[-1]], [eq, eq], 'k:', linewidth = 2)
+    plt.xlabel('$t \\omega_0$')
+    plt.ylabel('probability')
+    plt.axis([0, t[-1], 0, 1])
+    plt.title('$T_1$: relaxation')
+    plt.legend(('simulated $P_1$', '$P_{1}^{eq} +(1-P_{1}^{eq}) \\exp(-t/T_1)$'))
+
+    # T2 demo
+    s = state('0')
+    s = s.u_propagate(R_y(pi/2)) # rotate to (|0>+|1>)/sqrt(2)
+    out = s.propagate(L, t, lambda x, h: x.u_propagate(R_y(-pi/2)).ev(p0))
+    plt.subplot(2, 1, 2)
+    plt.plot(t, out, 'r-', t, 0.5*(1+exp(-t/(T2*omega0))), 'b-.', linewidth = 2)
+    plt.xlabel('$t \omega_0$')
+    plt.ylabel('probability')
+    plt.axis([0, t[-1], 0, 1])
+    plt.title('$T_2$: dephasing')
+    plt.legend(('simulated $P_0$', '$\\frac{1}{2} (1+\\exp(-t/T_2))$'))
+    return H, D, B
 
 
 
@@ -1120,8 +1171,8 @@ def tour():
     bb84(40)
     pause()
 
-    #markov_decoherence(7e-10, 1e-9)
-    #pause()
+    markov_decoherence(7e-10, 1e-9)
+    pause()
 
     qubit_and_resonator(20)
     pause()
