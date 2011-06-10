@@ -165,3 +165,24 @@ def propagate(s, seq, out_func=lambda x: x):
         temp = t[-1]
         t.extend(list(linspace(temp+dt, temp+T, n_steps)))
     return out, t
+
+
+
+def test():
+    """Test script for the control sequences module.
+
+    Ville Bergholm 2011
+    """
+    from numpy.random import rand
+    import state
+    from utils import rand_positive, assert_o
+
+    dim = 2
+    s = state.state(rand_positive(dim))
+    seq = scrofulous(pi*rand(), 2*pi*rand())
+
+    # equivalent propagations
+    s1 = s.u_propagate(seq2prop(seq))
+    out, t = propagate(s, seq)
+    s2 = out[-1]
+    assert_o((s1-s2).norm(), 0, tol)

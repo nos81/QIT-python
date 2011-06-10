@@ -1204,6 +1204,8 @@ class state(lmap):
         fig = plt.gcf()
         fig.clf() # clear the figure
 
+        # color normalization
+        nn = colors.Normalize(vmin = -1, vmax = 1, clip = True)
         def phases(A):
             """Phase normalized to (-1,1]"""
             return np.angle(A) / np.pi
@@ -1216,7 +1218,7 @@ class state(lmap):
             width = 0.8
             bars = ax.bar(range(N), s.prob(), width)
             # color bars using phase data
-            colormapper = cm.ScalarMappable(norm=colors.Normalize(vmin=-1, vmax=1, clip=True), cmap=cm.hsv)
+            colormapper = cm.ScalarMappable(norm=nn, cmap=cm.hsv)
             colormapper.set_array(c)
             for b in range(N):
                 bars[b].set_edgecolor('k')
@@ -1251,7 +1253,7 @@ class state(lmap):
 
             # now the colors
             pcol = ax.get_children()[2]  # poly3Dcollection
-            pcol.set_norm(colors.Normalize(vmin=-1, vmax=1, clip=True))
+            pcol.set_norm(nn)
             pcol.set_cmap(cm.hsv)
             pcol.set_array(kron(c.ravel(), (1,)*6))  # six faces per bar
 

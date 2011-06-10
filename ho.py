@@ -240,7 +240,7 @@ def wigner(s, alpha=None, res=(20, 20), lim=(-2, 2, -2, 2)):
 
 
 def test():
-    """Testing script for harmonic oscillator module."""
+    """Testing script for the harmonic oscillator module."""
     from numpy.random import randn
     def randc():
         """Random complex number."""

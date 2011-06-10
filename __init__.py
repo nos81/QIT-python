@@ -22,6 +22,7 @@ from state import *
 from plot import *
 import gate
 import ho
+import invariant
 import markov
 import seq
 import examples
@@ -44,5 +45,7 @@ def test():
     state.test()
     gate.test()
     ho.test()
+    invariant.test()
     markov.test()
+    seq.test()
     print('All tests passed.')
