@@ -1,19 +1,26 @@
 # -*- coding: utf-8 -*-
-"""Quantum gates and other linear maps."""
+"""Quantum gates and other linear maps.
+
+The functions in this module return by default sparse lmaps.
+The data type is float unless complex entries are actually needed.
+"""
 
 from __future__ import print_function, division
 from copy import deepcopy
 
-from numpy import prod, diag, eye, zeros, trace, exp, sqrt, mod, isscalar, kron, array, ones
+from numpy import prod, diag, eye, empty, trace, exp, sqrt, mod, isscalar, kron, array, ones
+import scipy.sparse as sparse
+
 
 from lmap import *
 from utils import qubits, op_list, assert_o, copy_memoize, gcd
-# TODO use sparse matrices
-#import scipy.sparse as sps
-# zeros => sps.xxx_matrix
-# eye => sps.eye
 
-# all gate funcs return lmaps
+
+# TODO lmap constructor, mul/add, tensor funcs must be able to handle both dense and sparse arrays.
+# reshape will cause problems!
+# TODO utils.op_list too!
+# TODO which one is faster in element assignment -style init, dok or lil?
+
 # TODO make input interface consistent, do we want arrays or lmaps?
 
 
@@ -41,7 +48,7 @@ def id(dim):
     dim is a tuple of subsystem dimensions.
     """
     if isscalar(dim): dim = (dim,)  # scalar into a tuple
-    return lmap(eye(prod(dim)), (dim, dim))
+    return lmap(sparse.identity(prod(dim)), (dim, dim))
 
 
 def mod_add(dim1, dim2, N=None):
@@ -74,7 +81,7 @@ def mod_add(dim1, dim2, N=None):
     # sequence of reversible arithmetic gates but since we don't have
     # one we might as well cheat
     dim = d1 * d2
-    U = zeros((dim, dim))
+    U = sparse.dok_matrix((dim, dim))
     for a in range(d1):
         for b in range(d2):
             y = d2*a + b
@@ -86,7 +93,7 @@ def mod_add(dim1, dim2, N=None):
             U[x, y] = 1
 
     dim = (dim1, dim2)
-    return lmap(U, (dim, dim))
+    return lmap(U.tocsr(), (dim, dim))
 
 
 def mod_inc(x, dim, N=None):
@@ -107,14 +114,14 @@ def mod_inc(x, dim, N=None):
     elif d < N:
         raise ValueError('Gate dimension must be >= N.')
 
-    U = zeros((d, d))
+    U = sparse.dok_matrix((d, d))
     for y in range(N):
         U[mod(x+y, N), y] = 1
     # U acts trivially for states >= N
     for y in range(N, d):
         U[y, y] = 1
 
-    return lmap(U, (dim, dim))
+    return lmap(U.tocsr(), (dim, dim))
 
 
 def mod_mul(x, dim, N=None):
@@ -142,14 +149,14 @@ def mod_mul(x, dim, N=None):
     # NOTE: a real quantum computer would implement this gate using a
     # sequence of reversible arithmetic gates but since we don't have
     # one we might as well cheat
-    U = zeros((d, d))
+    U = sparse.dok_matrix((d, d))
     for y in range(N):
         U[mod(x*y, N), y] = 1
     # U acts trivially for states >= N
     for y in range(N, d):
         U[y, y] = 1
 
-    return lmap(U, (dim, dim))
+    return lmap(U.tocsr(), (dim, dim))
 
 
 def phase(theta, dim=None):
@@ -166,7 +173,7 @@ def phase(theta, dim=None):
     elif prod(dim) != n:
         raise ValueError('Dimension mismatch.')
 
-    return lmap(diag(exp(1j * theta)), (dim, dim))
+    return lmap(sparse.spdiags(exp(1j * theta), 0, dim, dim, 'csr') , (dim, dim))
 
 
 @copy_memoize
@@ -175,13 +182,14 @@ def qft(dim):
 
     Returns the quantum Fourier transform gate for the specified system.
     dim is a vector of subsystem dimensions.
+    The returned lmap is dense.
 
     Ville Bergholm 2004-2010
     """
     if isscalar(dim): dim = (dim,)  # scalar into a tuple
     n = len(dim)
     N = prod(dim)
-    U = zeros((N, N), complex)
+    U = empty((N, N), complex)  # completely dense, so we don't have to initialize it with zeros
     for j in range(N):
         for k in range(N):
             U[j, k] = exp(2j * np.pi * j * k / N) / sqrt(N)
@@ -198,17 +206,18 @@ def swap(d1, d2):
     Ville Bergholm 2010
     """
     temp = d1*d2
-    U = zeros((temp, temp))
+    U = sparse.dok_matrix((temp, temp))
     for x in range(d1):
         for y in range(d2):
             U[d1*y + x, d2*x + y] = 1
-    return lmap(U, ((d2, d1), (d1, d2)))
+    return lmap(U.tocsr(), ((d2, d1), (d1, d2)))
 
 
 def walsh(n):
     """Walsh-Hadamard gate.
 
     Returns the Walsh-Hadamard gate for n qubits.
+    The returned lmap is dense.
 
     Ville Bergholm 2009-2010
     """
@@ -240,6 +249,7 @@ def controlled(U, ctrl=(1,), dim=None):
 
     Ville Bergholm 2009-2011
     """
+    # TODO generalization, uniformly controlled gates?
     if isscalar(dim): dim = (dim,)  # scalar into a tuple
     t = len(ctrl)
     if dim == None:
@@ -272,8 +282,11 @@ def controlled(U, ctrl=(1,), dim=None):
         d1 = dim + [U.shape[0]]
         d2 = dim + [U.shape[1]]
 
-    # controlled gates only make sense for square matrices...
-    out = diag(kron(no, ones(U.shape[1]))) + kron(diag(yes), U)
+    # controlled gates only make sense for square matrices U (we need an identity transformation for the 'no' cases!)
+    U_dim = U.shape[0]
+    S = U_dim * T
+
+    out = sparse.spdiags(kron(no, ones(U_dim)), 0, S, S) + sparse.kron(sparse.spdiags(yes, 0, T, T), U)
     return lmap(out, (d1, d2))
 
 
@@ -334,8 +347,8 @@ def two(B, t, d_in):
         p = [0, 2, 1]
     else:
         p = [1, 2, 0]
-    U = tensor(B, lmap(eye(inbetween))).reorder((p, p), inplace = True)
-    U = tensor(lmap(eye(before)), U, lmap(eye(after)))
+    U = tensor(B, lmap(sparse.identity(inbetween))).reorder((p, p), inplace = True)
+    U = tensor(lmap(sparse.identity(before)), U, lmap(sparse.identity(after)))
 
     # restore dimensions
     d_out = d_in.copy()
@@ -357,6 +370,7 @@ def test():
     U = swap(*dim)
     assert_o((U.ctranspose() * U - I).norm(), 0, tol)  # swap' * swap = I
 
+    # TODO test the output
     U = mod_add(2, 4, 3)
     U = mod_inc(3, dim, 5)
     V = mod_mul(2, dim, 5)
@@ -368,6 +382,3 @@ def test():
     cnot = controlled(sx)
     U = single(sy, 0, dim)
     U = two(cnot, (2,0), (2,3,2))
-
-
-    # dist, mod_add, mod_inc, mod_mul, phase, qft, walsh, controlled, single, two
