@@ -13,6 +13,17 @@ from scipy.linalg import expm, norm, svdvals
 
 from base import *
 
+__all__ = ['assert_o', 'copy_memoize', 'gcd', 'lcm', 'rank', 'projector', 'eigsort', 'comm', 'acomm', 'expv',
+           'rand_hermitian', 'rand_U', 'rand_SU', 'rand_U1', 'rand_positive',
+           'vec', 'inv_vec', 'lmul', 'rmul', 'lrmul', 'superop_lindblad',
+           'angular_momentum', 'boson_ladder', 'fermion_ladder',
+           'R_nmr', 'R_x', 'R_y', 'R_z',
+           'spectral_decomposition',
+           'gellmann', 'tensorbasis',
+           'op_list',
+           'qubits', 'majorize', 'mkron', 'test']
+
+
 # the functions in this module return ndarrays, not lmaps, for now
 
 
@@ -96,18 +107,19 @@ def acomm(A, B):
     return dot(A, B) + dot(B, A)
 
 
-def expv(t, A, v, tol=1.0e-7, m=None):
+def expv(t, A, v, tol=1.0e-7, m=None, iteration='arnoldi'):
     """Multiply a vector by an exponentiated matrix.
 
     Approximates exp(t * A) * v, efficient for large sparse matrices.
     The Krylov subspace is constructed using Arnoldi iteration.
 
     Input:
-    t       vector of nondecreasing time instances >= 0
-    A       (usually sparse) n*n matrix
-    v       n-dimensional vector
-    tol     tolerance
-    m       Krylov subspace dimension, <= n
+    t           vector of nondecreasing time instances >= 0
+    A           (usually sparse) n*n matrix
+    v           n-dimensional vector
+    tol         tolerance
+    m           Krylov subspace dimension, <= n
+    iteration   'arnoldi' or 'lanczos'. Lanczos is faster but requires a Hermitian A.
 
     Output:
     W       result matrix, W[i,:] \\approx exp(t[i] * A) * v, 
@@ -150,9 +162,10 @@ def expv(t, A, v, tol=1.0e-7, m=None):
         step *= gamma  * (tol * step / err_loc) ** (1 / r)
         return ceil_at_nsd(step, 2)
 
+    # TODO don't use complex matrices unless we have to: dtype = result_type(t, A, v)
     # TODO shortcuts for Hessenberg matrix exponentiation?
     H = zeros((m+2, m+2), complex) # upper Hessenberg matrix for the Arnoldi process + two extra rows/columns for the error estimate trick
-    H[m + 1, m] = 1
+    H[m + 1, m] = 1                # never overwritten!
     V = zeros((n, m+1), complex)   # orthonormal basis for the Krylov subspace
 
     W = empty((len(tt), len(v)), complex)  # results
@@ -161,6 +174,60 @@ def expv(t, A, v, tol=1.0e-7, m=None):
     error = 0  # error estimate
     hump = [[v_norm, t]]
     #v_norm_max = v_norm  # for estimating the hump
+
+    def iterate_lanczos(v, beta):
+        """Lanczos iteration, for Hermitian matrices.
+        Produces a tridiagonal H, cheaper than Arnoldi.
+
+        Returns the number of basis vectors generated, and a boolean indicating a happy breakdown.
+        NOTE that the we _must_not_ change global variables other than V and H here
+        """
+        # beta_0 and alpha_m are not used in H, beta_m only in a single position for error control 
+        prev = 0
+        for k in range(0, m):
+            vk = (1 / beta) * v
+            V[:, k] = vk  # store the now orthonormal basis vector
+            # construct the next Krylov vector beta_{k+1} v_{k+1}
+            v = dot(A, vk)
+            H[k, k] = alpha = vdot(vk, v)
+            v += -alpha * vk -beta * prev
+            # beta_{k+1}
+            beta = norm(v)
+            if beta < happy_tol: # "happy breakdown": iteration terminates, Krylov approximation is exact
+                return k+1, True
+            if k == m-1:
+                # v_m and one beta_m for error control (alpha_m not used)
+                H[m, m-1] = beta
+                V[:, m] = (1 / beta) * v
+            else:
+                H[k+1, k] = H[k, k+1] = beta
+                prev = vk
+        return m+1, False
+
+    def iterate_arnoldi(v, beta):
+        """Arnoldi iteration, for generic matrices.
+        Produces a Hessenberg-form H.
+        """
+        V[:, 0] = (1 / beta) * v  # the first basis vector v_0 is just v, normalized
+        for j in range(1, m+1):
+            p = dot(A, V[:, j-1])  # construct the Krylov vector v_j
+            # orthogonalize it with the previous ones
+            for i in range(j):
+                H[i, j-1] = vdot(V[:, i], p)
+                p -= H[i, j-1] * V[:, i]
+            temp = norm(p) 
+            if temp < happy_tol: # "happy breakdown": iteration terminates, Krylov approximation is exact
+                return j, True
+            # store the now orthonormal basis vector
+            H[j, j-1] = temp
+            V[:, j] = (1 / temp) * p
+        return m+1, False
+
+    # choose iteration type
+    if str.lower(iteration) == 'lanczos':
+        iteration = iterate_lanczos  # only works for Hermitian matrices!
+    else:
+        iteration = iterate_arnoldi
 
     # loop over the time instances (which must be in increasing order)
     for kk in range(len(tt)):
@@ -173,33 +240,19 @@ def expv(t, A, v, tol=1.0e-7, m=None):
 
         while t < t_end:
             t_step = min(t_end - t, t_step)  # step at most the remaining distance
-            happy = False
 
-            # Arnoldi iteration  TODO Lanczos for symmetric/Hermitian matrices...
-            V[:, 0] = (1 / beta) * v  # the first basis vector v_0 is just v, normalized
-            for j in range(1, m+1):
-                p = dot(A, V[:, j-1])  # construct the Krylov vector v_j
-                # orthogonalize it with the previous ones
-                for i in range(j):
-                    H[i, j-1] = vdot(V[:, i], p)
-                    p -= H[i, j-1] * V[:, i]
-                temp = norm(p) 
-                if temp < happy_tol: # "happy breakdown": iteration terminates, Krylov approximation is exact
-                    happy = True
-                    break
-                # store the now orthonormal basis vector
-                H[j, j-1] = temp
-                V[:, j] = (1 / temp) * p
-
+            # Arnoldi/Lanczos iteration, (re)builds H and V
+            j, happy = iteration(v, beta)
+            FIXME # lanczos should not work with nonhermitian matrices!
+            # error control
             if happy:
-                # using j Krylov basis vectors
+                # "happy breakdown", using j Krylov basis vectors
                 t_step = t_end - t  # step all the rest of the way
                 F = expm(t_step * H[:j, :j])
                 err_loc = happy_tol
                 r = m
             else:
-                # no happy breakdown, we need the error estimate
-                j = m + 1  # number of Krylov basis vectors to use
+                # no happy breakdown, we need the error estimate (using all m+1 vectors)
                 av_norm = norm(dot(A, V[:, m]))
                 # find a reasonable step size
                 for k in range(max_stepsize_changes + 1):
@@ -259,9 +312,10 @@ def rand_U(n):
     Returns a random unitary n*n matrix.
     The matrix is random with respect to the Haar measure.
 
-    %! F. Mezzadri, "How to generate random matrices from the classical compact groups", Notices of the AMS 54, 592 (2007). arXiv.org:math-ph/0609050
-    Ville Bergholm 2005-2009
+    .. [sdfs] F. Mezzadri, "How to generate random matrices from the classical compact groups", Notices of the AMS 54, 592 (2007). arXiv.org:math-ph/0609050
     """
+    # Ville Bergholm 2005-2009
+
     # sample the Ginibre ensemble, p(Z(i,j)) == 1/pi * exp(-abs(Z(i,j))^2),
     # p(Z) == 1/pi^(n^2) * exp(-trace(Z'*Z))
     Z = (randn(n,n) + 1j*randn(n,n)) / sqrt(2)
@@ -312,7 +366,7 @@ def rand_positive(n):
     Ville Bergholm 2008-2009
     """
     p = sort(rand(n-1))  # n-1 points in [0,1]
-    d = sort(np.r_[p, 1] - np.r_[0, p])  # n deltas between points = partition of unity
+    d = sort(r_[p, 1] - r_[0, p])  # n deltas between points = partition of unity
 
     U = mat(rand_U(n)) # random unitary
     A = U.H * diag(d) * U
@@ -354,7 +408,7 @@ def inv_vec(v, dim=None):
     if dim == None:
         # assume a square matrix
         n = sqrt(d)
-        if np.floor(n) != n:
+        if floor(n) != n:
             raise ValueError('Length of vector v is not a squared integer.')
         dim = (n, n)
     else:
@@ -398,14 +452,14 @@ def lrmul(L, R):
 
     L*rho*R == inv_vec(lrmul(L, R)*vec(rho))
 
-    Ville Bergholm 2009-2010
+    Ville Bergholm 2009-2011
     """
     # L and R fix the shape of rho completely
     return kron(R.transpose(), L)
 
 
 def superop_lindblad(A, H=0):
-    """Liouvillian superoperator for a set of Lindblad operators.
+    r"""Liouvillian superoperator for a set of Lindblad operators.
 
     A is a vector of traceless, orthogonal Lindblad operators.
     H is an optional Hamiltonian operator.
@@ -413,8 +467,7 @@ def superop_lindblad(A, H=0):
     Returns the Liouvillian superoperator L corresponding to the
     diagonal-form Lindblad equation
 
-      \dot{\rho} = inv_vec(L * vec(\rho)) =
-      = -i [H, \rho] +\sum_k (A_k \rho A_k^\dagger -0.5*\{A_k^\dagger A_k, \rho\})
+    .. math:: \dot{\rho} = inv_vec(L * vec(\rho)) = -i [H, \rho] +\sum_k (A_k \rho A_k^\dagger -0.5*\{A_k^\dagger A_k, \rho\})
 
     James D. Whitfield 2009
     Ville Bergholm 2009-2010
@@ -525,7 +578,7 @@ def fermion_ladder(grouping):
     s = array([[0, 1], [0, 0]]) # single annihilation op
 
     # empty array for the annihilation operators
-    f = np.empty(grouping, object)
+    f = empty(grouping, object)
     # annihilation operators for a set of fermions (Jordan-Wigner transform)
     for k in range(n):
         f.flat[k] = ((-1) ** array(phi[k])) * mkron(eye(2 ** k), s, eye(2 ** (n-k-1)))
@@ -831,7 +884,7 @@ def test():
 
     Ville Bergholm 2009-2011
     """
-    dim = 5
+    dim = 6
 
     # math funcs
     A = randn(dim, dim) + 1j * randn(dim, dim)
@@ -842,6 +895,12 @@ def test():
     w, err, hump = expv(1, A, v, m = dim)
     assert_o(norm(w - dot(expm(1*A), v)), 0, 1e2*tol)
 
+    #A = rand_hermitian(dim)
+    w, err, hump = expv(1, A, v, m = dim - 2, iteration = 'lanczos')
+    assert_o(norm(w - dot(expm(1*A), v)), 0, 1e2*tol)
+    w, err, hump = expv(1, A, v, m = dim, iteration = 'lanczos')
+    assert_o(norm(w - dot(expm(1*A), v)), 0, 1e2*tol)
+    return
 
     # random matrices
     H = mat(rand_hermitian(dim))
