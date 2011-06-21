@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 # Author: Ville Bergholm 2011
-"""Basic definitions module."""
-
+"""Basic definitions."""
 
 from numpy import array, eye, sqrt, finfo
+
+__all__ = ['I', 'sx', 'sy', 'sz', 'p0', 'p1', 'H',
+           'Q_Bell', 'tol']
 
 
 # Pauli matrices

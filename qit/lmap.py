@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # Author: Ville Bergholm 2011
-"""Multilinear maps module. Serves as a basis for state."""
-
+"""Bounded linear maps.""" 
 
 from __future__ import print_function, division
 import sys
@@ -10,6 +9,8 @@ from copy import copy, deepcopy
 import numpy as np
 
 from base import tol
+
+__all__ = ['numstr_to_array', 'array_to_numstr', 'lmap', 'tensor']
 
 
 
@@ -36,10 +37,10 @@ class lmap(object):
     Variables:
     data:  ndarray of tensor data
     dim:   tuple of input and output dimension tuples, big-endian: ((out), (in))
+
+    Base class of state.
     """
 
-# TODO copy constructor, with or without dim change
-# TODO make the data members "read-only":  @property def data(self): return self._data
 # TODO def __format__(self, format_spec)
 # TODO linalg efficiency: copy vs. view
 # TODO sparse matrices?
@@ -387,9 +388,8 @@ class lmap(object):
     @staticmethod
     def test():
         """Test script for the lmap module.
-
-        Ville Bergholm 2009-2011
         """
+        # Ville Bergholm 2009-2011
         from numpy.testing import assert_almost_equal
         from numpy.random import rand, randn
 

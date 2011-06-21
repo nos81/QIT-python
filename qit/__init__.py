@@ -10,7 +10,6 @@ Ville Bergholm 2011
 
 from __future__ import print_function, division
 
-#import numpy as np
 import scipy as sp
 import scipy.constants as const
 import matplotlib.pyplot as plt

@@ -1,24 +1,26 @@
-README file for the Python Quantum Information Toolkit
+##################################
+Python Quantum Information Toolkit
+##################################
+
 Version 0.9.10 (beta)
 Released 2011-06-??
 
 
-
-=== Introduction ===
+Introduction
+============
 
 Python Quantum Information Toolkit (PyQIT) is a free, open source
 Python 2.6 package for various quantum information and computing
 -related purposes, distributed under GPL.
-
 It is a sister project of the MATLAB Quantum Information Toolkit
 and has equivalent functionality. PyQIT requires the following
 Python libraries:
 
-  * NumPy       1.3.0+  (TODO 1.6.0+)
-  * SciPy       0.7.2+
-  * Matplotlib  0.99.3+ (TODO 1.0.0+)
+* NumPy       1.3.0+  (TODO 1.6.0+)
+* SciPy       0.7.2+
+* Matplotlib  0.99.3+ (TODO 1.0.0+)
 
-For interactive use the IPython interactive shell is recommended.
+For interactive use the `IPython <http://ipython.scipy.org/>` interactive shell is recommended.
 
 The latest version can be downloaded from the project website,
 
@@ -39,7 +41,8 @@ run examples.tour()
 
 
 
-=== License ===
+License
+=======
 
 QIT is released under the GNU General Public License version 3.
 This basically means that you can freely use, share and modify it as
@@ -48,7 +51,8 @@ change the terms of the license. See LICENSE.txt for the details.
 
 
 
-=== Design notes ===
+Design notes
+============
 
 The main design goals for this toolkit are ease of use and
 comprehensiveness. It is primarily meant to be used as a tool for
@@ -61,7 +65,8 @@ or become a contributor yourself!
 
 
 
-=== Bibliography ===
+Bibliography
+============
 
 Some of the source files have literature references relevant to the
 algorithms or concepts used. Each reference is on its own line starting
@@ -70,7 +75,8 @@ in the toolkit using the shell command "grep '%!' *.py".
 
 
 
-=== Contributing ===
+Contributing
+============
 
 QIT is an open source project and your contributions are welcome.
 To keep the code readable and maintainable, we ask you to follow these
@@ -90,8 +96,9 @@ coding guidelines:
 
 
 
-=== Authors ===
+Authors
+=======
 
-Ville Bergholm                2008-2011
-Jacob D. Biamonte             2008-2009
-James D. Whitfield	      2009-2010
+* Ville Bergholm          2008-2011
+* Jacob D. Biamonte       2008-2009
+* James D. Whitfield      2009-2010

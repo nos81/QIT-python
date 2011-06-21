@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Author: Ville Bergholm 2011
-"""Quantum states module."""
+"""Quantum states."""
 
 from __future__ import print_function, division
 import collections
@@ -12,9 +12,11 @@ import scipy as sp  # scipy imports numpy automatically
 from scipy.linalg import norm
 from scipy.integrate import ode
 
-
 from lmap import *
 from utils import *
+
+__all__ = ['equal_dims', 'index_muls', 'state', 'fidelity', 'trace_dist']
+
 
 
 def warn(s):
@@ -29,6 +31,8 @@ def equal_dims(s, t):
 
 def index_muls(dim):
     """Index multipliers for C-ordered data"""
+    # TODO with numpy 1.6:
+    # ind = ravel_multi_index(s, dim) == dot(index_muls(dim), s)
     if len(dim) == 0:
         return array(())
     muls = roll(cumprod(dim[::-1]), 1)[::-1]

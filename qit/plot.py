@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Author: Ville Bergholm 2011
-"""Plots module."""
+"""Plots."""
 
 from __future__ import print_function, division
 
@@ -11,7 +11,8 @@ import matplotlib.pyplot as plt
 
 from state import *
 
-
+__all__ = ['plot_adiabatic_evolution', 'plot_bloch_sphere', 'plot_pcolor',
+           'asongoficeandfire', 'sphere']
 
 
 def sphere(N=15):
@@ -150,7 +151,7 @@ def plot_pcolor(W, a, b, clim=(0, 1)):
 
 
 def makemovie(filename, frameset, plot_func, *arg):
-    """Create an AVI movie.
+    """Create an AVI movie. FIXME
     aviobj = makemovie(filename, frameset, plot_func [, ...])
 
     Creates an AVI movie file named 'filename.avi' in the current directory.
