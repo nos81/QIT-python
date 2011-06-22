@@ -1,6 +1,6 @@
-##################################
+==================================
 Python Quantum Information Toolkit
-##################################
+==================================
 
 Version 0.9.10 (beta)
 Released 2011-06-??
@@ -16,11 +16,11 @@ It is a sister project of the MATLAB Quantum Information Toolkit
 and has equivalent functionality. PyQIT requires the following
 Python libraries:
 
-* NumPy       1.3.0+  (TODO 1.6.0+)
-* SciPy       0.7.2+
-* Matplotlib  0.99.3+ (TODO 1.0.0+)
+* `NumPy <http://scipy.org/>`_  1.3.0+  (TODO 1.6.0+)
+* `SciPy <http://scipy.org/>`_  0.7.2+
+* `Matplotlib <http://matplotlib.sourceforge.net/>`_  0.99.3+ (TODO 1.0.0+)
 
-For interactive use the `IPython <http://ipython.scipy.org/>` interactive shell is recommended.
+For interactive use the `IPython <http://ipython.scipy.org/>`_ interactive shell is recommended.
 
 The latest version can be downloaded from the project website,
 
@@ -28,11 +28,11 @@ The latest version can be downloaded from the project website,
 
 The toolkit is installed by simply unzipping it, or downloading it
 directly from the SVN server. For an interactive session, start
-IPython with
+IPython with ::
 
   ipython -pylab
 
-and then import the toolkit using
+and then import the toolkit using ::
 
   from qit import *
 
@@ -69,9 +69,12 @@ Bibliography
 ============
 
 Some of the source files have literature references relevant to the
-algorithms or concepts used. Each reference is on its own line starting
-with the characters "%!". One can compile a list of all the references
-in the toolkit using the shell command "grep '%!' *.py".
+algorithms or concepts used. These references use the reStructuredText
+citation syntax. Each reference is on its own line and starts with the
+characters ".. [". One can compile a list of all the references in the
+toolkit using the shell command ::
+
+  grep '\.\. \[' *.py
 
 
 
