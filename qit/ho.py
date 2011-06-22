@@ -1,28 +1,29 @@
 # -*- coding: utf-8 -*-
 # Author: Ville Bergholm 2011
-"""Harmonic oscillator module."""
+"""Harmonic oscillators."""
 
 from __future__ import print_function, division
 
-from numpy import array, mat, arange, sqrt, zeros, ones, prod, sqrt, pi, isscalar, linspace, newaxis
+from numpy import array, mat, arange, diag, sqrt, zeros, ones, prod, sqrt, pi, isscalar, linspace, newaxis
 from scipy import factorial
 from scipy.linalg import expm, norm
 
+from base import tol
 from state import *
-from utils import boson_ladder
+from utils import boson_ladder, comm
 
 
 # default truncation limit for number states
 default_n = 30
 
 def coherent_state(alpha, n=default_n):
-    """Coherent states of a harmonic oscillator.
+    r"""Coherent states of a harmonic oscillator.
 
     Returns the n-dimensional approximation to the
-    coherent state \ket{\alpha} in the number basis.
-
-    Ville Bergholm 2010
+    coherent state :math:`|\alpha\rangle` in the number basis.
     """
+    # Ville Bergholm 2010
+
     k = arange(n)
     ket = (alpha ** k) / sqrt(factorial(k))
     return state(ket, n).normalize()
@@ -32,13 +33,14 @@ def coherent_state(alpha, n=default_n):
 
 
 def displace(alpha, n=default_n):
-    """Bosonic displacement operator.
+    r"""Bosonic displacement operator.
 
     Returns the n-dimensional approximation for the bosonic
-    displacement operator D(alpha) in the number basis {|0>, |1>, ..., |n-1>}.
-
-    Ville Bergholm 2010
+    displacement operator :math:`D(\alpha)` in the number basis
+    :math:`\{|0\rangle, |1\rangle, ..., |n-1\rangle\}`.
     """
+    # Ville Bergholm 2010
+
     if not isscalar(alpha):
         raise TypeError('alpha must be a scalar.')
 
@@ -47,13 +49,13 @@ def displace(alpha, n=default_n):
 
 
 def squeeze(z, n=default_n):
-    """Bosonic squeezing operator.
+    r"""Bosonic squeezing operator.
 
     Returns the n-dimensional approximation for the bosonic
-    squeezing operator S(z) in the number basis {|0>, |1>, ..., |n-1>}.
-
-    Ville Bergholm 2010
+    squeezing operator S(z) in the number basis
+    :math:`\{|0\rangle, |1\rangle, ..., |n-1\rangle\}`.
     """
+    # Ville Bergholm 2010
     if not isscalar(z):
         raise TypeError('z must be a scalar.')
 
@@ -62,22 +64,27 @@ def squeeze(z, n=default_n):
 
 
 def position(n=default_n):
-    """Position operator.
+    r"""Position operator.
 
     Returns the n-dimensional approximation of the
     dimensionless position operator Q in the number basis.
 
-    Q = \sqrt{\frac{m \omega}{\hbar}}   q =    (a+a')/sqrt(2)
-    P = \sqrt{\frac{1}{m \hbar \omega}} p = -i*(a-a')/sqrt(2)
+    .. math::
 
-    [q, p] = i \hbar,  [Q, P] = i
+       Q &= \sqrt{\frac{m \omega}{\hbar}}   q =    (a+a^\dagger) / \sqrt{2},\\
+       P &= \sqrt{\frac{1}{m \hbar \omega}} p = -i (a-a^\dagger) / \sqrt{2}.
 
-    H = \frac{p^2}{2m} +\frac{1}{2} m \omega^2 q^2
-      = 0.5 \hbar \omega (P^2 +Q^2)
-      = \hbar \omega (a'*a +\frac{1}{2})
+    These fulfill :math:`[q, p] = i \hbar, \quad  [Q, P] = i`.
+    The Hamiltonian of the harmonic oscillator is
 
-    Ville Bergholm 2010
+    .. math::
+
+       H = \frac{p^2}{2m} +\frac{1}{2} m \omega^2 q^2
+         = \frac{1}{2} \hbar \omega (P^2 +Q^2)
+         = \hbar \omega (a^\dagger a +\frac{1}{2}).
     """
+    # Ville Bergholm 2010
+
     a = mat(boson_ladder(n))
     return array(a + a.H) / sqrt(2)
 
@@ -88,35 +95,31 @@ def momentum(n=default_n):
     Returns the n-dimensional approximation of the
     dimensionless momentum operator P in the number basis.
 
-    Q = \sqrt{\frac{m \omega}{\hbar}}   q =    (a+a')/sqrt(2)
-    P = \sqrt{\frac{1}{m \hbar \omega}} p = -i*(a-a')/sqrt(2)
-
-    [q, p] = i \hbar,  [Q, P] = i
-
-    H = \frac{p^2}{2m} +\frac{1}{2} m \omega^2 q^2
-      = 0.5 \hbar \omega (P^2 +Q^2)
-      = \hbar \omega (a'*a +\frac{1}{2})
-
-    Ville Bergholm 2010
+    See :func:`position`.
     """
+    # Ville Bergholm 2010
+
     a = mat(boson_ladder(n))
     return -1j*array(a - a.H) / sqrt(2)
 
 
 def position_state(q, n=default_n):
-    """Position eigenstates of a harmonic oscillator.
+    r"""Position eigenstates of a harmonic oscillator.
 
-    Returns the n-dimensional approximation of the eigenstate |q>
+    Returns the n-dimensional approximation of the eigenstate :math:`|q\rangle`
     of the dimensionless position operator Q in the number basis.
 
-    See position, momentum.
+    See :func:`position`, :func:`momentum`.
 
     Difference equation:
-      r_1 = \sqrt{2} q r_0
-      \sqrt{k+1} r_{k+1} = \sqrt{2} q r_k -\sqrt{k} r_{k-1}, when k >= 1
 
-    Ville Bergholm 2010
+    .. math::
+
+       r_1 &= \sqrt{2} q r_0,\\
+       \sqrt{k+1} r_{k+1} &= \sqrt{2} q r_k -\sqrt{k} r_{k-1}, \qquad \text{when} \quad k >= 1.
     """
+    # Ville Bergholm 2010
+
     ket = zeros(n, dtype=complex)
     temp = sqrt(2) * q
     ket[0] = 1  # arbitrary nonzero initial value r_0
@@ -128,19 +131,22 @@ def position_state(q, n=default_n):
 
 
 def momentum_state(p, n=default_n):
-    """Momentum eigenstates of a harmonic oscillator.
+    r"""Momentum eigenstates of a harmonic oscillator.
 
-    Returns the n-dimensional approximation of the eigenstate |p>
+    Returns the n-dimensional approximation of the eigenstate :math:`|p\rangle`
     of the dimensionless momentum operator P in the number basis.
 
-    See position, momentum.
+    See :func:`position`, :func:`momentum`.
 
     Difference equation:
-      r_1 = i \sqrt{2} p r_0
-      \sqrt{k+1} r_{k+1} = i \sqrt{2} p r_k +\sqrt{k} r_{k-1}, when k >= 1
 
-    Ville Bergholm 2010
+    .. math::
+
+       r_1 &= i \sqrt{2} p r_0,\\
+       \sqrt{k+1} r_{k+1} &= i \sqrt{2} p r_k +\sqrt{k} r_{k-1}, \qquad \text{when} \quad k >= 1.
     """
+    # Ville Bergholm 2010
+
     ket = zeros(n, dtype=complex)
     temp = 1j * sqrt(2) * p
     ket[0] = 1  # arbitrary nonzero initial value r_0
@@ -152,23 +158,24 @@ def momentum_state(p, n=default_n):
 
 
 def husimi(s, alpha=None, z=0, res=(40, 40), lim=(-2, 2, -2, 2)):
-    """Husimi probability distribution.
-    H = husimi(s, alpha)
-    [H, a, b] = husimi(s, res=xxx, lim=yyy)
+    r"""Husimi probability distribution.
+    H = husimi(s, alpha[, z=])
+    [H, a, b] = husimi(s, res=xxx, lim=yyy[, z=])
 
     Returns the Husimi probability distribution
-    H(Im \alpha, Re \alpha) corresponding to the harmonic
-    oscillator state s given in the number basis.
+    :math:`H(\mathrm{Im} \alpha, \mathrm{Re} \alpha)` corresponding to the harmonic
+    oscillator state s given in the number basis:
+
+    .. math::
+
+       H(s, \alpha, z) = \frac{1}{\pi} \langle\alpha, z| \rho_s |\alpha, z\rangle
 
     z is the optional squeezing parameter for the reference state:
-      |\alpha, z> = D(\alpha) S(z) |0>
-
-    H(s, \alpha, z) =  1/\pi <\alpha, z| \rho_s |\alpha, z>
-
+    :math:`|\alpha, z\rangle := D(\alpha) S(z) |0\rangle`.
     The integral of H is normalized to unity.
-
-    Ville Bergholm 2010
     """
+    # Ville Bergholm 2010
+
     if alpha == None:
         # return a 2D grid of W values
         a = linspace(lim[0], lim[1], res[0])
@@ -195,12 +202,12 @@ def husimi(s, alpha=None, z=0, res=(40, 40), lim=(-2, 2, -2, 2)):
 
 
 def wigner(s, alpha=None, res=(20, 20), lim=(-2, 2, -2, 2)):
-    """Wigner quasi-probability distribution.
+    r"""Wigner quasi-probability distribution.
     W = wigner(s, alpha)
     W, a, b = wigner(s, res=xxx, lim=yyy)
 
     Returns the Wigner quasi-probability distribution
-    W(Im \alpha, Re \alpha) corresponding to the harmonic
+    :math:`W(Im \alpha, Re \alpha)` corresponding to the harmonic
     oscillator state s given in the number basis.
 
     For a normalized state, the integral of W is normalized to unity.
@@ -208,9 +215,9 @@ def wigner(s, alpha=None, res=(20, 20), lim=(-2, 2, -2, 2)):
     NOTE: The truncation of the number state space to a finite dimension
     results in spurious circular ripples in the Wigner function outside
     a given radius. To increase the accuracy, increase the state space dimension.
-
-    Ville Bergholm 2010
     """
+    # Ville Bergholm 2010
+
     # B = np.broadcast(s, alpha) , (st,a) = B.next() TODO
     if alpha == None:
         # return a grid of W values for a grid of alphas
@@ -242,6 +249,8 @@ def wigner(s, alpha=None, res=(20, 20), lim=(-2, 2, -2, 2)):
 def test():
     """Testing script for the harmonic oscillator module."""
     from numpy.random import randn
+    from utils import assert_o
+
     def randc():
         """Random complex number."""
         return randn() + 1j*randn()
@@ -270,4 +279,4 @@ def test():
     temp = ones(default_n);  temp[-1] = -default_n+1 # truncation...
     assert_o(norm(comm(Q,P) - 1j * diag(temp)), 0, tol) # [Q, P] = i
 
-    assert_o(norm(mat(P)**2 +mat(Q)**2 - 2 * a.H * a -diag(temp)), 0, tol)  # P^2 +Q^2 = 2a' * a + 1
+    assert_o(norm(mat(P)**2 +mat(Q)**2 - 2 * a.H * a -diag(temp)), 0, tol)  # P^2 +Q^2 = 2a^\dagger * a + 1

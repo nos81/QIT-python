@@ -39,10 +39,12 @@ def test():
     
     Ville Bergholm 2009-2011
     """
+    import utils
+
     lmap.test()
-    utils.test()
+    #utils.test()
     state.test()
-    gate.test()
+    #gate.test()
     ho.test()
     invariant.test()
     markov.test()

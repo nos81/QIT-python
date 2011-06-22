@@ -13,7 +13,8 @@ Contents:
 
    lmap
    utils
-
+   gate
+   ho
 
 .. include:: ../README.txt
    :start-line: 6

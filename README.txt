@@ -70,7 +70,7 @@ Bibliography
 
 Some of the source files have literature references relevant to the
 algorithms or concepts used. These references use the reStructuredText
-citation syntax. Each reference is on its own line and starts with the
+citation syntax: each reference is on its own line and starts with the
 characters ".. [". One can compile a list of all the references in the
 toolkit using the shell command ::
 
@@ -86,10 +86,12 @@ To keep the code readable and maintainable, we ask you to follow these
 coding guidelines:
 
 * Fully document all the modules, classes and functions using docstrings
-  (purpose, calling syntax, output, approximations used, assumptions made...)
+  (purpose, calling syntax, output, approximations used, assumptions made...).
+  The docstrings may contain reStructuredText markup for math,
+  citations etc.
+* Add relevant literature references using the reST syntax.
 * Instead of using multiple similar functions, use a single function
   performing multiple related tasks, see e.g. state.state.__init__
-* Add relevant literature references using the %! syntax.
 * Raise an exception on invalid input.
 * Use variables sparingly, give them descriptive (but short) names.
 * Use brief comments to explain the logic of your code.

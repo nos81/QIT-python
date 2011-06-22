@@ -6,12 +6,16 @@ from __future__ import print_function, division
 import collections
 import numbers
 import types
+from copy import deepcopy
 
+import numpy as np
 from numpy import array, asarray, sort, prod, cumsum, cumprod, sqrt, trace, dot, vdot, roll, zeros, ones, r_, kron, isscalar, nonzero, ix_, linspace, meshgrid
-import scipy as sp  # scipy imports numpy automatically
+from numpy.random import rand, randn
+import scipy as sp
 from scipy.linalg import norm
 from scipy.integrate import ode
 
+from base import Q_Bell, tol
 from lmap import *
 from utils import *
 

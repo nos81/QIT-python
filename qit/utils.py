@@ -6,7 +6,7 @@ from __future__ import print_function, division
 from copy import deepcopy
 
 import numpy as np
-from numpy import array, mat, empty, zeros, ones, eye, prod, sqrt, exp, tanh, dot, sort, diag, trace, kron, pi, r_, c_, inf, isscalar, floor, ceil, log10, vdot
+from numpy import array, mat, dtype, empty, zeros, ones, eye, prod, sqrt, exp, tanh, dot, sort, diag, trace, kron, pi, r_, c_, inf, isscalar, floor, ceil, log10, vdot
 from numpy.random import rand, randn, randint
 from numpy.linalg import qr, det, eig, eigvals
 from scipy.linalg import expm, norm, svdvals
@@ -21,7 +21,7 @@ __all__ = ['assert_o', 'copy_memoize', 'gcd', 'lcm', 'rank', 'projector', 'eigso
            'spectral_decomposition',
            'gellmann', 'tensorbasis',
            'op_list',
-           'qubits', 'majorize', 'mkron', 'test']
+           'qubits', 'majorize', 'mkron']
 
 
 # the functions in this module return ndarrays, not lmaps, for now
@@ -60,16 +60,15 @@ def copy_memoize(func):
 def gcd(a, b):
     """Greatest common divisor.
 
-    Euclidean algorithm.
-    From NumPy source, why isn't this in the API?"""
+    Uses the Euclidean algorithm.
+    """
     while b:
         a, b = b, a%b
     return a
 
 
 def lcm(a, b):
-    """Least common multiple.
-    """
+    """Least common multiple."""
     return a * (b // gcd(a, b))
 
 
@@ -108,10 +107,11 @@ def acomm(A, B):
 
 
 def expv(t, A, v, tol=1.0e-7, m=None, iteration='arnoldi'):
-    """Multiply a vector by an exponentiated matrix.
+    r"""Multiply a vector by an exponentiated matrix.
 
-    Approximates exp(t * A) * v, efficient for large sparse matrices.
-    The Krylov subspace is constructed using Arnoldi iteration.
+    Approximates :math:`exp(t A) v` using a Krylov subspace technique.
+    Efficient for large sparse matrices.
+    The basis for the Krylov subspace is constructed using either Arnoldi or Lanczos iteration.
 
     Input:
     t           vector of nondecreasing time instances >= 0
@@ -122,15 +122,16 @@ def expv(t, A, v, tol=1.0e-7, m=None, iteration='arnoldi'):
     iteration   'arnoldi' or 'lanczos'. Lanczos is faster but requires a Hermitian A.
 
     Output:
-    W       result matrix, W[i,:] \\approx exp(t[i] * A) * v, 
+    W       result matrix, :math:`W[i,:] \approx \exp(t[i] A) v`
     error   total truncation error estimate
-    hump    \\max_{s \\in [0, t]}  | \\exp(s A) |
+    hump    :math:`\max_{s \in [0, t]}  \| \exp(s A) \|`
 
-    Uses the sparse algorithm from
-    %! Sidje, R.B., "EXPOKIT: A Software Package for Computing Matrix Exponentials", ACM Trans. Math. Softw. 24, 130 (1998).
+    Uses the sparse algorithm from [EXPOKIT]_.
 
-    Ville Bergholm 2009-2011
+    .. [EXPOKIT] Sidje, R.B., "EXPOKIT: A Software Package for Computing Matrix Exponentials", ACM Trans. Math. Softw. 24, 130 (1998).
     """
+    # Ville Bergholm 2009-2011
+
     n = A.shape[0]
     if m == None:
         m = min(n, 30)  # default Krylov space dimension
@@ -162,13 +163,15 @@ def expv(t, A, v, tol=1.0e-7, m=None, iteration='arnoldi'):
         step *= gamma  * (tol * step / err_loc) ** (1 / r)
         return ceil_at_nsd(step, 2)
 
-    # TODO don't use complex matrices unless we have to: dtype = result_type(t, A, v)
-    # TODO shortcuts for Hessenberg matrix exponentiation?
-    H = zeros((m+2, m+2), complex) # upper Hessenberg matrix for the Arnoldi process + two extra rows/columns for the error estimate trick
-    H[m + 1, m] = 1                # never overwritten!
-    V = zeros((n, m+1), complex)   # orthonormal basis for the Krylov subspace
+    dt = dtype(complex)
+    # TODO don't use complex matrices unless we have to: dt = result_type(t, A, v)
 
-    W = empty((len(tt), len(v)), complex)  # results
+    # TODO shortcuts for Hessenberg matrix exponentiation?
+    H = zeros((m+2, m+2), dt) # upper Hessenberg matrix for the Arnoldi process + two extra rows/columns for the error estimate trick
+    H[m + 1, m] = 1           # never overwritten!
+    V = zeros((n, m+1), dt)   # orthonormal basis for the Krylov subspace + one extra vector
+
+    W = empty((len(tt), len(v)), dt)  # results
     t = 0  # current time
     beta = v_norm
     error = 0  # error estimate
@@ -221,13 +224,16 @@ def expv(t, A, v, tol=1.0e-7, m=None, iteration='arnoldi'):
             # store the now orthonormal basis vector
             H[j, j-1] = temp
             V[:, j] = (1 / temp) * p
-        return m+1, False
+        return m+1, False  # one extra vector for error control
 
     # choose iteration type
-    if str.lower(iteration) == 'lanczos':
+    iteration = str.lower(iteration)
+    if iteration == 'lanczos':
         iteration = iterate_lanczos  # only works for Hermitian matrices!
-    else:
+    elif iteration == 'arnoldi':
         iteration = iterate_arnoldi
+    else:
+        raise ValueError("Only 'arnoldi' and 'lanczos' iterations are supported.")
 
     # loop over the time instances (which must be in increasing order)
     for kk in range(len(tt)):
@@ -243,7 +249,9 @@ def expv(t, A, v, tol=1.0e-7, m=None, iteration='arnoldi'):
 
             # Arnoldi/Lanczos iteration, (re)builds H and V
             j, happy = iteration(v, beta)
-            FIXME # lanczos should not work with nonhermitian matrices!
+            # now V^\dagger A V = H  (just the first m vectors, or j if we had a happy breakdown!)
+            # assert(norm(dot(dot(V[:, :m].conj().transpose(), A), V[:, :m]) -H[:m,:m]) < tol)
+
             # error control
             if happy:
                 # "happy breakdown", using j Krylov basis vectors
@@ -299,9 +307,9 @@ def rand_hermitian(n):
 
     Returns a random Hermitian matrix of size n*n.
     NOTE: The randomness is not defined in any deeply meaningful sense.
-
-    Ville Bergholm 2008-2009
     """
+    # Ville Bergholm 2008-2009
+
     H = (rand(n,n) - 0.5) +1j*(rand(n,n) - 0.5)
     return H + H.conj().transpose() # make it Hermitian
 
@@ -312,7 +320,9 @@ def rand_U(n):
     Returns a random unitary n*n matrix.
     The matrix is random with respect to the Haar measure.
 
-    .. [sdfs] F. Mezzadri, "How to generate random matrices from the classical compact groups", Notices of the AMS 54, 592 (2007). arXiv.org:math-ph/0609050
+    Uses the algorithm from [Mezz]_.
+
+    .. [Mezz] F.Mezzadri, "How to generate random matrices from the classical compact groups", Notices of the AMS 54, 592 (2007). arXiv.org:math-ph/0609050
     """
     # Ville Bergholm 2005-2009
 
@@ -334,9 +344,9 @@ def rand_SU(n):
 
     Returns a random special unitary n*n matrix.
     The matrix is random with respect to the Haar measure.
-
-    Ville Bergholm 2005-2009
     """
+    # Ville Bergholm 2005-2009
+
     U = rand_U(n)
     d = det(U) ** (1/n) # *exp(i*2*pi*k/n), not unique FIXME
     return U/d
@@ -347,9 +357,9 @@ def rand_U1(n):
 
     Returns a random diagonal unitary n*n matrix.
     The matrix is random with respect to the Haar measure.
-
-    Ville Bergholm 2005-2009
     """
+    # Ville Bergholm 2005-2009
+
     return diag(exp(2j * pi * rand(n)))
 
 
@@ -359,12 +369,12 @@ def rand_U1(n):
 def rand_positive(n):
     """Random n*n positive semidefinite matrix.
 
-    Normalized as trace(A) = 1.
+    Normalized as Tr(A) = 1.
     Since the matrix has purely real eigenvalues, it is also
     Hermitian by construction.
-
-    Ville Bergholm 2008-2009
     """
+    # Ville Bergholm 2008-2009
+
     p = sort(rand(n-1))  # n-1 points in [0,1]
     d = sort(r_[p, 1] - r_[0, p])  # n deltas between points = partition of unity
 
@@ -382,28 +392,25 @@ def vec(rho):
     Matrix rho is flattened columnwise into a column vector v.
 
     Used e.g. to convert state operators to superoperator representation.
-
-    JDW 2009
-    Ville Bergholm 2009
     """
+    # JDW 2009
+    # Ville Bergholm 2009
+
     return rho.flatten('F')  # copy
 
 
 def inv_vec(v, dim=None):
     """Reshapes a vector into a matrix.
-    rho = inv_vec(v) 
-    rho = inv_vec(v, [n, m]) 
 
-    Reshapes vector v (length n*m) into a matrix rho (size [n, m]),
-    using column-major ordering. If n and m are not given, rho is assumed
-    to be square.
+    Given dim == (n, m), reshapes vector v (length n*m) into a matrix rho (shape == dim),
+    using column-major ordering. If dim is not given, rho is assumed to be square.
 
     Used e.g. to convert state operators from superoperator representation
     to standard matrix representation.
-
-    JDW 2009
-    Ville Bergholm 2009
     """
+    # JDW 2009
+    # Ville Bergholm 2009
+
     d = v.size
     if dim == None:
         # assume a square matrix
@@ -420,13 +427,13 @@ def inv_vec(v, dim=None):
 def lmul(L, q=None):
     """Superoperator equivalent for multiplying from the left.
 
-    L*rho == inv_vec(lmul(L)*vec(rho))
+    L * rho == inv_vec(lmul(L) * vec(rho))
 
     Dimensions: L is [m, p], rho is [p, q].
     If q is not given rho is assumed square.
-
-    Ville Bergholm 2009
     """
+    # Ville Bergholm 2009
+
     if q == None:
         q = L.shape[1]  # assume target is a square matrix
     return kron(eye(q), L)
@@ -435,13 +442,13 @@ def lmul(L, q=None):
 def rmul(R, p=None):
     """Superoperator equivalent for multiplying from the right.
 
-    rho*R == inv_vec(rmul(R)*vec(rho))
+    rho * R == inv_vec(rmul(R) * vec(rho))
 
     Dimensions: rho is [p, q], R is [q, r].
     If p is not given rho is assumed square.
-
-    Ville Bergholm 2009
     """
+    # Ville Bergholm 2009
+
     if p == None:
         p = R.shape[0]  # assume target is a square matrix
     return kron(R.transpose(), eye(p))
@@ -450,10 +457,10 @@ def rmul(R, p=None):
 def lrmul(L, R):
     """Superoperator equivalent for multiplying both from left and right.
 
-    L*rho*R == inv_vec(lrmul(L, R)*vec(rho))
-
-    Ville Bergholm 2009-2011
+    L * rho * R == inv_vec(lrmul(L, R) * vec(rho))
     """
+    # Ville Bergholm 2009-2011
+
     # L and R fix the shape of rho completely
     return kron(R.transpose(), L)
 
@@ -467,11 +474,11 @@ def superop_lindblad(A, H=0):
     Returns the Liouvillian superoperator L corresponding to the
     diagonal-form Lindblad equation
 
-    .. math:: \dot{\rho} = inv_vec(L * vec(\rho)) = -i [H, \rho] +\sum_k (A_k \rho A_k^\dagger -0.5*\{A_k^\dagger A_k, \rho\})
-
-    James D. Whitfield 2009
-    Ville Bergholm 2009-2010
+    .. math:: \dot{\rho} = \text{inv\_vec}(L * \text{vec}(\rho)) = -i [H, \rho] +\sum_k \left(A_k \rho A_k^\dagger -\frac{1}{2} \{A_k^\dagger A_k, \rho\}\right)
     """
+    # James D. Whitfield 2009
+    # Ville Bergholm 2009-2010
+
     # Hamiltonian
     iH = 1j * H
 
@@ -490,16 +497,16 @@ def superop_lindblad(A, H=0):
 
 @copy_memoize
 def angular_momentum(n):
-    """Angular momentum matrices.
+    r"""Angular momentum matrices.
 
     (Jx, Jy, Jz) = angular_momentum(d)
 
-    Returns a 3-tuple of angular momentum matrices \vec(J)/\hbar
+    Returns a 3-tuple of angular momentum matrices :math:`\vec{J} / \hbar`
     for the d-dimensional subspace defined by the
     quantum number j == (d-1)/2.
-
-    Ville Bergholm 2009-2010
     """
+    # Ville Bergholm 2009-2010
+
     if n < 1:
         raise ValueError('Dimension must be one or greater.')
 
@@ -520,22 +527,22 @@ def angular_momentum(n):
 
 @copy_memoize
 def boson_ladder(n):
-    """Bosonic ladder operators.
+    r"""Bosonic ladder operators.
 
     Returns the n-dimensional approximation of the bosonic
     annihilation operator b for a single bosonic mode in the
-    number basis {|0>, |1>, ..., |n-1>}.
+    number basis :math:`\{|0\rangle, |1\rangle, ..., |n-1\rangle\}`.
 
-    The corresponding creation operator is b.ctranspose().
-
-    Ville Bergholm 2009-2010
+    The corresponding creation operator is :math:`b^\dagger`.
     """
+    # Ville Bergholm 2009-2010
+
     return diag(sqrt(range(1, n)), 1)
 
 
 @copy_memoize
 def fermion_ladder(grouping):
-    """Fermionic ladder operators.
+    r"""Fermionic ladder operators.
 
     Returns a vector of fermionic annihilation operators for a
     system of n fermionic modes in the second quantization.
@@ -543,27 +550,28 @@ def fermion_ladder(grouping):
     The annihilation operators are built using the Jordan-Wigner
     transformation for a chain of n qubits, where the state of each
     qubit denotes the occupation number of the corresponding mode.
-
     First define annihilation and number operators for a lone fermion mode:
-    s := (sx + i*sy)/2   = [[0, 1], [0, 0]],
-    n := s'*s = (I-sz)/2 = [[0, 0], [0, 1]].
 
-    s|0> = 0, s|1> = |0>, n|k> = k|k>
+    .. math::
+
+       s &:= (\sigma_x + i \sigma_y)/2   = [[0, 1], [0, 0]],\\
+       n &:= s^\dagger s = (I-sz)/2 = [[0, 0], [0, 1]],\\
+       &s|0\rangle = 0, \quad s|1\rangle = |0\rangle, \quad n|k\rangle = k|k\rangle.
 
     Then define a phase operator to keep track of sign changes when
-    permuting the order of the operators:
-    \phi_k := \sum_{j=0}^{k-1} n_j.
-
+    permuting the order of the operators: :math:`\phi_k := \sum_{j=0}^{k-1} n_j`.
     Now, the fermionic annihilation operators for the n-mode system are given by
-    f_k := (-1)^{\phi_k} s_k.
-
+    :math:`f_k := (-1)^{\phi_k} s_k`.
     These operators fulfill the required anticommutation relations:
-    {f_k, f_j}  = 0,
-    {f_k, f_j'} = I \delta_{kj},
-    f_k' * f_k  = n_k.
 
-    Ville Bergholm 2009-2010
+    .. math::
+
+       \{f_k, f_j\}  &= 0,\\
+       \{f_k, f_j^\dagger\} &= I \delta_{kj},\\
+       f_k^\dagger f_k &= n_k.
     """
+    # Ville Bergholm 2009-2010
+
     n = prod(grouping)
     d = 2 ** n
 
@@ -589,46 +597,46 @@ def fermion_ladder(grouping):
 # SU(2) rotations
 
 def R_nmr(theta, phi):
-    """SU(2) rotation \theta_\phi (NMR notation).
+    r"""SU(2) rotation :math:`\theta_\phi` (NMR notation).
 
     Returns the one-qubit rotation by angle theta about the unit
-    vector [cos(phi), sin(phi), 0], or \theta_\phi in the NMR notation.
-
-    Ville Bergholm 2009
+    vector [cos(phi), sin(phi), 0], or :math:`\theta_\phi` in the NMR notation.
     """
+    # Ville Bergholm 2009
+
     return expm(-1j * theta/2 * (cos(phi) * sx + sin(phi) * sy))
 
 
 def R_x(theta):
-    """SU(2) x-rotation.
+    r"""SU(2) x-rotation.
 
     Returns the one-qubit rotation about the x axis by the angle theta,
-    e^(-i \sigma_x theta/2).
-
-    Ville Bergholm 2006-2009
+    :math:`e^{-i \sigma_x \theta/2}`.
     """
+    # Ville Bergholm 2006-2009
+
     return expm(-1j * theta/2 * sx)
 
 
 def R_y(theta):
-    """SU(2) y-rotation.
+    r"""SU(2) y-rotation.
 
     Returns the one-qubit rotation about the y axis by the angle theta,
-    e^(-i \sigma_y theta/2).
-
-    Ville Bergholm 2006-2009
+    :math:`e^{-i \sigma_y \theta/2}`.
     """
+    # Ville Bergholm 2006-2009
+
     return expm(-1j * theta/2 * sy)
 
 
 def R_z(theta):
-    """SU(2) z-rotation.
+    r"""SU(2) z-rotation.
 
     Returns the one-qubit rotation about the z axis by the angle theta,
-    e^(-i \sigma_z theta/2).
-
-    Ville Bergholm 2006-2009
+    :math:`e^{-i \sigma_z \theta/2}`.
     """
+    # Ville Bergholm 2006-2009
+
     return array([[exp(-1j * theta/2), 0], [0, exp(1j * theta/2)]])
 
 
@@ -636,13 +644,13 @@ def R_z(theta):
 # decompositions
 
 def spectral_decomposition(A):
-    """Spectral decomposition of a Hermitian matrix.
+    r"""Spectral decomposition of a Hermitian matrix.
 
     Returns the unique eigenvalues a and the corresponding projectors P
-    for the Hermitian matrix A, such that  A = \sum_k  a_k P_k.
-
-    Ville Bergholm 2010
+    for the Hermitian matrix A, such that :math:`A = \sum_k  a_k P_k`.
     """
+    # Ville Bergholm 2010
+
     d, v = eigsort(A)
     d = d.real  # A is assumed Hermitian
 
@@ -666,13 +674,13 @@ def spectral_decomposition(A):
 
 @copy_memoize
 def gellmann(n):
-    """Gell-Mann matrices of dimension n.
+    r"""Gell-Mann matrices of dimension n.
 
-    Returns the n^2-1 (traceless, Hermitian) Gell-Mann matrices of dimension n,
-    normalized such that \trace(G_i.ctranspose() * G_j) = \delta_{ij}.
-
-    Ville Bergholm 2006-2011
+    Returns the n**2 - 1 (traceless, Hermitian) Gell-Mann matrices of dimension n,
+    normalized such that :math:`\mathrm{Tr}(G_i^\dagger G_j) = \delta_{ij}`.
     """
+    # Ville Bergholm 2006-2011
+
     if n < 1:
         raise ValueError('Dimension must be >= 1.')
 
@@ -704,22 +712,21 @@ def gellmann(n):
 tensorbasis_cache = {}
 def tensorbasis(n, d=None, get_locality=False):
     """Hermitian tensor-product basis for End(H).
-    B = tensorbasis(n, d)   H = C_d^{\otimes n}.
-    B = tensorbasis(dim)    H = C_{dim(1)} \otimes ... \otimes C_{dim(n)}
 
     Returns a Hermitian basis for linear operators on the Hilbert space H
     which shares H's tensor product structure. The basis elements are tensor products
     of Gell-Mann matrices (which in the case of qubits are equal to Pauli matrices).
-    The basis elements are normalized such that \trace(b_i' * b_j) = \delta_{ij}.
+    The basis elements are normalized such that :math:`\mathrm{Tr}(b_i^\dagger b_j) = \delta_{ij}`.
 
-    Input is either two scalars, n and d, in which case the system consists of n qu(d)its,
-    or the vector dim, which contains the dimensions of the individual subsystems.
+    Input is either two scalars, n and d, in which case the system consists of n qu(d)its, :math:`H = C_d^{\otimes n}`,
+    or the vector dim, which contains the dimensions of the individual subsystems:
+    :math:`H = C_{dim[0]} \otimes ... \otimes C_{dim[n-1]}`.
 
     In addition to expanding Hermitian operators on H, this basis can be multiplied by
-    the imaginary unit i to obtain the antihermitian generators of U(prod(dim)).
-
-    Ville Bergholm 2005-2011
+    the imaginary unit to obtain the antihermitian generators of U(prod(dim)).
     """
+    # Ville Bergholm 2005-2011
+
     if d == None:
         # dim vector
         dim = n
@@ -780,31 +787,34 @@ def op_list(G, dim):
 
     Returns the operator O defined by the connection list G.
     dim is a vector of subsystem dimensions for O.
+    G is a list of arrays, :math:`G = [c_1, c_2, ..., c_n]`,
+    where each array :math:`c_i` corresponds to a term in O.
 
-    G is a list of arrays, G = [c_1, c_2, ..., c_n],
-    where each array c_i corresponds to a term in O.
-
-    An array that has 2 columns and k rows, c_i = [(A1, s1), (A2, s2), ... , (Ak, sk)],
+    An array that has 2 columns and k rows, :math:`c_i` = [(A1, s1), (A2, s2), ... , (Ak, sk)],
     where Aj are operators and sj subsystem indices, corresponds to the
     k-local term given by the tensor product
 
-      A1_{s1} * A2_{s2} * ... * Ak_{sk}.
+    .. math::
 
-    The dimensions of all operators acting on subsystem sj must match dim(sj).
+       A1_{s1} * A2_{s2} * ... * Ak_{sk}.
+
+    The dimensions of all operators acting on subsystem sj must match dim[sj].
 
     Alternatively one can think of G as defining a hypergraph, where
     each subsystem corresponds to a vertex and each array c_i in the list
     describes a hyperedge connecting the vertices {s1, s2, ..., sk}.
 
     Example: The connection list
-    G = [[(sz,1)], [(sx,1), (sx,3)], [(sy,1), (sy,3)], [(sz,1), (sz,3)],
-         [(sz,2)], [(A,2), (B+C,3)], [(2*sz,3)]]
-
+    G = [[(sz,1)], [(sx,1), (sx,3)], [(sy,1), (sy,3)], [(sz,1), (sz,3)], [(sz,2)], [(A,2), (B+C,3)], [(2*sz,3)]]
     corresponds to the operator
-    O = sz_1 +sz_2 +2*sz_3 +sx_1*sx_3 +sy_1*sy_3 +sz_1*sz_3 +A_2*(B+C)_3.
 
-    Ville Bergholm 2009-2010
+    .. math::
+
+       \sigma_{z1} +\sigma_{z2} +2 \sigma_{z3} +\sigma_{x1} \sigma_{x3} +\sigma_{y1} \sigma_{y3} +\sigma_{z1} \sigma_{z3} +A_2 (B+C)_3.
+
     """
+    # Ville Bergholm 2009-2010
+
     # TODO we could try to infer dim from the operators
     H = 0
     for spec in G:
@@ -834,9 +844,9 @@ def qubits(n):
     """Dimension vector for an all-qubit system.
     
     For the extemely lazy, returns (2,) * n
-
-    Ville Bergholm 2010
     """
+    # Ville Bergholm 2010
+
     return (2,) * n
 
 
@@ -844,10 +854,10 @@ def majorize(x, y):
     """Majorization partial order of real vectors.
 
     Returns true iff vector x is majorized by vector y,
-    i.e. res = x \preceq y.
-
-    Ville Bergholm 2010
+    i.e. :math:`x \preceq y`.
     """
+    #Ville Bergholm 2010
+
     if x.ndim != 1 or y.ndim != 1 or np.iscomplexobj(x) or np.iscomplexobj(y):
         raise ValueError('Inputs must be real vectors.')
 
@@ -869,10 +879,10 @@ def majorize(x, y):
 def mkron(*arg):
     """This is how kron should work, dammit.
 
-    Returns the tensor (Kronecker) product X = A \otimes B \otimes ...
-
-    Ville Bergholm 2009
+    Returns the tensor (Kronecker) product :math:`X = A \otimes B \otimes \ldots`
     """
+    # Ville Bergholm 2009
+
     X = 1
     for A in arg:
         X = kron(X, A)
@@ -881,26 +891,29 @@ def mkron(*arg):
 
 def test():
     """Test script for the utils module.
-
-    Ville Bergholm 2009-2011
     """
-    dim = 6
+    # Ville Bergholm 2009-2011
+
+    dim = 10
 
     # math funcs
     A = randn(dim, dim) + 1j * randn(dim, dim)
     v = randn(dim) + 1j * randn(dim)
 
-    w, err, hump = expv(1, A, v, m = dim - 2)
+    w, err, hump = expv(1, A, v, m = dim // 2)
     assert_o(norm(w - dot(expm(1*A), v)), 0, 1e2*tol)
-    w, err, hump = expv(1, A, v, m = dim)
+    w, err, hump = expv(1, A, v, m = dim)  # force a happy breakdown
     assert_o(norm(w - dot(expm(1*A), v)), 0, 1e2*tol)
 
     #A = rand_hermitian(dim)
-    w, err, hump = expv(1, A, v, m = dim - 2, iteration = 'lanczos')
+    # FIXME why does Lanczos work with nonhermitian matrices?
+    w, err, hump = expv(1, A, v, m = dim // 2, iteration = 'lanczos')
     assert_o(norm(w - dot(expm(1*A), v)), 0, 1e2*tol)
     w, err, hump = expv(1, A, v, m = dim, iteration = 'lanczos')
     assert_o(norm(w - dot(expm(1*A), v)), 0, 1e2*tol)
     return
+
+    dim = 5
 
     # random matrices
     H = mat(rand_hermitian(dim))

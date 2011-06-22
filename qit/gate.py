@@ -8,7 +8,7 @@ The data type is float unless complex entries are actually needed.
 from __future__ import print_function, division
 from copy import deepcopy
 
-from numpy import prod, diag, eye, empty, trace, exp, sqrt, mod, isscalar, kron, array, ones
+from numpy import prod, diag, eye, empty, zeros, trace, exp, sqrt, mod, isscalar, kron, array, ones
 import scipy.sparse as sparse
 
 
@@ -26,13 +26,17 @@ from utils import qubits, op_list, assert_o, copy_memoize, gcd
 
 
 def dist(A, B):
-    """Distance between two unitary lmaps.
+    r"""Distance between two unitary lmaps.
 
-    Returns \inf_{\phi \in \reals} \|A - e^{i \phi} B\|_F^2
-      = 2 (\dim_A - |\trace(A^\dagger B)|)
+    Returns
 
-    Ville Bergholm 2007-2010
+    .. math::
+
+       \inf_{\phi \in \mathbb{R}} \|A - e^{i \phi} B\|_F^2
+       = 2 (\dim_A - |\mathrm{Tr}(A^\dagger B)|)
     """
+    # Ville Bergholm 2007-2010
+
     if not A.is_compatible(B):
         raise ValueError('The lmaps have different dimensions.')
 
@@ -52,13 +56,14 @@ def id(dim):
 
 
 def mod_add(dim1, dim2, N=None):
-    """Modular adder gate.
+    r"""Modular adder gate.
 
     U = mod_add(d1, d2)     N == prod(d2)
     U = mod_add(d1, d2, N)  target register dimension prod(d2) must be >= N
 
     Returns the gate U, which, operating on the computational state
-    |x, y>, produces |x, y+x (mod N)>.
+    :math:`|x, y\rangle`, produces
+    :math:`|x, y+x (\mod N)\rangle`.
     d1 and d2 are the control and target register dimensions.
 
     If N is given, U will act trivially on target states >= N.
@@ -67,9 +72,9 @@ def mod_add(dim1, dim2, N=None):
     The modular subtractor gate can be obtained by taking the
     Hermitian conjugate of mod_add.
     mod_add(2, 2) is equal to CNOT.
-
-    Ville Bergholm 2010
     """
+    # Ville Bergholm 2010
+
     d1 = prod(dim1)
     d2 = prod(dim2)
     if N == None:
@@ -97,16 +102,19 @@ def mod_add(dim1, dim2, N=None):
 
 
 def mod_inc(x, dim, N=None):
-    """Modular incrementation gate.
+    r"""Modular incrementation gate.
 
     U = mod_inc(x, dim)     N == prod(dim)
     U = mod_inc(x, dim, N)  gate dimension prod(dim) must be >= N
 
     Returns the gate U, which, operating on the computational state
-    |y>, increments it by x (mod N):  U |y> = |y+x (mod N)>.
+    :math:`|y\rangle`, increments it by x (mod N):
+    :math:`U |y\rangle = |y+x (mod N)\rangle`.
 
     If N is given, U will act trivially on computational states >= N.
     """
+    # Ville Bergholm 2010
+
     if isscalar(dim): dim = (dim,)  # scalar into a tuple
     d = prod(dim)
     if N == None:
@@ -125,17 +133,20 @@ def mod_inc(x, dim, N=None):
 
 
 def mod_mul(x, dim, N=None):
-    """Modular multiplication gate.
+    r"""Modular multiplication gate.
 
     U = mod_mul(x, dim)     N == prod(dim)
     U = mod_mul(x, dim, N)  gate dimension prod(dim) must be >= N
 
     Returns the gate U, which, operating on the computational state
-    |y>, multiplies it by x (mod N):  U |y> = |x*y (mod N)>.
+    :math:`|y\rangle`, multiplies it by x (mod N):
+    :math:`U |y\rangle = |x*y (mod N)\rangle`.
     x and N must be coprime for the operation to be reversible.
 
     If N is given, U will act trivially on computational states >= N.
     """
+    # Ville Bergholm 2010-2011
+
     if isscalar(dim): dim = (dim,)  # scalar into a tuple
     d = prod(dim)
     if N == None:
@@ -163,9 +174,9 @@ def phase(theta, dim=None):
     """Diagonal phase shift gate.
 
     Returns the (diagonal) phase shift gate U = diag(exp(i*theta)).
-
-    Ville Bergholm 2010
     """
+    # Ville Bergholm 2011
+
     if isscalar(dim): dim = (dim,)  # scalar into a tuple
     n = len(theta)
     if dim == None:
@@ -183,9 +194,9 @@ def qft(dim):
     Returns the quantum Fourier transform gate for the specified system.
     dim is a vector of subsystem dimensions.
     The returned lmap is dense.
-
-    Ville Bergholm 2004-2010
     """
+    # Ville Bergholm 2004-2011
+
     if isscalar(dim): dim = (dim,)  # scalar into a tuple
     n = len(dim)
     N = prod(dim)
@@ -200,11 +211,14 @@ def swap(d1, d2):
     """Swap gate.
 
     Returns the swap gate which swaps the order of two subsystems with dimensions [d1, d2].
-    S: A_1 \otimes A_2 \to A_2 \otimes A_1,
-    S(v_1 \otimes v_2) = v_2 \otimes v_1   for all v_1 \in A_1, v_2 \in A_2.
 
-    Ville Bergholm 2010
+    .. math::
+
+       S: A_1 \otimes A_2 \to A_2 \otimes A_1, \quad
+       v_1 \otimes v_2 \mapsto v_2 \otimes v_1
     """
+    # Ville Bergholm 2010
+
     temp = d1*d2
     U = sparse.dok_matrix((temp, temp))
     for x in range(d1):
@@ -218,9 +232,9 @@ def walsh(n):
 
     Returns the Walsh-Hadamard gate for n qubits.
     The returned lmap is dense.
-
-    Ville Bergholm 2009-2010
     """
+    # Ville Bergholm 2009-2010
+
     from base import H
 
     U = 1
@@ -231,24 +245,25 @@ def walsh(n):
 
 
 def controlled(U, ctrl=(1,), dim=None):
-    """Controlled gate.
+    r"""Controlled gate.
 
     Returns the (t+1)-qudit controlled-U gate, where t == length(ctrl).
     U has to be a square matrix.
 
     ctrl is an integer vector defining the control nodes. It has one entry k per
-    control qudit, denoting the required computational basis state |k>
+    control qudit, denoting the required computational basis state :math:`|k\rangle`
     for that particular qudit. Value k == -1 denotes no control.
 
     dim is the dimensions vector for the control qudits. If not given, all controls
     are assumed to be qubits.
 
     Examples:
+
       controlled(NOT, [1]) gives the standard CNOT gate.
       controlled(NOT, [1, 1]) gives the Toffoli gate.
-
-    Ville Bergholm 2009-2011
     """
+    # Ville Bergholm 2009-2011
+
     # TODO generalization, uniformly controlled gates?
     if isscalar(dim): dim = (dim,)  # scalar into a tuple
     t = len(ctrl)
@@ -297,10 +312,10 @@ def single(L, t, d_in):
     to subsystem t (and identity applied to the remaining subsystems).
 
     d_in is the input dimension vector for U.
-
-    James Whitfield 2010
-    Ville Bergholm 2010
     """
+    # James Whitfield 2010
+    # Ville Bergholm 2010
+
     if isinstance(L, lmap):
         L = L.data  # into ndarray
 
@@ -319,10 +334,10 @@ def two(B, t, d_in):
     to subsystems t == [t1, t2] (and identity applied to the remaining subsystems).
 
     d_in is the input dimension vector for U.
-
-    James Whitfield 2010
-    Ville Bergholm 2010
     """
+    # James Whitfield 2010
+    # Ville Bergholm 2010-2011
+
     if len(t) != 2:
         raise ValueError('Exactly two target subsystems required.')
 
@@ -358,9 +373,9 @@ def two(B, t, d_in):
 
 def test():
     """Test script for gates.
-
-    Ville Bergholm 2010
     """
+    # Ville Bergholm 2010
+
     from numpy.random import randn
     from base import sx, sy, sz
 
