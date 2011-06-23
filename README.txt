@@ -91,7 +91,7 @@ coding guidelines:
   citations etc.
 * Add relevant literature references using the reST syntax.
 * Instead of using multiple similar functions, use a single function
-  performing multiple related tasks, see e.g. state.state.__init__
+  performing multiple related tasks, see e.g. :func:`qit.state.state.measure`.
 * Raise an exception on invalid input.
 * Use variables sparingly, give them descriptive (but short) names.
 * Use brief comments to explain the logic of your code.

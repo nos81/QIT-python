@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 # Author: Ville Bergholm 2011
-"""Harmonic oscillators."""
+r"""Harmonic oscillators.
+
+All the functions in this module operate in the number basis :math:`\{|0\rangle, |1\rangle, ..., |n-1\rangle\}`
+of the harmonic oscillator, where n is the truncation dimension.
+"""
 
 from __future__ import print_function, division
 
@@ -20,7 +24,14 @@ def coherent_state(alpha, n=default_n):
     r"""Coherent states of a harmonic oscillator.
 
     Returns the n-dimensional approximation to the
-    coherent state :math:`|\alpha\rangle` in the number basis.
+    coherent state :math:`|\alpha\rangle`,
+
+    .. math::
+
+       |\alpha\rangle := D(\alpha) |0\rangle
+       = e^{-\frac{|\alpha|^2}{2}} \sum_{k=0}^\infty \frac{\alpha^k}{k!} |k\rangle,
+
+    in the number basis. :math:`a|\alpha\rangle = \alpha |\alpha\rangle`.
     """
     # Ville Bergholm 2010
 
@@ -36,8 +47,9 @@ def displace(alpha, n=default_n):
     r"""Bosonic displacement operator.
 
     Returns the n-dimensional approximation for the bosonic
-    displacement operator :math:`D(\alpha)` in the number basis
-    :math:`\{|0\rangle, |1\rangle, ..., |n-1\rangle\}`.
+    displacement operator
+    :math:`D(\alpha) := \exp\left(\alpha a^\dagger - \alpha^* a\right)`
+    in the number basis.
     """
     # Ville Bergholm 2010
 
@@ -52,8 +64,9 @@ def squeeze(z, n=default_n):
     r"""Bosonic squeezing operator.
 
     Returns the n-dimensional approximation for the bosonic
-    squeezing operator S(z) in the number basis
-    :math:`\{|0\rangle, |1\rangle, ..., |n-1\rangle\}`.
+    squeezing operator
+    :math:`S(z) := \exp\left(\frac{1}{2} (z^* a^2 - z a^{\dagger 2})\right)`
+    in the number basis.
     """
     # Ville Bergholm 2010
     if not isscalar(z):
@@ -159,8 +172,10 @@ def momentum_state(p, n=default_n):
 
 def husimi(s, alpha=None, z=0, res=(40, 40), lim=(-2, 2, -2, 2)):
     r"""Husimi probability distribution.
-    H = husimi(s, alpha[, z=])
-    [H, a, b] = husimi(s, res=xxx, lim=yyy[, z=])
+    ::
+
+      H       = husimi(s, alpha[, z=])
+      H, a, b = husimi(s, res=xxx, lim=yyy[, z=])
 
     Returns the Husimi probability distribution
     :math:`H(\mathrm{Im} \alpha, \mathrm{Re} \alpha)` corresponding to the harmonic
@@ -203,11 +218,13 @@ def husimi(s, alpha=None, z=0, res=(40, 40), lim=(-2, 2, -2, 2)):
 
 def wigner(s, alpha=None, res=(20, 20), lim=(-2, 2, -2, 2)):
     r"""Wigner quasi-probability distribution.
-    W = wigner(s, alpha)
-    W, a, b = wigner(s, res=xxx, lim=yyy)
+    ::
+
+      W       = wigner(s, alpha)
+      W, a, b = wigner(s, res=xxx, lim=yyy)
 
     Returns the Wigner quasi-probability distribution
-    :math:`W(Im \alpha, Re \alpha)` corresponding to the harmonic
+    :math:`W(\mathrm{Im} \alpha, \mathrm{Re} \alpha)` corresponding to the harmonic
     oscillator state s given in the number basis.
 
     For a normalized state, the integral of W is normalized to unity.

@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-# Author: Ville Bergholm 2011
 """Bounded linear maps.""" 
+# Ville Bergholm 2008-2011
+
 
 from __future__ import print_function, division
 import sys

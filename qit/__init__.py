@@ -10,6 +10,9 @@ Ville Bergholm 2011
 
 from __future__ import print_function, division
 
+# toolkit version number
+__version__ = '0.9.10 beta'
+
 import scipy as sp
 import scipy.constants as const
 import matplotlib.pyplot as plt
@@ -27,11 +30,7 @@ import seq
 import examples
 
 
-# toolkit version number
-version = '0.9.10'
-
-print('Python Quantum Information Toolkit, version ' + version)
-
+print('Python Quantum Information Toolkit, version {0}.'.format(__version__))
 
 
 def test():

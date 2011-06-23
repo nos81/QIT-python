@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-# Author: Ville Bergholm 2011
 """Utility functions."""
+# Ville Bergholm 2008-2011
+
 
 from __future__ import print_function, division
 from copy import deepcopy

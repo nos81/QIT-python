@@ -1,7 +1,7 @@
-Utilities (:mod:`utils`)
-========================
+Utilities (:mod:`qit.utils`)
+============================
 
-.. currentmodule:: utils
+.. currentmodule:: qit.utils
 
 This module contains utility functions which do not logically fit anywhere else.
 
@@ -85,5 +85,5 @@ Miscellaneous
 
 
 
-.. automodule:: utils
+.. automodule:: qit.utils
    :members:

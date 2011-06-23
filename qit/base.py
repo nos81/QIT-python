@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-# Author: Ville Bergholm 2011
 """Basic definitions."""
+# Ville Bergholm 2008-2011
+
 
 from numpy import array, eye, sqrt, finfo
 

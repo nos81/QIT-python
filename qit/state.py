@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
-# Author: Ville Bergholm 2011
-"""Quantum states."""
+"""Quantum states.
+
+.. [NC] M.A. Nielsen, I.L. Chuang, "Quantum Computation and Quantum Information" (2000).
+"""
+# Ville Bergholm 2008-2011
 
 from __future__ import print_function, division
 import collections
@@ -49,16 +52,15 @@ class state(lmap):
     """Class for quantum states.
 
     Describes the state (pure or mixed) of a discrete, possibly composite quantum system.
-    The subsystem dimensions can be found in dim[0] (big-endian ordering).
+    The subsystem dimensions can be obtained with :func:`dims` (big-endian ordering).
 
     State class instances are special cases of lmaps. They have exactly two indices.
     If self.dim[1] == (1,), it is a ket representing a pure state.
     Otherwise both indices must have equal dimensions and the object represents a state operator.
 
     Does not require the state to be physical (it does not have to be trace-1, Hermitian, or nonnegative).
-
-    Ville Bergholm 2008-2011
     """
+    # Ville Bergholm 2008-2011
     # by default, all state methods leave self unchanged 
 
     def __init__(self, s, dim=None):
@@ -203,7 +205,8 @@ class state(lmap):
 
 
     def clean_selection(self, sys):
-        """Make a subsystem set unique and sorted, return it as an array. TODO valid too?"""
+        """Make a subsystem set unique and sorted, return it as an array.
+        TODO valid too?"""
         return array(list(set(range(self.subsystems())).intersection(sys)), int)
 
 
@@ -218,9 +221,9 @@ class state(lmap):
         Returns a copy of the state. Additionally, if the state is represented with
         a ket, the copy has a global phase such that the first nonzero element in the
         state vector is real and positive.
-
-        Ville Bergholm 2009-2011
         """
+        # Ville Bergholm 2009-2011
+
         s = self.inplacer(inplace)
         if s.is_ket():
             # apply the phase convention: first nonzero element in state vector is real, positive
@@ -245,13 +248,13 @@ class state(lmap):
 
 
     def purity(self):
-        """Purity of the state.
+        r"""Purity of the state.
 
-        Returns the purity of a normalized state, p = trace(\rho^2).
-        Equivalent to linear entropy, S_l = 1-p.
-
-        Ville Bergholm 2008-2011
+        Returns the purity of a normalized state, :math:`p = \mathrm{Tr}(\rho^2)`.
+        Equivalent to linear entropy, :math:`S_l = 1-p`.
         """
+        # Ville Bergholm 2008-2011
+
         if self.is_ket():
             return 1
         else:
@@ -263,9 +266,9 @@ class state(lmap):
 
         If the state is pure returns q, a copy of the state, for which the
         internal representation (q.data) is guaranteed to be a ket vector.
-
-        Ville Bergholm 2009-2010
         """
+        # Ville Bergholm 2009-2010
+
         s = self.inplacer(inplace)
         if not s.is_ket():
             # state op
@@ -285,9 +288,9 @@ class state(lmap):
 
         Returns q, a copy of the state for which the internal representation 
         (q.data) is guaranteed to be a state operator.
-
-        Ville Bergholm 2009-2010
         """
+        # Ville Bergholm 2009-2010
+
         s = self.inplacer(inplace)
         if s.is_ket():
             s.data = np.outer(s.data, s.data.conj())
@@ -301,9 +304,9 @@ class state(lmap):
 
         Returns the trace of the state operator of quantum state s.
         For a pure state this is equal to the squared norm of the state vector.
-
-        Ville Bergholm 2008
         """
+        # Ville Bergholm 2008
+
         if self.is_ket():
             return vdot(self.data, self.data)
         else:
@@ -315,9 +318,9 @@ class state(lmap):
 
         Returns the partial trace of the state
         over the subsystems listed in the vector sys.
-
-        Ville Bergholm 2008-2010
         """
+        # Ville Bergholm 2008-2010
+
         s = self.to_op(inplace)
         dim = s.dims()
         n = s.subsystems()
@@ -371,9 +374,9 @@ class state(lmap):
 
         Returns the partial transpose of the state
         wrt. the subsystems listed in the vector sys.
-
-        Ville Bergholm 2008-2011
         """
+        # Ville Bergholm 2008-2011
+
         # TODO what about kets? can we do better?
         s = self.to_op(inplace)
         dim = s.dims()
@@ -394,16 +397,18 @@ class state(lmap):
 
     def reorder(self, perm, inplace=False):
         """Change the relative order of subsystems in a state.
-        reorder([2 1 0])  reverse the order of subsystems
-        reorder([2 5])    swap subsystems 2 and 5
+        ::
+
+          reorder([2, 1, 0])    reverse the order of three subsystems
+          reorder([2, 5])       swap subsystems 2 and 5
 
         Reorders the subsystems of the state according to the permutation perm.
 
-        The permutation vector may consist of either exactly two subsystem numbers
-        (to be swapped), or a full permutation of subsystem numbers.
-
-        Ville Bergholm 2010
+        The permutation vector may consist of either exactly two subsystem indices
+        (to be swapped), or a full permutation of subsystem indices.
         """
+        # Ville Bergholm 2010
+
         # this is just an adapter for lmap.reorder
         if self.is_ket():
             perm = (perm, None)
@@ -419,9 +424,9 @@ class state(lmap):
 
         Returns the expectation value of the observable A in the state.
         A has to be Hermitian.
-
-        Ville Bergholm 2008
         """
+        # Ville Bergholm 2008
+
         # TODO for diagonal A, self.ev(A) == sum(A * self.prob())
         if self.is_ket():
             # state vector
@@ -437,9 +442,9 @@ class state(lmap):
 
         Returns the variance of the observable A in the state.
         A has to be Hermitian.
-
-        Ville Bergholm 2009
         """
+        # Ville Bergholm 2009
+
         return self.ev(A**2) - self.ev(A)**2
 
 
@@ -448,9 +453,9 @@ class state(lmap):
 
         Returns a vector of probabilities of finding a system
         in each of the different states of the computational basis.
-
-        Ville Bergholm 2009
         """
+        # Ville Bergholm 2009
+
         if self.is_ket():
             temp = self.data.ravel() # into 1D array
             return (temp * temp.conj()).real  # == np.absolute(self.data) ** 2
@@ -462,9 +467,9 @@ class state(lmap):
         """Projection operator defined by the state.
 
         Returns the projection operator P defined by the state.
-        TODO remove?
-        Ville Bergholm 2009-2010
-        """
+        TODO remove?        """
+        # Ville Bergholm 2009-2010
+
         s = self.to_op()
         return lmap(s.data, s.dim)
 
@@ -474,9 +479,9 @@ class state(lmap):
 
         Propagates the state using the unitary propagator U,
         returns the resulting state.
-
-        Ville Bergholm 2009-2010
         """
+        # Ville Bergholm 2009-2010
+
         if isinstance(U, lmap):
             if self.is_ket():
                 return state(U * self)
@@ -492,36 +497,36 @@ class state(lmap):
             raise TypeError('States can only be propagated using lmaps and arrays.')
 
 
-    def propagate(self, H, t, out_func=lambda x, h: x, **kwargs):
-        """Propagate the state continuously in time.
+    def propagate(self, G, t, out_func=lambda x, h: x, **kwargs):
+        r"""Propagate the state continuously in time.
+        ::
 
-        propagate(H, t)
-        propagate(L, t)
-        propagate([H, A_1, A_2, ...], t)
+          propagate(H, t)                     Hamiltonian
+          propagate(L, t)                     Liouvillian
+          propagate([H, A_1, A_2, ...], t)    Hamiltonian and Lindblad ops
 
-        Propagates the state using the given generator(s) for the time t,
+        Propagates the state using the generator G for the time t,
         returns the resulting state.
 
-        The generator can either be a Hamiltonian H, a Liouvillian superoperator L,
-        or a list consisting of a Hamiltonian followed by Lindblad operators.
+        The generator G can either be a
 
-        For time-dependent cases, the generator can be replaced with a function
-        F(t) which takes a time instance t as input and returns the corresponding
-        generator(s).
+        * Hamiltonian H: :math:`\text{out} = \exp(-i H t) |s\rangle` (or :math:`\exp(-i H t) \rho_s \exp(+i H t)`)
+        * Liouvillian superoperator L: :math:`\text{out} = \text{inv\_vec}(\exp(L t) \text{vec}(\rho_s))`
+        * list consisting of a Hamiltonian followed by Lindblad operators.
+        
+        For time-dependent cases, G can be a function G(t) which takes a time instance t
+        as input and returns the corresponding generator(s).
 
         If t is a vector of increasing time instances, returns a list
         containing the propagated state for each time given in t.
 
         Optional parameters:
-          out_func: If given, for each time instance t returns out_func(s(t), H(t)).
-          Any unrecognized keyword args are passed on to the ODE solver.
-
-        out == expm(-i*H*t)*|s>
-        out == inv_vec(expm(L*t)*vec(\rho_s))
-
-        Ville Bergholm 2008-2011
-        James Whitfield 2009
+        out_func: If given, for each time instance t returns out_func(s(t), G(t)).
+        Any unrecognized keyword args are passed on to the ODE solver.
         """
+        # Ville Bergholm 2008-2011
+        # James Whitfield 2009
+
         s = self.inplacer(False)
         if isscalar(t):
             t = [t]
@@ -530,14 +535,15 @@ class state(lmap):
         out = []
         dim = s.data.shape[0]  # system dimension
 
-        if isinstance(H, types.FunctionType):
+        if isinstance(G, types.FunctionType):
             # time dependent
             t_dependent = True
-            F = H
-            H = F(0)
+            F = G
+            H = G(0)
         else:
             # time independent
             t_dependent = False
+            H = G
 
         if isinstance(H, np.ndarray):
             # matrix
@@ -686,13 +692,13 @@ class state(lmap):
 
 
     def kraus_propagate(self, E):
-        """Apply a quantum operation to the state.
+        r"""Apply a quantum operation to the state.
 
         Applies the quantum operation E to the state.
-        E == [E_1, E_2, ...] is a set of Kraus operators.
-
-        Ville Bergholm 2009
+        :math:`E = [E_1, E_2, \ldots]` is a set of Kraus operators.
         """
+        # Ville Bergholm 2009
+
         # TODO allow the user to apply E only to some subsystems of s0
         n = len(E)
         # TODO: If n > prod(dims(s))^2, there is a simpler equivalent
@@ -716,13 +722,13 @@ class state(lmap):
 
 
     def measure(self, M=None, do='R'):
-        """Quantum measurement.
-
-        (p, res, c)
-        = s.measure()                 measure the entire system projectively
-        = s.measure([(1, 4))          measure subsystems 1 and 4 projectively
-        = s.measure([M_1, M_2, ...])  perform a general measurement
-        = s.measure(A)                measure a Hermitian observable A
+        r"""Quantum measurement.
+        ::
+          (p, res, c)
+            = self.measure()                 measure the entire system projectively
+            = self.measure([(1, 4))          measure subsystems 1 and 4 projectively
+            = self.measure([M_1, M_2, ...])  perform a general measurement
+            = self.measure(A)                measure a Hermitian observable A
 
         Performs a quantum measurement on the state.
 
@@ -734,8 +740,8 @@ class state(lmap):
         computational basis.
 
         A general measurement may be performed by giving a complete set
-        of measurement operators [M_1, M_2, ...] as the second parameter.
-        A POVM can be emulated using M_i = sqrtm(P_i) and not using the collapsed state.
+        of measurement operators :math:`[M_1, M_2, \ldots]` as the second parameter.
+        A POVM can be emulated using :math:`M_i = \text{sqrtm}(P_i)` and discarding the collapsed state.
 
         Finally, if the second parameter is a single Hermitian matrix A, the
         corresponding observable is measured. In this case the second
@@ -744,16 +750,16 @@ class state(lmap):
 
         p = measure(..., do='P') returns the vector p, where p[k] is the probability of
         obtaining result k in the measurement. For a projective measurement
-        in the computational basis this corresponds to the ket |k>.
+        in the computational basis this corresponds to the ket :math:`|k\rangle`.
 
         (p, res) = measure(...) additionally returns the index of the result of the
         measurement, res, chosen at random from the probability distribution p.
  
         (p, res, c) = measure(..., do='C') additionally gives c, the collapsed state
         corresponding to the measurement result res.
-
-        Ville Bergholm 2009-2010
         """
+        # Ville Bergholm 2009-2010
+
         def rand_measure(p):
             """Result of a random measurement using the prob. distribution p."""
             return nonzero(rand() <= cumsum(p))[0][0]
@@ -895,17 +901,17 @@ class state(lmap):
 # quantum information methods
 
     def fidelity(self, r):
-        """Fidelity of two states.
+        r"""Fidelity of two states.
 
         Fidelity of two state operators \rho and \sigma is defined as
-        $F(\rho, \sigma) = \trace \sqrt{\sqrt{\rho} \sigma \sqrt{\rho}}$.
-        For state vectors this is equivalent to the overlap, F = |<a|b>|.
+        :math:`F(\rho, \sigma) = \mathrm{Tr} \sqrt{\sqrt{\rho} \sigma \sqrt{\rho}}`.
+        For state vectors this is equivalent to the overlap, :math:`F = |\langle a|b\rangle|`.
 
         Fidelity is symmetric in its arguments and bounded in the interval [0,1].
-
-        Ville Bergholm 2009-2010
-        %! M.A. Nielsen, I.L. Chuang, "Quantum Computation and Quantum Information" (2000), chapter 9.2.2
+        See [NC]_, chapter 9.2.2.
         """
+        # Ville Bergholm 2009-2010
+
         if not isinstance(r, state):
             raise TypeError('Not a state.')
 
@@ -923,17 +929,16 @@ class state(lmap):
 
 
     def trace_dist(self, r):
-        """Trace distance of two states.
+        r"""Trace distance of two states.
 
         Trace distance between state operators r and s is defined as
-        $D(r, s) = 0.5*\trace(\sqrt{A^\dagger * A})$, where $A = r-s$.
+        :math:`D(r, s) = \frac{1}{2} \mathrm{Tr}(\sqrt{A^\dagger A})`, where A = r-s.
 
-        Equivalently $D(r, s) = 0.5*\sum_k |\lambda_k|$, where $\lambda_k$
-        are the eigenvalues of A (since A is Hermitian).
-
-        Ville Bergholm 2009
-        %! M.A. Nielsen, I.L. Chuang, "Quantum Computation and Quantum Information" (2000), chapter 9.2.1
+        Equivalently :math:`D(r, s) = \frac{1}{2} \sum_k |\lambda_k|`, where :math:`\lambda_k`
+        are the eigenvalues of A (since A is Hermitian). See [NC]_, chapter 9.2.1.
         """
+        # Ville Bergholm 2009
+
         if not isinstance(r, state):
             raise TypeError('Not a state.')
 
@@ -947,9 +952,11 @@ class state(lmap):
 
 
     def schmidt(self, sys=None, full=False):
-        """Schmidt decomposition.
-        lambda = schmidt(sys)
-        lambda, u, v = schmidt(sys, full=True)
+        r"""Schmidt decomposition.
+        ::
+
+          lambda       = schmidt(sys)
+          lambda, u, v = schmidt(sys, full=True)
 
         Calculates the Schmidt decomposition of the (pure) state.
         Subsystems listed in vector sys constitute part A, the rest forming part B.
@@ -957,12 +964,17 @@ class state(lmap):
 
         If required, matrices u and v will contain the corresponding orthonormal
         Schmidt bases for A and B, respectively, as column vectors, i.e.
-        \ket{k}_A = u[:, k], \ket{k}_B = v[:, k].
-        The state is then given by \sum_k \lambda_k \ket{k}_A \otimes \ket{k}_B
 
-        %! M.A. Nielsen, I.L. Chuang, "Quantum Computation and Quantum Information" (2000), chapter 2.5.
-        Ville Bergholm 2009-2010
+        .. math::
+
+           |k\rangle_A = u[:, k],  \qquad |k\rangle_B = v[:, k].
+
+        The state is then given by :math:`\sum_k \lambda_k |k\rangle_A \otimes |k\rangle_B`.
+
+        See [NC]_, chapter 2.5.
         """
+        # Ville Bergholm 2009-2010
+
         dim = self.dims()
         n = self.subsystems()
 
@@ -1002,22 +1014,19 @@ class state(lmap):
 
 
     def entropy(self, sys=None):
-        """Von Neumann entropy of the state.
-        S = entropy(s)       entropy
-        S = entropy(s, sys)  entropy of entanglement
+        r"""Von Neumann entropy of the state.
 
-        Returns the entropy S of the state.
+        If sys == None, returns the entropy of the state:
+        :math:`S(\rho) = -\mathrm{Tr}(\rho \log_2(\rho))`.
 
         If a vector of subsystem indices sys is given, returns the
         entropy of entanglement of the state wrt. the partitioning
         defined by sys.
 
         Entropy of entanglement is only defined for pure states.
-
-        S(\rho) = -\trace(\rho * \log_2(\rho))
-
-        Ville Bergholm 2009-2010
         """
+        # Ville Bergholm 2009-2010
+
         if sys != None:
             s = ptrace(to_ket(s), sys) # partial trace over one partition
 
@@ -1035,10 +1044,13 @@ class state(lmap):
         Returns the concurrence of the state s wrt. the partitioning
         given by the listing of subsystems in the vector sys.
 
-        %! W.K. Wootters, "Entanglement of Formation of an Arbitrary State of Two Qubits", PRL 80, 2245 (1998).
-        %! R. Horodecki, P. Horodecki, M. Horodecki, K. Horodecki, "Quantum entanglement", arXiv:quant-ph/0702225 (2007).
-        Ville Bergholm 2006-2010
+        See [Wootters]_, [Horodecki]_.
+
+        .. [Wootters] W.K. Wootters, "Entanglement of Formation of an Arbitrary State of Two Qubits", PRL 80, 2245 (1998).
+        .. [Horodecki] R.\ Horodecki, P. Horodecki, M. Horodecki, K. Horodecki, "Quantum entanglement", arXiv:quant-ph/0702225 (2007).
         """
+        # Ville Bergholm 2006-2010
+
         if abs(self.trace() - 1) > tol:
             warn('State not properly normalized.')
 
@@ -1091,10 +1103,13 @@ class state(lmap):
         Returns the negativity of the state wrt. the partitioning
         given by the listing of subsystems in the vector sys.
 
-        %! A. Peres, "Separability Criterion for Density Matrices", PRL 77, 1413 (1996).
-        %! M. Horodecki et al., "Separability of Mixed States: Necessary and Sufficient Conditions", Physics Letters A 223, 1-8 (1996).
-        Ville Bergholm 2008
+        See [Peres]_, [Horodecki1]_
+
+        .. [Peres] A.Peres, "Separability Criterion for Density Matrices", PRL 77, 1413 (1996).
+        .. [Horodecki1] M.Horodecki et al., "Separability of Mixed States: Necessary and Sufficient Conditions", Physics Letters A 223, 1-8 (1996).
         """
+        # Ville Bergholm 2008
+
         s = self.ptranspose(sys)  # partial transpose the state
         x = sp.linalg.svdvals(s.data)  # singular values
         return (sum(sqrt(x)) - 1) / 2
@@ -1105,9 +1120,9 @@ class state(lmap):
 
         Returns the logarithmic negativity of the state wrt. the partitioning
         given by the listing of subsystems in the vector sys.
-
-        Ville Bergholm 2008
         """
+        # Ville Bergholm 2008
+
         return log2(2 * self.negativity(sys) + 1)
 
 
@@ -1119,13 +1134,15 @@ class state(lmap):
 
         When m = 1 this is coincides with the Meyer-Wallach entanglement measure.
 
-        %! P.J. Love et al., "A characterization of global entanglement", arXiv:quant-ph/0602143 (2006).
-        %! A.J. Scott, "Multipartite entanglement, quantum-raise ValueError-correcting codes, and entangling power of quantum evolutions", PRA 69, 052330 (2004).
-        %! D.A. Meyer and N.R. Wallach, "Global entanglement in multiparticle systems", J. Math. Phys. 43, 4273 (2002).
+        See [Love]_, [Scott]_, [MW]_.
 
-        Jacob D. Biamonte 2008
-        Ville Bergholm 2008-2010
+        .. [Love] P.J. Love et al., "A characterization of global entanglement", arXiv:quant-ph/0602143 (2006).
+        .. [Scott] A.J. Scott, "Multipartite entanglement, quantum-raise ValueError-correcting codes, and entangling power of quantum evolutions", PRA 69, 052330 (2004).
+        .. [MW] D.A. Meyer and N.R. Wallach, "Global entanglement in multiparticle systems", J. Math. Phys. 43, 4273 (2002).
         """
+        # Jacob D. Biamonte 2008
+        # Ville Bergholm 2008-2010
+
         dim = self.dims()
         n = self.subsystems()
 
@@ -1159,9 +1176,10 @@ class state(lmap):
         using local operations and classical communication (LOCC).
         sys is a vector of subsystems defining the partition.
 
-        Ville Bergholm 2010
-        %! M.A. Nielsen, I.L. Chuang, "Quantum Computation and Quantum Information" (2000), chapter 12.5.1
+        See [NC]_, chapter 12.5.1
         """
+        # Ville Bergholm 2010
+
         if not equal_dims(self, t):
             raise ValueError('States must have equal dimensions.')
 
@@ -1185,9 +1203,9 @@ class state(lmap):
         Relative phases are represented by the colors of the bars.
 
         If the state is nonpure, also plots the coherences.
-
-        Ville Bergholm 2009-2010
         """
+        # Ville Bergholm 2009-2010
+
         import matplotlib.pyplot as plt
         from matplotlib import cm, colors
 
@@ -1290,7 +1308,7 @@ class state(lmap):
 # other state representations
 
     def bloch_vector(self):
-        """Generalized Bloch vector.
+        r"""Generalized Bloch vector.
 
         Returns the generalized Bloch vector A corresponding to the state.
 
@@ -1298,17 +1316,21 @@ class state(lmap):
         tensor defined in terms of the standard Hermitian tensor basis B
         corresponding to state dimensions:
 
-        A_{ijk...} == \sqrt(D) * \trace(\rho_s  B_{ijk...}),
+        .. math::
 
-        where D = prod(self.dims()). A is always real since \rho_s is Hermitian.
+           A_{ijk\ldots} = \sqrt{D} \mathrm{Tr}(\rho_s  B_{ijk\ldots}),
+
+        where D = prod(self.dims()). A is always real since :math:`\rho_s` is Hermitian.
         For valid, normalized states
-           rho.purity() <= 1   implies   norm(A, 'fro')  <= sqrt(D)
-           rho.trace()   = 1   implies   A[0, 0, ..., 0] == sqrt(D)   
+
+           self.purity() <= 1   implies   norm(A, 'fro')  <= sqrt(D)
+
+           self.trace()   = 1   implies   A[0, 0, ..., 0] == sqrt(D)   
 
         E.g. for a qubit system norm(A, 'fro') <= 2.
-
-        Ville Bergholm 2009-2011
         """
+        # Ville Bergholm 2009-2011
+
         dim = self.dims()
         G = tensorbasis(dim)
         a = []
@@ -1326,9 +1348,9 @@ class state(lmap):
         """Tensor product of states.
 
         Returns the tensor product state of states s1, s2, ...
-
-        Ville Bergholm 2009-2010
         """
+        # Ville Bergholm 2009-2010
+
         # if all states are kets, keep the result state a ket
         pure = True
         for k in arg:
@@ -1348,21 +1370,24 @@ class state(lmap):
 
     @staticmethod
     def bloch_state(A, dim=None):
-        """State corresponding to a generalized Bloch vector.
-        s = bloch_state(A)       assume dim == sqrt(size(A))
+        r"""State corresponding to a generalized Bloch vector.
+        s = bloch_state(A)       assume 
         s = bloch_state(A, dim)  give state dimensions explicitly
 
         Returns the state s corresponding to the generalized Bloch vector A.
 
-        The vector is defined in terms of the standard Hermitian tensor basis B
-        corresponding to the dimension vector dim.
+        A is defined in terms of the standard Hermitian tensor basis B
+        corresponding to the dimension vector dim. If dim is not given, it is assumed
+        to be sqrt(A.shape).
 
-          \rho_s == \sum_{ijk...} A_{ijk...} B_{ijk...} / \sqrt(D),
+        .. math::
+
+           \rho_s = \sum_{ijk\ldots} A_{ijk\ldots} B_{ijk\ldots} / \sqrt{D},
 
         where D = prod(dim). For valid states norm(A, 2) <= sqrt(D).
-
-        Ville Bergholm 2009-2011
         """
+        # Ville Bergholm 2009-2011
+
         if dim == None:
             dim = tuple(sqrt(A.shape).astype(int))  # s == dim ** 2
 
@@ -1379,9 +1404,9 @@ class state(lmap):
     @staticmethod
     def test():
         """Test script for the state class.
-
-        Ville Bergholm 2008-2011
         """
+        # Ville Bergholm 2008-2011
+
         #for k in range(5):
 
         # test the state constructor

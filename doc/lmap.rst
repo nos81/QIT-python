@@ -1,8 +1,8 @@
-Linear maps (:mod:`lmap`)
-=========================
+Linear maps (:mod:`qit.lmap`)
+=============================
 
 
-.. automodule:: lmap
+.. automodule:: qit.lmap
    :members:
 
    sfdsf

@@ -1,7 +1,7 @@
-Harmonic oscillators (:mod:`ho`)
-================================
+Harmonic oscillators (:mod:`qit.ho`)
+====================================
 
-.. currentmodule:: ho
+.. currentmodule:: qit.ho
 
 This module simulates harmonic oscillators by truncating the state
 space dimension to a finite value. Higher truncation limits give more accurate results.
@@ -24,5 +24,5 @@ Contents
 
 
 
-.. automodule:: ho
+.. automodule:: qit.ho
    :members:

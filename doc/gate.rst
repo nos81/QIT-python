@@ -1,14 +1,14 @@
-Quantum gates (:mod:`gate`)
-================================
-
-.. currentmodule:: gate
+Quantum gates (:mod:`qit.gate`)
+===============================
 
 This module implements many common types of quantum gates (and some
-other useful linear maps).
+other useful linear maps). The gates are represented as :class:`lmap` instances.
 
 
 Contents
 --------
+
+.. currentmodule:: qit.gate
 
 .. autosummary::
 
@@ -27,5 +27,5 @@ Contents
 
 
 
-.. automodule:: gate
+.. automodule:: qit.gate
    :members:
