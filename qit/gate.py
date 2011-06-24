@@ -8,7 +8,7 @@ The data type is float unless complex entries are actually needed.
 from __future__ import print_function, division
 from copy import deepcopy
 
-from numpy import prod, diag, eye, empty, zeros, trace, exp, sqrt, mod, isscalar, kron, array, ones
+from numpy import pi, prod, diag, eye, empty, zeros, trace, exp, sqrt, mod, isscalar, kron, array, ones, array_equal
 import scipy.sparse as sparse
 
 
@@ -16,11 +16,9 @@ from lmap import *
 from utils import qubits, op_list, assert_o, copy_memoize, gcd
 
 
-# TODO lmap constructor, mul/add, tensor funcs must be able to handle both dense and sparse arrays.
-# reshape will cause problems!
+# TODO reshape will cause problems for sparse matrices!
 # TODO utils.op_list too!
 # TODO which one is faster in element assignment -style init, dok or lil?
-
 # TODO make input interface consistent, do we want arrays or lmaps?
 
 
@@ -181,10 +179,11 @@ def phase(theta, dim=None):
     n = len(theta)
     if dim == None:
         dim = (n,)
-    elif prod(dim) != n:
+    d = prod(dim)
+    if d != n:
         raise ValueError('Dimension mismatch.')
 
-    return lmap(sparse.spdiags(exp(1j * theta), 0, dim, dim, 'csr') , (dim, dim))
+    return lmap(sparse.spdiags(exp(1j * theta), 0, d, d, 'csr') , (dim, dim))
 
 
 @copy_memoize
@@ -203,7 +202,7 @@ def qft(dim):
     U = empty((N, N), complex)  # completely dense, so we don't have to initialize it with zeros
     for j in range(N):
         for k in range(N):
-            U[j, k] = exp(2j * np.pi * j * k / N) / sqrt(N)
+            U[j, k] = exp(2j * pi * j * k / N) / sqrt(N)
     return lmap(U, (dim, dim))
 
 
@@ -347,7 +346,7 @@ def two(B, t, d_in):
         raise ValueError('Bad target subsystem(s).')
 
     d_in = array(d_in)
-    if not np.array_equal(d_in[t], B.dim[1]):
+    if not array_equal(d_in[t], B.dim[1]):
         raise ValueError('Input dimensions do not match.')
 
     # dimensions for the untouched subsystems
@@ -377,7 +376,7 @@ def test():
     # Ville Bergholm 2010
 
     from numpy.random import randn
-    from base import sx, sy, sz
+    from base import sx, sy, sz, tol
 
     dim = (2, 4)
 

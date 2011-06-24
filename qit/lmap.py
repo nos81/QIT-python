@@ -8,6 +8,7 @@ import sys
 from copy import copy, deepcopy
 
 import numpy as np
+import scipy.sparse as ssp
 
 from base import tol
 
@@ -44,7 +45,6 @@ class lmap(object):
 
 # TODO def __format__(self, format_spec)
 # TODO linalg efficiency: copy vs. view
-# TODO sparse matrices?
 
     def __init__(self, s, dim=None):
         """Construct an lmap.
@@ -75,6 +75,11 @@ class lmap(object):
             self.data = deepcopy(s.data)
             defdim = s.dim  # copy the dimensions too, unless redefined
         else:
+            if ssp.isspmatrix(s):
+                # TODO FIXME handle sparse matrices properly
+                # TODO lmap constructor, mul/add, tensor funcs must be able to handle both dense and sparse arrays.
+                s = s.todense()
+
             # valid array initializer
             self.data = np.asarray(s) # NOTE that if s is an ndarray it is not copied here
 

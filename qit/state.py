@@ -12,10 +12,10 @@ import types
 from copy import deepcopy
 
 import numpy as np
-from numpy import array, asarray, sort, prod, cumsum, cumprod, sqrt, trace, dot, vdot, roll, zeros, ones, r_, kron, isscalar, nonzero, ix_, linspace, meshgrid
+from numpy import array, asarray, diag, sort, prod, cumsum, cumprod, exp, sqrt, trace, dot, vdot, roll, zeros, ones, r_, kron, isscalar, nonzero, ix_, linspace, meshgrid
 from numpy.random import rand, randn
 import scipy as sp
-from scipy.linalg import norm
+from scipy.linalg import norm, eig
 from scipy.integrate import ode
 
 from base import Q_Bell, tol

@@ -5,14 +5,19 @@
 from __future__ import print_function, division
 from math import asin
 from operator import mod
+from copy import deepcopy
 
 import numpy as np
-from numpy import floor, ceil, log2, angle, arange, logical_not, sin, cos, arctan2, empty
-from numpy.linalg import eig
+from numpy import array, diag, kron, prod, floor, ceil, sqrt, log2, exp, angle, arange, linspace, logical_not, sin, cos, arctan2, empty, zeros, ones, eye, sort, nonzero, pi, trace, dot, meshgrid, r_
+from numpy.linalg import eig, norm
+from numpy.random import rand, randint
 from scipy.misc import factorial
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import figure, hold, plot, bar, title, xlabel, ylabel, axis, legend
 
+from base import *
+from lmap import *
+from utils import *
 from state import *
 from plot import *
 import gate
@@ -842,7 +847,7 @@ def qubit_and_resonator(d_r=30):
     plt.figure()
     plot(t, out1, 'b-', t, out2, 'r-')
     xlabel('Interaction time $\\tau$ (ns)')
-    ylabel('P_e')
+    ylabel('$P_e$')
     title('Resonator readout through qubit.')
     legend(('$|1\\rangle + |3\\rangle$', '$|1\\rangle + i|3\\rangle$'))
 
