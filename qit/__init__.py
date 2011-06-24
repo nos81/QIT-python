@@ -41,9 +41,9 @@ def test():
     import utils
 
     lmap.test()
-    #utils.test()
+    utils.test()
     state.test()
-    #gate.test()
+    gate.test()
     ho.test()
     invariant.test()
     markov.test()

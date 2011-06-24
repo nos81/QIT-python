@@ -8,7 +8,7 @@ from operator import mod
 
 import numpy as np
 from numpy import floor, ceil, log2, angle, arange, logical_not, sin, cos, arctan2, empty
-from numpy.linalg import eig, matrix_power
+from numpy.linalg import eig
 from scipy.misc import factorial
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import figure, hold, plot, bar, title, xlabel, ylabel, axis, legend
@@ -23,17 +23,16 @@ def adiabatic_qc_3sat(n=6, n_clauses=None, clauses=None, problem='3sat'):
     """Adiabatic quantum computing demo.
 
     This example solves random 3-SAT problems by simulating the
-    adiabatic quantum algorithm of Farhi et al.
+    adiabatic quantum algorithm of [Farhi]_.
 
     Note that this is incredibly inefficient because we first essentially
     solve the NP-complete problem classically using an exhaustive
     search when computing the problem Hamiltonian H1, and then
     simulate an adiabatic quantum computer solving the same problem
     using the quantum algorithm.
-
-    %! E. Farhi et al., "Quantum Computation by Adiabatic Evolution", arXiv.org:quant-ph/0001106.
-    Ville Bergholm 2009-2011
     """
+    # Ville Bergholm 2009-2011
+
     print('\n\n=== Solving 3-SAT using adiabatic qc ===\n')
 
     if n < 3:
@@ -116,11 +115,12 @@ def adiabatic_qc(H0, H1, s0, tmax=50):
     """Adiabatic quantum computing.
 
     This is a helper function for simulating the adiabatic quantum
-    algorithm of Farhi et al. and plotting the results.
+    algorithm of [Farhi]_ and plotting the results.
 
-    %! E. Farhi et al., "Quantum Computation by Adiabatic Evolution", arXiv.org:quant-ph/0001106.
-    Ville Bergholm 2009-2011
+    .. [Farhi] E.Farhi et al., "Quantum Computation by Adiabatic Evolution", arXiv.org:quant-ph/0001106.
     """
+    # Ville Bergholm 2009-2011
+
     H1_full = diag(H1) # into a full matrix
 
     # adiabatic simulation
@@ -160,8 +160,9 @@ def bb84(n=50):
 
     Simulate the protocol with n qubits transferred.
 
-    Ville Bergholm 2009
     """
+    # Ville Bergholm 2009
+
     print('\n\n=== BB84 protocol ===\n')
     print('Using {0} transmitted qubits.\n'.format(n))
 
@@ -243,12 +244,13 @@ def bb84(n=50):
 def grover_search(n=8):
     """Grover search algorithm demo.
 
-    Simulate the Grover search algorithm formulated using amplitude amplification
+    Simulate the Grover search algorithm [Grover]_ formulated using amplitude amplification
     in a system of n qubits.
 
-    %! L.K. Grover, "Quantum Computers Can Search Rapidly by Using Almost Any Transformation", PRL 80, 4329 (1998). doi:10.1103/PhysRevLett.80.4329.   
-    Ville Bergholm 2009-2010
+    .. [Grover] L.K. Grover, "Quantum Computers Can Search Rapidly by Using Almost Any Transformation", PRL 80, 4329 (1998). doi:10.1103/PhysRevLett.80.4329.   
     """
+    # Ville Bergholm 2009-2010
+
     print('\n\n=== Grover search algorithm ===\n')
 
     A = gate.walsh(n) # Walsh-Hadamard gate for generating uniform superpositions
@@ -296,8 +298,9 @@ def markov_decoherence(T1, T2, B=None):
     Given decoherence times T1 and T2, creates a markovian bath B
     and a coupling operator D which reproduce them on a single-qubit system.
 
-    Ville Bergholm 2009-2011
     """
+    # Ville Bergholm 2009-2011
+
     import markov
     print('\n\n=== Markovian decoherence in a qubit ===\n')
 
@@ -350,9 +353,12 @@ def nmr_sequences():
     Plots the fidelity of each control sequence as a function
     of both off-resonance error f and fractional pulse length error g.
 
-    %! Cummins et al., "Tackling systematic errors in quantum logic gates with composite rotations", PRA 67, 042308 (2003).
-    Ville Bergholm 2006-2011
+    See [Cummins]_.
+
+    .. [Cummins] Cummins et al., "Tackling systematic errors in quantum logic gates with composite rotations", PRA 67, 042308 (2003).
     """
+    # Ville Bergholm 2006-2011
+
     import seq
     from mpl_toolkits.mplot3d import Axes3D
     print('\n\n=== NMR control sequences for correcting systematic errors ===\n')
@@ -421,23 +427,29 @@ def nmr_sequences():
 
 
 def phase_estimation(t, U, s, implicit=False):
-    """Quantum phase estimation algorithm.
+    r"""Quantum phase estimation algorithm.
 
-    Estimate an eigenvalue of unitary operator U using t qubits,
+    Estimate an eigenvalue of the unitary :class:`lmap` U using t qubits,
     starting from the state s.
 
     Returns the state of the index register after the phase estimation
     circuit, but before final measurement.
 
-    To get a result accurate to n bits with probability >= (1-epsilon),
-    choose  t >= n + ceil(log2(2+1/(2*epsilon))).
+    To get a result accurate to n bits with probability :math:`\ge 1 -\epsilon`,
+    choose
 
-    %! R. Cleve et al., "Quantum Algorithms Revisited", Proc. R. Soc. London A454, 339 (1998).
-    %! M.A. Nielsen, I.L. Chuang, "Quantum Computation and Quantum Information" (2000), chapter 5.2.
-    Ville Bergholm 2009-2010
+    .. math::
+
+       t \ge n + \left\lceil \log_2\left(2 +\frac{1}{2 \epsilon}\right) \right \rceil.
+
+    See [Cleve]_, [NC]_ chapter 5.2.
+
+    .. [Cleve] R.Cleve et al., "Quantum Algorithms Revisited", Proc. R. Soc. London A454, 339 (1998).
     """
+    # Ville Bergholm 2009-2010
+
     T = 2 ** t
-    S = U.shape[0]
+    S = U.data.shape[0]
 
     # index register in uniform superposition
     #reg_t = u_propagate(state(0, qubits(t)), gate.walsh(t)) # use Hadamards
@@ -453,7 +465,7 @@ def phase_estimation(t, U, s, implicit=False):
     for k in range(t):
         ctrl = -ones(t)
         ctrl[k] = 1
-        temp = gate.controlled(matrix_power(U, 2 ** (t-1-k)), ctrl)
+        temp = gate.controlled(U ** (2 ** (t-1-k)), ctrl)
         reg = reg.u_propagate(temp)
     # from this point forward the state register is not used anymore
 
@@ -478,10 +490,10 @@ def phase_estimation_precision(t, U, u=None):
     Plots and returns the probability distribution of the resulting t-bit approximations.
     If u is not given, use a random eigenvector of U.
 
-    %! R. Cleve et al., "Quantum Algorithms Revisited", Proc. R. Soc. London A454, 339 (1998).
-    %! M.A. Nielsen, I.L. Chuang, "Quantum Computation and Quantum Information" (2000), chapter 5.2.
-    Ville Bergholm 2009-2010
+    Uses :func:`phase_estimation`.
     """
+    # Ville Bergholm 2009-2010
+
     print('\n\n=== Phase estimation ===\n\n')
 
     # find eigenstates of the operator
@@ -491,7 +503,7 @@ def phase_estimation_precision(t, U, u=None):
         u = state(v[:, 0], N) # exact eigenstate
 
     print('Use {0} qubits to estimate the phases of the eigenvalues of a U({1}) operator.\n'.format(t, N))
-    p = phase_estimation(t, U, u).prob()
+    p = phase_estimation(t, lmap(U), u).prob()
     T = 2 ** t
     x = arange(T) / T
     w = 0.8 / T
@@ -516,7 +528,7 @@ def phase_estimation_precision(t, U, u=None):
 
 
 def qft_circuit(dim=(2, 3, 3, 2)):
-    """Quantum Fourier transform circuit demo.
+    r"""Quantum Fourier transform circuit demo.
 
     Simulate the quadratic QFT circuit construction.
     dim is the dimension vector of the subsystems.
@@ -524,11 +536,14 @@ def qft_circuit(dim=(2, 3, 3, 2)):
     NOTE: If dim is not palindromic the resulting circuit also
     reverses the order of the dimensions
 
-    U |x1,x2,...,xn> = 1/sqrt(d) \sum_{ki} |kn,...,k2,k1> exp(i 2 \pi (k1*0.x1x2x3 +k2*0.x2x3 +k3*0.x3))
-    = 1/sqrt(d) \sum_{ki} |kn,...,k2,k1> exp(i 2 \pi 0.x1x2x3*(k1 +d1*k2 +d1*d2*k3))
+    .. math::
 
-    Ville Bergholm 2010-2011
+       U |x_1, x_2, \ldots, x_n\rangle
+       = \frac{1}{\sqrt{d}} \sum_{k_i} |k_n,\ldots, k_2, k_1\rangle \exp\left(i 2 \pi \left(\sum_{r=1}^n k_r 0.x_r x_{r+1}\ldots x_n\right)\right)
+       = \frac{1}{\sqrt{d}} \sum_{k_i} |k_n,\ldots, k_2, k_1\rangle \exp\left(i 2 \pi 0.x_1 x_2 \ldots x_n \left(\sum_{r=1}^n d_1 d_2 \cdots d_{r-1} k_r \right)\right).
     """
+    # Ville Bergholm 2010-2011
+
     print('\n\n=== Quantum Fourier transform using a quadratic circuit ===\n')
     print('Subsystem dimensions: {0}'.format(dim))
 
@@ -560,10 +575,10 @@ def qft_circuit(dim=(2, 3, 3, 2)):
 def quantum_channels(p=0.3):
     """Visualization of simple one-qubit channels.
 
-    Visualizes the effect of different quantum channels on a qubit.
-
-    Ville Bergholm 2009
+    Visualizes the effect of different quantum channels on a qubit using the Bloch sphere representation.
     """
+    # Ville Bergholm 2009
+
     print('\n\n=== Quantum channels ===\n')
 
     E_bitflip      = [sqrt(1-p)*I, sqrt(p)*sx]
@@ -613,9 +628,9 @@ def quantum_walk(steps=7, n=11, p=0.05, n_coin=2):
     After each step, the position of the walker is measured with probability p.
     p == 1 results in a fully classical random walk, whereas
     p == 0 corresponds to the "fully quantum" case.
-
-    Ville Bergholm 2010-2011
     """
+    # Ville Bergholm 2010-2011
+
     print('\n\n=== Quantum walk ===\n')
     # initial state: coin shows heads, walker in center node
     coin   = state('0', n_coin)
@@ -670,11 +685,12 @@ def qubit_and_resonator(d_r=30):
     """Qubit coupled to a microwave resonator demo.
 
     Simulates a qubit coupled to a microwave resonator.
-    Reproduces plots from the experiment in the reference.
+    Reproduces plots from the experiment in [Hofheinz]_.
 
-    %! M. Hofheinz et al., "Synthesizing arbitrary quantum states in a superconducting resonator", Nature 459, 546-549 (2009), doi:10.1038/nature08005
-    Ville Bergholm 2010
+    .. [Hofheinz] M.Hofheinz et al., "Synthesizing arbitrary quantum states in a superconducting resonator", Nature 459, 546-549 (2009), doi:10.1038/nature08005
     """
+    # Ville Bergholm 2010
+
     print('\n\n=== Qubit coupled to a single-mode microwave resonator ===\n')
     if d_r < 10:
         d_r = 10 # truncated resonator dim
@@ -870,13 +886,15 @@ def shor_factorization(N=9, cheat=False):
     NOTE: This is a very computationally intensive quantum algorithm
     to simulate classically, and probably will not run for any
     nontrivial value of N (unless you choose to cheat, in which case
-    instead of simulating the quantum part we use a more efficient
-    classical algorithm for the order-finding).
+    instead of simulating the quantum part (implemented in :func:`find_order`)
+    we use a more efficient classical algorithm for the order-finding).
 
-    %! P.W. Shor, "Algorithms For Quantum Computation: Discrete Logs and Factoring", Proc. 35th Symp. on the Foundations of Comp. Sci., 124 (1994).
-    %! M.A. Nielsen, I.L. Chuang, "Quantum Computation and Quantum Information" (2000), chapter 5.3.
-    Ville Bergholm 2010-2011
+    See [Shor]_, [NC]_ chapter 5.3.
+
+    .. [Shor] P.W. Shor, "Algorithms For Quantum Computation: Discrete Logs and Factoring", Proc. 35th Symp. on the Foundations of Comp. Sci., 124 (1994).
     """
+    # Ville Bergholm 2010-2011
+
     def find_order_cheat(a, N):
         """Classical order-finding algorithm."""
         for r in range(1, N+1):
@@ -906,10 +924,8 @@ def shor_factorization(N=9, cheat=False):
 
     # maximum allowed failure probability for the quantum order-finding part
     epsilon = 0.25
-
     # number of index qubits required for the phase estimation
     t = 2*m +1 +int(ceil(log2(2 + 1 / (2 * epsilon))))
-
     print('The quantum order-finding subroutine will need {0} + {1} qubits.\n'.format(t, m))
 
     # classical reduction of factoring to order-finding
@@ -933,8 +949,8 @@ def shor_factorization(N=9, cheat=False):
             while True:
                 print('.')
                 # ==== quantum part of the algorithm ====
-                [s1, r1] = find_order(a, N, t, m)
-                [s2, r2] = find_order(a, N, t, m)
+                [s1, r1] = find_order(a, N, epsilon)
+                [s2, r2] = find_order(a, N, epsilon)
                 # =============  ends here  =============
 
                 if gcd(s1, s2) == 1:
@@ -964,16 +980,28 @@ def shor_factorization(N=9, cheat=False):
     return p
 
 
-def find_order(a, N, t, m):
+def find_order(a, N, epsilon=0.25):
     """Quantum order-finding subroutine.
+
     Finds the period of the function f(x) = a^x mod N.
+    epsilon is the maximum allowed failure probability for the subroutine.
+
+    Returns r, s where r/s approximates period/T.
+
+    Uses :func:`phase_estimation`.
+
+    See [Shor]_, [NC]_ chapter 5.3.
     """
+    # number of bits needed to represent mod N arithmetic:
+    m = int(ceil(log2(N)))
+    # number of index qubits required for the phase estimation
+    t = 2*m +1 +int(ceil(log2(2 + 1 / (2 * epsilon))))
+
     T = 2 ** t # index register dimension
     M = 2 ** m # state register dimension
 
     # applying f(x) is equivalent to the sequence of controlled modular multiplications in phase estimation
     U = gate.mod_mul(a, M, N)
-    U = U.data # FIXME phase_estimation cannot handle lmaps right now
 
     # state register initialized in the state |1>
     st = state(1, M)
@@ -982,14 +1010,18 @@ def find_order(a, N, t, m):
     reg = phase_estimation(t, U, st, implicit = True) # use implicit measurement to save memory
 
     # measure index register
-    dummy, num = reg.measure()  # FIXME?
+    dummy, num = reg.measure()
 
     def find_denominator(x, y, max_den):
         """
-        Finds the denominator q for p/q \approx x/y such that q < max_den
-        using a continued fraction representation for x.
+        Finds the denominator s for r/s \approx x/y such that s < max_den
+        using the convergents of the continued fraction representation
 
-        We use floor and mod here, which could be both implemented using
+        .. math::
+
+           \frac{x}{y} = a_0 +\frac{1}{a_1 +\frac{1}{a_2 +\ldots}}
+
+        We use floor and mod here, which could be both efficiently implemented using
         the classical Euclidean algorithm.
         """
         d_2 = 1
@@ -1005,7 +1037,7 @@ def find_order(a, N, t, m):
             temp = mod(x, y)  # x - a*y # subtract integer part
             if temp == 0:
             #if (temp/y < 1 / (2*max_den ** 2))
-                break
+                break  # continued fraction terminates here, result is exact
 
             # invert the remainder (swap numerator and denominator)
             x = y
@@ -1013,9 +1045,9 @@ def find_order(a, N, t, m):
         return d_1
 
     # another classical part
-    r = find_denominator(num, T, T+1)
-    s = num * r // T
-    return s, r
+    s = find_denominator(num, T, T+1)
+    r = (num * s) // T
+    return r, s
 
 
 def superdense_coding(d=2):
@@ -1024,8 +1056,9 @@ def superdense_coding(d=2):
     Simulate Alice sending two d-its of information to Bob using 
     a shared EPR qudit pair.
 
-    Ville Bergholm 2010-2011
     """
+    # Ville Bergholm 2010-2011
+
     print('\n\n=== Superdense coding ===\n')
 
     H   = gate.qft(d)        # qft (generalized Hadamard) gate
@@ -1071,8 +1104,9 @@ def teleportation(d=2):
 
     Simulate the teleportation of a d-dimensional qudit from Alice to Bob.
 
-    Ville Bergholm 2009-2011
     """
+    # Ville Bergholm 2009-2011
+
     print('\n\n=== Quantum teleportation ===\n')
 
     H   = gate.qft(d)        # qft (generalized Hadamard) gate
@@ -1130,8 +1164,9 @@ def teleportation(d=2):
 def tour():
     """Guided tour to the quantum information toolkit.
 
-    Ville Bergholm 2009-2011
     """
+    # Ville Bergholm 2009-2011
+
     print('This is the guided tour for the Quantum Information Toolkit.')
     print('Between examples, press any key to proceed to the next one.')
 

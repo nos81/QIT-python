@@ -16,6 +16,7 @@ Contents:
    state
    gate
    ho
+   examples
 
 .. include:: ../README.txt
    :start-line: 6
