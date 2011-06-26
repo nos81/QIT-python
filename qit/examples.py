@@ -10,7 +10,8 @@ from copy import deepcopy
 import numpy as np
 from numpy import array, diag, kron, prod, floor, ceil, sqrt, log2, exp, angle, arange, linspace, logical_not, sin, cos, arctan2, empty, zeros, ones, eye, sort, nonzero, pi, trace, dot, meshgrid, r_
 from numpy.linalg import eig, norm
-from numpy.random import rand, randint
+import numpy.random as npr
+from numpy.random import randint
 from scipy.misc import factorial
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import figure, hold, plot, bar, title, xlabel, ylabel, axis, legend
@@ -61,7 +62,7 @@ def adiabatic_qc_3sat(n=6, n_clauses=None, clauses=None, problem='3sat'):
         if problem == '3sat':
             for k in range(n_clauses):
                 for j in range(3):
-                    clauses[k, j] *= (-1) ** (rand() < 0.5) # negate if bit should be inverted
+                    clauses[k, j] *= (-1) ** (npr.rand() < 0.5) # negate if bit should be inverted
     else:
         n_clauses = clauses.shape[0]
 
@@ -172,11 +173,11 @@ def bb84(n=50):
     print('Using {0} transmitted qubits.\n'.format(n))
 
     # Alice generates two random bit vectors
-    sent    = rand(n) > 0.5
-    basis_A = rand(n) > 0.5
+    sent    = npr.rand(n) > 0.5
+    basis_A = npr.rand(n) > 0.5
 
     # Bob generates one random bit vector
-    basis_B = rand(n) > 0.5
+    basis_B = npr.rand(n) > 0.5
     received = zeros(n, bool)
 
     # Eve hasn't yet decided her basis
@@ -205,7 +206,7 @@ def bb84(n=50):
 
         # Eve might have different strategies here... TODO
         # Eve's strategy (simplest choice, random)
-        basis_E[k] = rand() > 0.5
+        basis_E[k] = npr.rand() > 0.5
   
         # Eve's choice of basis: Hadamard?
         if basis_E[k]:  q = q.u_propagate(H)
@@ -311,7 +312,7 @@ def markov_decoherence(T1, T2, B=None):
 
     omega0 = 2*pi* 1e9 # Hz
     T = 1 # K
-    delta = 3 + 3*rand() # qubit energy splitting (GHz)
+    delta = 3 + 3*npr.rand() # qubit energy splitting (GHz)
 
     # setup the bath
     if B == None:
@@ -1080,7 +1081,7 @@ def superdense_coding(d=2):
     print(reg)
 
     # two random d-its
-    a = floor(d * rand(2)).astype(int)
+    a = floor(d * npr.rand(2)).astype(int)
     print('\nAlice wishes to send two d-its of information (d = {0}) to Bob: a = {1}.'.format(d, a))
 
     Z = H * gate.mod_inc(a[0], d) * H.ctranspose()

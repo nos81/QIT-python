@@ -16,6 +16,7 @@ Contents:
    state
    gate
    ho
+   markov
    examples
 
 .. include:: ../README.txt

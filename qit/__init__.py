@@ -35,9 +35,9 @@ print('Python Quantum Information Toolkit, version {0}.'.format(__version__))
 
 def test():
     """Test script for the Quantum Information Toolkit.
-    
-    Ville Bergholm 2009-2011
     """
+    # Ville Bergholm 2009-2011
+
     import utils
 
     lmap.test()

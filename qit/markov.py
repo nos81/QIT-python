@@ -1,6 +1,12 @@
 # -*- coding: utf-8 -*-
-# Author: Ville Bergholm 2011
-"""Born-Markov noise module."""
+"""Born-Markov noise module.
+
+The treatment in this module follows [BP]_.
+
+.. [BP] Breuer, Heinz-Peter and Petruccione, Francesco, "The Theory of Open Quantum Systems", Oxford University Press (2002).
+"""
+# Ville Bergholm 2011
+
 
 from __future__ import print_function, division
 
@@ -14,49 +20,73 @@ from utils import *
 
 
 class bath(object):
-    """Markovian heat bath.
+    r"""Markovian heat bath.
 
     Currently only one type of bath is supported, a bosonic
     canonical ensemble at absolute temperature T, with a
     single-term coupling to the system.
+    The bath spectral density is Ohmic with a cutoff:
 
-    The bath spectral density is Ohmic with a cutoff.
-      J(omega) = hbar^2 * omega * cut(omega) * heaviside(omega)
+    .. math::
+
+       J(\omega) = \hbar^2 \omega \mathrm{cut}(\omega) \Theta(\omega)
 
     Two types of cutoffs are supported: exponential and sharp.
-      cut(omega) = exp(-omega / omega_c)
-      cut(omega) = heaviside(omega_c - omega)
 
-      gamma(omega) == 2 * pi / hbar^2 (J(omega) -J(-omega))(1 + n(omega))
+    .. math::
 
-    Data members:
-    type     Bath type. Currently only 'ohmic' is supported.
-    omega0   hbar * omega0 is the unit of energy for all Hamiltonians (omega0 in Hz)
-    T        Absolute temperature of the bath (in K).
-    scale    Dimensionless temperature scaling parameter hbar * omega0 / (kB * T)
-    cut_type    spectral density cutoff type
-    cut_limit   spectral density cutoff angular frequency/omega0
-    
-    # spectral density:
-    # J(omega0 * x)/omega0 = \hbar^2 * j(x) * heaviside(x) * cut_func(x)
-    j          spectral density profile
-    cut_func   cutoff function
+       \mathrm{cut}_{\text{exp}}(\omega)   &= \exp(-\omega / \omega_c),\\
+       \mathrm{cut}_{\text{sharp}}(\omega) &= \Theta(\omega_c - \omega)
 
-    # functions for g and s
-    # gamma(omega0 * x) / omega0 = g_func(x) * cut_func(x)
-    #    S(omega0 * dH) / omega0 = S_func(dH)
-    g_func
-    g0
-    s0
+    The effects of the bath on the system are contained in the complex spectral correlation tensor
 
-    # lookup tables for g and s
-    # gamma(omega0 * dH[k]) / omega0 = gs_table[k, 0]
-    #     S(omega0 * dH[k]) / omega0 = gs_table[k, 1]
-    dH
-    gs_table
+    .. math::
 
-    Ville Bergholm 2009-2011
+       \Gamma(\omega) = \frac{1}{2} \gamma(\omega) +i S(\omega)
+
+    where :math:`\gamma` and :math:`S` are real.
+    Computing values of this tensor is the main purpose of this class.
+
+    .. math::
+
+       \gamma(\omega) &= \frac{2 \pi}{\hbar^2} (J(\omega) -J(-\omega))(1 + n(\omega)),\\
+       S(\omega) &= \frac{1}{\hbar^2} \int_0^\infty \mathrm{d}\nu J(\nu) \frac{\omega \coth(\beta \hbar \nu/2) +\nu}{\omega^2 -\nu^2}.
+
+
+    where :math:`n(\omega) := 1/(e^{\beta \hbar \omega} - 1)` is the Planc function and :math:`\beta = 1/(k_B T)`. 
+    Since :math:`\Gamma` is pretty expensive to compute, we store the computed results into a lookup table which is used to interpolate nearby values.
+
+
+    Public data:
+
+    ===========  ===========
+    Data member  Description
+    ===========  ===========
+    type         Bath type. Currently only 'ohmic' is supported.
+    omega0       Energy scale (in Hz). :math:`\hbar \omega_0` is the unit of energy for all Hamiltonians related to this bath.
+    T            Absolute temperature of the bath (in K).
+    scale        Dimensionless temperature scaling parameter :math:`\hbar \omega_0 / (k_B T)`.
+    cut_type     Spectral density cutoff type (string).
+    cut_limit    Spectral density cutoff limit :math:`\omega_c / \omega_0`.
+    ===========  ===========    
+
+
+    Private data (set automatically):
+
+    ===========  ===========
+    Data member  Description
+    ===========  ===========
+    cut_func     Spectral density cutoff function.
+    j            Spectral density profile. :math:`J(\omega_0 x)/\omega_0 = \hbar^2 j(x) \mathrm{cut\_func}(x) \Theta(x)`.
+    g_func       Spectral correlation tensor, real part. :math:`\gamma(\omega_0 x) / \omega_0 = \mathrm{g\_func}(x) \mathrm{cut\_func}(x)`. For the complex part, see :func:`S_func`.
+    g0           :math:`\lim_{\omega \to 0} \gamma(\omega)`.
+    s0           :math:`\lim_{\omega \to 0} S(\omega)`.
+    dH           Lookup table.
+    gs_table     Lookup table. :math:`(\gamma / S)(\omega_0 \text{dH[k]}) / \omega_0` = gs_table[k, (0/1)].
+    ===========  ===========
     """
+    # Ville Bergholm 2009-2011
+
     def __init__(self, type, omega0, T):
         """constructor
     
@@ -87,7 +117,7 @@ class bath(object):
 
 
     def build_LUT(self):
-        """Build a lookup table for the S integral.
+        """Build a lookup table for the S integral. Unused.
         """
         raise RuntimeError('unused')
         # TODO justify limits for S lookup
@@ -109,20 +139,22 @@ class bath(object):
         plot(self.dH, self.s_table, 'k-x')
 
 
-    def S_func(self, dH):
-        """Compute the S function.
+    def S_func(self, x):
+        r"""Spectral correlation tensor, complex part.
 
-        S_func(dH) == S(dH * omega0) / omega0
-          == P\int_0^\infty dv J(omega0*v)/(hbar^2*omega0) (dH*coth(scale/2 * v) +v)/(dH^2 -v^2)
+        .. math::
+
+           \mathrm{S\_func}(x) = S(x \omega_0) / \omega_0
+           = \frac{1}{\hbar^2 \omega_0} P\int_0^\infty \mathrm{d}\nu J(\omega_0 \nu) \frac{x \coth(\nu \mathrm{scale}/2) +\nu}{x^2 -\nu^2}.
         """
         ep = 1e-5 # epsilon for Cauchy principal value
-        if abs(dH) <= 1e-8:
+        if abs(x) <= 1e-8:
             return self.s0
         else:
-            # Cauchy principal value, integrand has simple poles at \nu = \pm dH.
-            f = lambda nu: self.j(nu) * self.cut_func(nu) * (dH / tanh(self.scale * nu / 2) + nu) / (dH**2 -nu**2)
-            a, abserr = quad(f, ep, abs(dH) - ep) 
-            b, abserr = quad(f, abs(dH) + ep, inf) # 100 * self.cut_limit)
+            # Cauchy principal value, integrand has simple poles at \nu = \pm x.
+            f = lambda nu: self.j(nu) * self.cut_func(nu) * (x / tanh(self.scale * nu / 2) + nu) / (x**2 -nu**2)
+            a, abserr = quad(f, ep, abs(x) - ep) 
+            b, abserr = quad(f, abs(x) + ep, inf) # 100 * self.cut_limit)
             return a + b
 
 
@@ -150,21 +182,26 @@ class bath(object):
 
 
     def corr(self, x):
-        """Bath spectral correlation tensor.
+        r"""Bath spectral correlation tensor.
+        ::
 
-        g, s = corr(dH)
+          g, s = corr(x)
 
-        Returns the bath spectral correlation tensor Gamma evaluated at omega0 * dH:
-          Gamma(omega0 * dH) / omega0 == 0.5*g +i*s
+        Returns the bath spectral correlation tensor :math:`\Gamma` evaluated at :math:`\omega_0 x`:
 
-        Ville Bergholm 2009-2011
+        .. math::
+
+           \Gamma(\omega_0 x) / \omega_0 = \frac{1}{2} g +i s
         """
+        # Ville Bergholm 2009-2011
+
         tol = 1e-8
         max_w = 0.1 # maximum interpolation distance, TODO justify
 
         # assume parameters are set and lookup table computed
         #s = interp1(self.dH, self.s_table, x, 'linear', 0)
 
+        # TODO dH and gs_table into a single dictionary?
         # binary search for the interval [dH_a, dH_b) in which x falls
         b = searchsorted(self.dH, x, side = 'right')
         a = b - 1
@@ -223,19 +260,20 @@ class bath(object):
 
 
     def fit(self, delta, T1, T2):
-        """Qubit-bath coupling that reproduces given decoherence times.
+        r"""Qubit-bath coupling that reproduces given decoherence times.
+        ::
 
-        [H, D] = fit(delta, T1, T2)
+          H, D = fit(delta, T1, T2)
 
         Returns the qubit Hamiltonian H and the qubit-bath coupling operator D
-        that reproduce the decoherence times T1 and T2 (in units of 1/omega0)
+        that reproduce the decoherence times T1 and T2 (in units of :math:`1/\omega_0`)
         for a single-qubit system coupled to the bath.
-        delta is the energy splitting for the qubit (in units of hbar*omega0).
+        delta is the energy splitting for the qubit (in units of :math:`\hbar \omega_0`).
 
-        The bath object is not modified in any way.
-
-        Ville Bergholm 2009-2010
+        The bath object is not modified.
         """
+        # Ville Bergholm 2009-2010
+
         if self.type == 'ohmic':
             # Fitting an ohmic bath to a given set of decoherence times
 
@@ -266,20 +304,22 @@ class bath(object):
 
 
 def ops(H, D):
-    """Jump operators for a Born-Markov master equation.
+    r"""Jump operators for a Born-Markov master equation.
+    ::
+
+      dH, A = ops(H, D)
 
     Builds the jump operators for a Hamiltonian operator H and
     a (Hermitian) interaction operator D.
 
-    Returns dH, a list of the sorted unique nonnegative differences between
-    eigenvalues of H, and A, a sequence of the corresponding jump operators.
- 
-    A_k(dH_i) := A[k][i]
+    Returns (dH, A), where dH is a list of the sorted unique nonnegative differences between
+    eigenvalues of H, and A is a sequence of the corresponding jump operators:
+    :math:`A_k(dH_i) = A[k][i]`.
 
-    Since A_k(-dH) = A_k^\dagger(dH), only the nonnegative dH:s and corresponding A:s are returned.
-
-    Ville Bergholm 2009-2011
+    Since :math:`A_k(-dH) = A_k^\dagger(dH)`, only the nonnegative dH:s and corresponding A:s are returned.
     """
+    # Ville Bergholm 2009-2011
+
     E, P = spectral_decomposition(H)
     m = len(E) # unique eigenvalues
     # energy difference matrix is antisymmetric, so we really only need the lower triangle
@@ -336,20 +376,23 @@ def _check_baths(B):
 
 
 def lindblad_ops(H, D, B):
-    """Lindblad operators for a Born-Markov master equation.
+    r"""Lindblad operators for a Born-Markov master equation.
+    ::
+
+       L, H_LS = lindblad_ops(H, D, B)
 
     Builds the Lindblad operators corresponding to a
     base Hamiltonian H and a (Hermitian) interaction operator D
     coupling the system to bath B.
 
-    Returns L == { A_i / omega0 }_i and H_LS / (\hbar * omega0),
-    where A_i are the Lindblad operators and H_LS is the Lamb shift.
+    Returns :math:`L = \{A_i / \omega_0 \}_i` and :math:`H_{\text{LS}} / (\hbar \omega_0)`,
+    where :math:`A_i` are the Lindblad operators and :math:`H_{\text{LS}}` is the Lamb shift.
 
     B can also be a list of baths, in which case D has to be
     a list of the corresponding interaction operators.
-
-    Ville Bergholm 2009-2011
     """
+    # Ville Bergholm 2009-2011
+
     B = _check_baths(B)
 
     # jump ops
@@ -382,20 +425,20 @@ def lindblad_ops(H, D, B):
 
 
 def superop(H, D, B):
-    """Liouvillian superoperator for a Born-Markov system.
+    r"""Liouvillian superoperator for a Born-Markov master equation.
 
     Builds the Liouvillian superoperator L corresponding to a
     base Hamiltonian H and a (Hermitian) interaction operator D
     coupling the system to bath B.
 
-    Returns L/omega0, which includes the system Hamiltonian, the Lamb shift,
+    Returns :math:`L/\omega_0`, which includes the system Hamiltonian, the Lamb shift,
     and the Lindblad dissipator.
 
     B can also be a list of baths, in which case D has to be
     a list of the corresponding interaction operators.
-
-    Ville Bergholm 2009-2011
     """
+    # Ville Bergholm 2009-2011
+
     B = _check_baths(B)
 
     # jump ops
@@ -436,9 +479,9 @@ def superop(H, D, B):
 
 def test():
     """Test script for Born-Markov methods.
-
-    Ville Bergholm 2009-2010
     """
+    # Ville Bergholm 2009-2010
+
     dim = 6
 
     H = rand_hermitian(dim)

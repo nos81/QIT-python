@@ -36,10 +36,10 @@ def plot_adiabatic_evolution(t, st, H_func, n=4):
     Plots the energies of the eigenstates of H_func(t(k)) as a function of t(k),
     and the overlap of st{k} with the n lowest final Hamiltonian eigenstates. 
     Useful for illustrating adiabatic evolution.
-
-    Jacob D. Biamonte 2008
-    Ville Bergholm 2009-2010
     """
+    # Jacob D. Biamonte 2008
+    # Ville Bergholm 2009-2010
+
     T = t[-1]  # final time
     H = H_func(T)
 
@@ -96,10 +96,10 @@ def plot_bloch_sphere(s=None):
     The states |0> and |1> lie on the north and south poles of the sphere, respectively.
 
     s is a two dimensional state to be plotted.
-
-    Ville Bergholm  2005-2010
-    James Whitfield 2010
     """
+    # Ville Bergholm  2005-2011
+    # James Whitfield 2010
+
     from mpl_toolkits.mplot3d import Axes3D
 
     fig = plt.gcf()
@@ -136,9 +136,9 @@ def plot_pcolor(W, a, b, clim=(0, 1)):
     clim is an optional parameter for color limits.
 
     Returns the plot object.
-
-    Ville Bergholm 2010
     """
+    # Ville Bergholm 2010
+
     # a and b are quad midpoint coordinates but pcolor wants quad vertices, so
     def to_quad(x):
         return (r_[x, x[-1]] + r_[x[0], x]) / 2
@@ -164,10 +164,10 @@ def makemovie(filename, frameset, plot_func, *arg):
     Returns the closed avi object handle.
 
     Example: makemovie('test', cell_vector_of_states, @(x) plot(x))
-
-    James D. Whitfield 2009
-    Ville Bergholm 2009-2010
     """
+    # James D. Whitfield 2009
+    # Ville Bergholm 2009-2010
+
     # create an AVI object
     aviobj = avifile(filename, arg)
 
@@ -188,9 +188,9 @@ def asongoficeandfire(n=127):
 
     Returns a matplotlib.colors.Colormap object.
     n is the number of color definitions in the map.
-
-    Ville Bergholm 2010-2011
     """
+    # Ville Bergholm 2010-2011
+
     from matplotlib import colors
     # exponent
     d = 3.1
