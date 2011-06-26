@@ -6,5 +6,6 @@ Changelog for Python Quantum Information Toolkit
 b bugfix
 
 
-2011-06-??    Version 0.9.10 (first public beta)
-	      * based on the MATLAB QIT version 0.9.9.
+2011-06-26    Version 0.9.10 (first public beta)
+	      * based on the MATLAB QIT version 0.9.9, with several bugfixes.
+	      + Sphinx documentation.

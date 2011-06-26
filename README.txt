@@ -3,7 +3,7 @@ Python Quantum Information Toolkit
 ==================================
 
 Version 0.9.10 (beta)
-Released 2011-06-??
+Released 2011-06-26
 
 
 Introduction
