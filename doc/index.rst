@@ -16,7 +16,9 @@ Contents:
    state
    gate
    ho
+   invariant
    markov
+   seq
    examples
 
 .. include:: ../README.txt

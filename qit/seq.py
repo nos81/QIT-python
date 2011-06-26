@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-# Author: Ville Bergholm 2011
 """Control sequences module."""
+# Ville Bergholm 2011
 
 from __future__ import print_function, division
 
@@ -13,16 +13,26 @@ from base import *
 
 
 def nmr(a):
-    """Convert NMR-style rotations into a one-qubit control sequence.
-    s = NMR([[theta1, phi1], ...])
+    r"""Convert NMR-style rotations into a one-qubit control sequence.
 
-    Returns a one-qubit control sequence corresponding to NMR rotations
-    of the form \theta_\phi.
+    Returns a one-qubit control sequence corresponding to the array a:
 
-    [a, theta] ^= R_a(theta) = expm(-i*a*sigma*theta/2) = expm(-i*H*t) => H = a*sigma/2, t = theta
+    .. math::
 
-    Ville Bergholm 2006-2009
+       a = [[\theta_1, \phi_1], [\theta_2, \phi_2], ...]
+
+    Each :math:`\theta, \phi` pair corresponds to a NMR rotation
+    of the form :math:`\theta_\phi`,
+    or a rotation of the angle :math:`\theta`
+    about the unit vector :math:`[\cos(\phi), \sin(\phi), 0]`.
+
+    .. math::
+
+       R_{\vec{a}}(\theta) = \exp(-i \vec{a} \cdot \vec{\sigma} \theta/2) = \exp(-i H t) \quad \Leftarrow \quad
+       H = \vec{a} \cdot \vec{\sigma}/2, \quad t = \theta.
     """
+    # Ville Bergholm 2006-2009
+
     a = asarray(a)
     theta = a[:, 0]
     phi   = a[:, 1]
@@ -35,37 +45,39 @@ def nmr(a):
 
 
 def bb1(theta, phi=0, location=0.5):
-    """Sequence for fixing off-resonance (\sigma_z bias) errors.
+    r"""Sequence for correcting pulse length errors.
 
-    Returns the Broadband number 1 control sequence for fixing
-    errors in pulse length (or amplitude).
+    Returns the Broadband number 1 control sequence for correcting
+    errors in pulse length (or amplitude) [Wimperis]_.
 
-    The target rotation is \theta_\phi in the NMR notation.
+    The target rotation is :math:`\theta_\phi` in the NMR notation.
 
-    #! Cummins et al., "Tackling systematic errors in quantum logic gates with composite rotations", PRA 67, 042308 (2003).
-    Ville Bergholm 2009
+    .. [Wimperis] S.Wimperis, "Broadband, Narrowband, and Passband Composite Pulses for Use in Advanced NMR Experiments", J. Magn. Reson. A 109, 221--231 (1994).
     """
+    # Ville Bergholm 2009
+
     ph1 = arccos(-theta / (4*pi))
-    W1  = nmr([[pi, ph1], [-2*pi, 3*ph1], [-pi, ph1]])
+    W1  = nmr([[pi, ph1], [2*pi, 3*ph1], [pi, ph1]])
     return r_[nmr([[location * theta, phi]]), W1, nmr([[(1-location) * theta, phi]])]
 
 
 
 
 def corpse(theta, phi=0):
-    """Sequence for fixing off-resonance (\sigma_z bias) errors.
+    r"""Sequence for correcting off-resonance errors.
 
-    Returns the CORPSE control sequence for fixing off-resonance
+    Returns the CORPSE control sequence for correcting off-resonance
     errors, i.e. ones arising from a constant but unknown
-    \sigma_z bias in the Hamiltonian.
+    :math:`\sigma_z` bias in the Hamiltonian [Cummins]_
 
-    The target rotation is \theta_\phi in the NMR notation.
+    The target rotation is :math:`\theta_\phi` in the NMR notation.
 
     CORPSE: Compensation for Off-Resonance with a Pulse SEquence
 
-    #! Cummins et al., "Tackling systematic errors in quantum logic gates with composite rotations", PRA 67, 042308 (2003).
-    Ville Bergholm 2009
+    .. [Cummins] Cummins et al., "Tackling systematic errors in quantum logic gates with composite rotations", PRA 67, 042308 (2003).
     """
+    # Ville Bergholm 2009
+
     n = [1, 1, 0] # CORPSE
     #n = [0, 1, 0] # short CORPSE
 
@@ -78,37 +90,34 @@ def corpse(theta, phi=0):
 
 
 def cpmg(t, n):
-    """Carr-Purcell-Meiboom-Gill sequence.
+    r"""Carr-Purcell-Meiboom-Gill sequence.
 
     Returns the Carr-Purcell-Meiboom-Gill sequence of n repeats with waiting time t.
     The purpose of the CPMG sequence is to facilitate a T_2 measurement
     under a nonuniform z drift, it is not meant to be a full memory protocol.
     The target operation for this sequence is identity.
-    
-    Ville Bergholm 2007-2009
     """
+    # Ville Bergholm 2007-2009
+
     s = nmr([[pi/2, pi/2]]) # initial y rotation
-
     step = r_[[[0, 0, 0, t]], nmr([[pi, 0]]), [[0, 0, 0, t]]] # wait, pi x rotation, wait
-
     for k in range(n):
         s = r_[s, step]
     return s
 
 
 def scrofulous(theta, phi=0):
-    """Sequence for fixing errors in pulse length.
+    r"""Sequence for correcting pulse length errors.
 
-    Returns the SCROFULOUS control sequence for fixing errors
-    in pulse duration (or amplitude).
+    Returns the SCROFULOUS control sequence for correcting errors
+    in pulse duration (or amplitude) [Cummins]_.
 
-    The target rotation is \theta_\phi in the NMR notation.
+    The target rotation is :math:`\theta_\phi` in the NMR notation.
 
     SCROFULOUS: Short Composite ROtation For Undoing Length Over- and UnderShoot
-
-    #! Cummins et al., "Tackling systematic errors in quantum logic gates with composite rotations", PRA 67, 042308 (2003).
-    Ville Bergholm 2006-2009
     """
+    # Ville Bergholm 2006-2009
+
     th1 = brentq(lambda t: (sin(t)/t -(2 / pi) * cos(theta / 2)), 0.1, 4.6)
     ph1 = arccos(-pi * cos(th1) / (2 * th1 * sin(theta / 2)))
     ph2 = ph1 - arccos(-pi / (2 * th1))
@@ -119,15 +128,13 @@ def scrofulous(theta, phi=0):
 
 
 def seq2prop(seq):
-    """SU(2) propagator corresponding to a single-qubit control sequence.
+    r"""SU(2) propagator corresponding to a single-qubit control sequence.
 
     Returns the SU(2) rotation matrix U corresponding to the
     action of the single-qubit control sequence s alone.
-
-    [a, theta] ^= R_a(theta) = expm(-i*a*sigma*theta/2) = expm(-i*H*t) => H = a*sigma/2, t = theta
-
-    Ville Bergholm 2009
     """
+    # Ville Bergholm 2009
+
     U = eye(2)
     for k in seq:
         H = 0.5 * (sx * k[0] + sy * k[1] + sz * k[2])
@@ -141,9 +148,9 @@ def propagate(s, seq, out_func=lambda x: x):
     """Propagate a state in time using a control sequence.
     
     If no output function is given, we use an identity map.
-
-    Ville Bergholm 2009-2010
     """
+    # Ville Bergholm 2009-2010
+
     base_dt = 0.1
     t = [0]  # initial time
     out = [out_func(s)]  # initial state
@@ -154,7 +161,7 @@ def propagate(s, seq, out_func=lambda x: x):
         H = 0.5 * (sx * q[0] +sy * q[1] +sz * q[2])
         T = q[-1]  # pulse duration
     
-        n_steps = int(ceil(T / base_dt))
+        n_steps = max(int(ceil(T / base_dt)), 1)
         dt = T / n_steps
 
         U = expm(-1j * H * dt)
@@ -170,9 +177,9 @@ def propagate(s, seq, out_func=lambda x: x):
 
 def test():
     """Test script for the control sequences module.
-
-    Ville Bergholm 2011
     """
+    # Ville Bergholm 2011
+
     from numpy.random import rand
     import state
     from utils import rand_positive, assert_o

@@ -321,9 +321,9 @@ def rand_U(n):
     Returns a random unitary n*n matrix.
     The matrix is random with respect to the Haar measure.
 
-    Uses the algorithm from [Mezz]_.
+    Uses the algorithm in [Mezzadri]_.
 
-    .. [Mezz] F.Mezzadri, "How to generate random matrices from the classical compact groups", Notices of the AMS 54, 592 (2007). arXiv.org:math-ph/0609050
+    .. [Mezzadri] F.Mezzadri, "How to generate random matrices from the classical compact groups", Notices of the AMS 54, 592 (2007). arXiv.org:math-ph/0609050
     """
     # Ville Bergholm 2005-2009
 
@@ -601,7 +601,7 @@ def R_nmr(theta, phi):
     r"""SU(2) rotation :math:`\theta_\phi` (NMR notation).
 
     Returns the one-qubit rotation by angle theta about the unit
-    vector [cos(phi), sin(phi), 0], or :math:`\theta_\phi` in the NMR notation.
+    vector :math:`[\cos(\phi), \sin(\phi), 0]`, or :math:`\theta_\phi` in the NMR notation.
     """
     # Ville Bergholm 2009
 

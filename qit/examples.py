@@ -359,9 +359,7 @@ def nmr_sequences():
     Plots the fidelity of each control sequence as a function
     of both off-resonance error f and fractional pulse length error g.
 
-    See [Cummins]_.
-
-    .. [Cummins] Cummins et al., "Tackling systematic errors in quantum logic gates with composite rotations", PRA 67, 042308 (2003).
+    Reproduces fidelity plots in [Cummins]_.
     """
     # Ville Bergholm 2006-2011
 
@@ -428,7 +426,7 @@ def nmr_sequences():
         plt.xlabel('Off-resonance error')
         plt.ylabel('Pulse length error')
         plt.title(titles[k] + ' fidelity')
-
+        plt.show()
 
 
 
