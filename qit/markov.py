@@ -78,7 +78,7 @@ class bath(object):
     ===========  ===========
     cut_func     Spectral density cutoff function.
     j            Spectral density profile. :math:`J(\omega_0 x)/\omega_0 = \hbar^2 j(x) \mathrm{cut\_func}(x) \Theta(x)`.
-    g_func       Spectral correlation tensor, real part. :math:`\gamma(\omega_0 x) / \omega_0 = \mathrm{g\_func}(x) \mathrm{cut\_func}(x)`. For the complex part, see :func:`S_func`.
+    g_func       Spectral correlation tensor, real part. :math:`\gamma(\omega_0 x) / \omega_0 = \mathrm{g\_func}(x) \mathrm{cut\_func}(x)`. For the imaginary part, see :func:`S_func`.
     g0           :math:`\lim_{\omega \to 0} \gamma(\omega)`.
     s0           :math:`\lim_{\omega \to 0} S(\omega)`.
     dH           Lookup table.
@@ -140,7 +140,7 @@ class bath(object):
 
 
     def S_func(self, x):
-        r"""Spectral correlation tensor, complex part.
+        r"""Spectral correlation tensor, imaginary part.
 
         .. math::
 

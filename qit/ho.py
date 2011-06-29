@@ -2,13 +2,16 @@
 # Author: Ville Bergholm 2011
 r"""Harmonic oscillators.
 
-All the functions in this module operate in the number basis :math:`\{|0\rangle, |1\rangle, ..., |n-1\rangle\}`
+All the functions in this module operate in the truncated number basis
+:math:`\{|0\rangle, |1\rangle, ..., |n-1\rangle\}`
 of the harmonic oscillator, where n is the truncation dimension.
+
+The corresponding truncated annihilation operator can be obtained with :func:`qit.utils.boson_ladder`.
 """
 
 from __future__ import print_function, division
 
-from numpy import array, mat, arange, diag, sqrt, zeros, ones, prod, sqrt, pi, isscalar, linspace, newaxis
+from numpy import array, mat, empty, arange, diag, sqrt, ones, prod, sqrt, pi, isscalar, linspace, newaxis
 from scipy import factorial
 from scipy.linalg import expm, norm
 
@@ -29,7 +32,7 @@ def coherent_state(alpha, n=default_n):
     .. math::
 
        |\alpha\rangle := D(\alpha) |0\rangle
-       = e^{-\frac{|\alpha|^2}{2}} \sum_{k=0}^\infty \frac{\alpha^k}{k!} |k\rangle,
+       = e^{-\frac{|\alpha|^2}{2}} \sum_{k=0}^\infty \frac{\alpha^k}{\sqrt{k!}} |k\rangle,
 
     in the number basis. :math:`a|\alpha\rangle = \alpha |\alpha\rangle`.
     """
@@ -48,8 +51,20 @@ def displace(alpha, n=default_n):
 
     Returns the n-dimensional approximation for the bosonic
     displacement operator
-    :math:`D(\alpha) := \exp\left(\alpha a^\dagger - \alpha^* a\right)`
-    in the number basis.
+
+    .. math::
+
+       D(\alpha) := \exp\left(\alpha a^\dagger - \alpha^* a\right)
+       = \exp\left( i \sqrt{2} \left(Q \mathrm{Im}(\alpha) -P \mathrm{Re}(\alpha)\right)\right)
+
+    in the number basis. This yields
+
+    .. math::
+
+       D(\alpha) Q D^\dagger(\alpha) &= Q -\sqrt{2} \textrm{Re}(\alpha) \mathbb{I},\\
+       D(\alpha) P D^\dagger(\alpha) &= P -\sqrt{2} \textrm{Im}(\alpha) \mathbb{I},
+
+    and thus the displacement operator displaces the state of a harmonic oscillator in phase space.
     """
     # Ville Bergholm 2010
 
@@ -65,7 +80,12 @@ def squeeze(z, n=default_n):
 
     Returns the n-dimensional approximation for the bosonic
     squeezing operator
-    :math:`S(z) := \exp\left(\frac{1}{2} (z^* a^2 - z a^{\dagger 2})\right)`
+
+    .. math::
+
+       S(z) := \exp\left(\frac{1}{2} (z^* a^2 - z a^{\dagger 2})\right)
+       = \exp\left(\frac{i}{2} \left((QP+PQ)\mathrm{Re}(z) +(P^2-Q^2)\mathrm{Im}(z)\right)\right)
+
     in the number basis.
     """
     # Ville Bergholm 2010
@@ -87,7 +107,8 @@ def position(n=default_n):
        Q &= \sqrt{\frac{m \omega}{\hbar}}   q =    (a+a^\dagger) / \sqrt{2},\\
        P &= \sqrt{\frac{1}{m \hbar \omega}} p = -i (a-a^\dagger) / \sqrt{2}.
 
-    These fulfill :math:`[q, p] = i \hbar, \quad  [Q, P] = i`.
+    (Equivalently, :math:`a = (Q + iP) / \sqrt{2}`).
+    These operators fulfill :math:`[q, p] = i \hbar, \quad  [Q, P] = i`.
     The Hamiltonian of the harmonic oscillator is
 
     .. math::
@@ -133,7 +154,7 @@ def position_state(q, n=default_n):
     """
     # Ville Bergholm 2010
 
-    ket = zeros(n, dtype=complex)
+    ket = empty(n, dtype=complex)
     temp = sqrt(2) * q
     ket[0] = 1  # arbitrary nonzero initial value r_0
     ket[1] = temp * ket[0]
@@ -160,7 +181,7 @@ def momentum_state(p, n=default_n):
     """
     # Ville Bergholm 2010
 
-    ket = zeros(n, dtype=complex)
+    ket = empty(n, dtype=complex)
     temp = 1j * sqrt(2) * p
     ket[0] = 1  # arbitrary nonzero initial value r_0
     ket[1] = temp * ket[0]
@@ -206,7 +227,7 @@ def husimi(s, alpha=None, z=0, res=(40, 40), lim=(-2, 2, -2, 2)):
     ref = state(0, n).u_propagate(squeeze(z, n))
     ref /= sqrt(pi) # normalization included for convenience
 
-    H = zeros(alpha.shape)
+    H = empty(alpha.shape)
     for k, c in enumerate(alpha.flat):
         temp = ref.u_propagate(displace(c, n))
         H.flat[k] = s.fidelity(temp) ** 2
@@ -235,7 +256,6 @@ def wigner(s, alpha=None, res=(20, 20), lim=(-2, 2, -2, 2)):
     """
     # Ville Bergholm 2010
 
-    # B = np.broadcast(s, alpha) , (st,a) = B.next() TODO
     if alpha == None:
         # return a grid of W values for a grid of alphas
         a = linspace(lim[0], lim[1], res[0])
@@ -252,7 +272,7 @@ def wigner(s, alpha=None, res=(20, 20), lim=(-2, 2, -2, 2)):
     P[1:n:2] = -1
     P *= 2 / pi  # include Wigner normalization here for convenience
 
-    W = zeros(alpha.shape)
+    W = empty(alpha.shape)
     for k, c in enumerate(alpha.flat):
         temp = s.u_propagate(displace(-c, n))
         W.flat[k] = sum(P * temp.prob().real) # == ev(temp, P).real

@@ -88,7 +88,7 @@ def plot_adiabatic_evolution(t, st, H_func, n=4):
     # axis([0, 1, 0, max(overlaps)])
 
 
-def plot_bloch_sphere(s=None):
+def plot_bloch_sphere(s=None, ax=None):
     """Bloch sphere plot.
 
     Plots a Bloch sphere, a geometrical representation of the state space of a single qubit.
@@ -100,11 +100,10 @@ def plot_bloch_sphere(s=None):
     # Ville Bergholm  2005-2011
     # James Whitfield 2010
 
-    from mpl_toolkits.mplot3d import Axes3D
+    import mpl_toolkits.mplot3d
 
-    fig = plt.gcf()
-    ax = Axes3D(fig)
-    #TODO ax = fig.add_subplot(111, projection='3d')
+    if (ax == None):
+        ax = plt.gcf().add_subplot(111, projection='3d')
     plt.hold(True)
     X, Y, Z = sphere()
     ax.plot_surface(X, Y, Z, rstride = 1, cstride = 1, color = 'g', alpha = 0.2, linewidth = 0) #cmap = xxx
@@ -113,7 +112,7 @@ def plot_bloch_sphere(s=None):
     # TODO ax.scatter(*coord_array, c = ['r', 'b'], marker = 'o')  # poles
     # labels
     ax.text(0, 0,  1.1, '$|0\\rangle$')
-    ax.text(0, 0, -1.3, '$|1\\rangle$')
+    ax.text(0, 0, -1.2, '$|1\\rangle$')
     ax.set_xlabel('x')
     ax.set_ylabel('y')
     ax.set_zlabel('z')

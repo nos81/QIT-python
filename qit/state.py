@@ -725,10 +725,10 @@ class state(lmap):
         r"""Quantum measurement.
         ::
           (p, res, c)
-            = self.measure()                 measure the entire system projectively
-            = self.measure([(1, 4))          measure subsystems 1 and 4 projectively
-            = self.measure([M_1, M_2, ...])  perform a general measurement
-            = self.measure(A)                measure a Hermitian observable A
+            = measure()                 measure the entire system projectively
+            = measure([(1, 4))          measure subsystems 1 and 4 projectively
+            = measure([M_1, M_2, ...])  perform a general measurement
+            = measure(A)                measure a Hermitian observable A
 
         Performs a quantum measurement on the state.
 
@@ -741,7 +741,7 @@ class state(lmap):
 
         A general measurement may be performed by giving a complete set
         of measurement operators :math:`[M_1, M_2, \ldots]` as the second parameter.
-        A POVM can be emulated using :math:`M_i = \text{sqrtm}(P_i)` and discarding the collapsed state.
+        A POVM can be emulated using :math:`M_i = \sqrt{P_i}` and discarding the collapsed state.
 
         Finally, if the second parameter is a single Hermitian matrix A, the
         corresponding observable is measured. In this case the second
@@ -1263,10 +1263,10 @@ class state(lmap):
             ax.set_xticks(ticks + width / 2) # shift by half the bar width
             ax.set_xticklabels(ticklabels)
         else:
-            from mpl_toolkits.mplot3d import Axes3D
+            import mpl_toolkits.mplot3d
+
             c = phases(self.data)  # use phases as colors
-            # TODO ax = fig.add_subplot(111, projection='3d')
-            ax = Axes3D(fig)
+            ax = fig.add_subplot(111, projection = '3d')
 
             width = 0.6  # bar width
             temp = np.arange(-width/2, N-1) # center the labels

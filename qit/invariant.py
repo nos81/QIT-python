@@ -9,7 +9,7 @@ from numpy import array, empty, zeros, ones, sqrt, sin, cos, dot, sort, trace, k
 from numpy.linalg import det, eigvals
 from scipy.linalg import norm
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+import mpl_toolkits.mplot3d
 
 from base import *
 
@@ -120,7 +120,7 @@ def plot_makhlin_2q(sdiv=31, tdiv=31):
 
     The input parameters are the s and t divisions of the mesh.
     """
-    # Ville Bergholm 2006-2010
+    # Ville Bergholm 2006-2011
 
     import matplotlib.cm as cm
     import matplotlib.colors as colors
@@ -142,8 +142,7 @@ def plot_makhlin_2q(sdiv=31, tdiv=31):
     C = max_concurrence(c).reshape(sdiv, tdiv)
 
     fig = plt.gcf()
-    ax = Axes3D(fig)
-    #TODO ax = fig.add_subplot(111, projection='3d')
+    ax = fig.add_subplot(111, projection='3d')
 
     # mesh, waterfall?
     polyc = ax.plot_surface(G[:,:,0], G[:,:,1], G[:,:,2], rstride = 1, cstride = 1, cmap = cm.jet, norm = colors.Normalize(vmin=0, vmax=1, clip=True), alpha = 0.6)
@@ -178,11 +177,10 @@ def plot_weyl_2q():
 
     Returns the Axes3D object.
     """
-    # Ville Bergholm 2005-2010
+    # Ville Bergholm 2005-2011
 
     fig = plt.gcf()
-    ax = Axes3D(fig)
-    #TODO ax = fig.add_subplot(111, projection='3d')
+    ax = fig.add_subplot(111, projection='3d')
     plt.hold(True)
     ax.plot_surface(array([[0, 0.5, 1], [0, 0.5, 1]]), array([[0, 0, 0], [0, 0.5, 0]]), array([[0, 0, 0], [0, 0.5, 0]]), alpha = 0.2)
     ax.plot_surface(array([[0, 0.5], [0, 0.5]]), array([[0, 0.5], [0, 0.5]]), array([[0, 0], [0, 0.5]]), alpha = 0.2)

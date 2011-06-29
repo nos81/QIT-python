@@ -9,3 +9,8 @@ b bugfix
 2011-06-26    Version 0.9.10 (first public beta)
 	      * based on the MATLAB QIT version 0.9.9, with several bugfixes.
 	      + Sphinx documentation.
+
+2011-06-??    Version 0.9.11 (beta)
+	      * Bump dependencies: matplotlib 1.0.0+.
+                This fixes several problems with 3D plotting.
+              b 3D subplots fixed.

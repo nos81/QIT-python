@@ -11,7 +11,7 @@ Ville Bergholm 2011
 from __future__ import print_function, division
 
 # toolkit version number
-__version__ = '0.9.10 beta'
+__version__ = '0.9.11 beta'
 
 import scipy as sp
 import scipy.constants as const

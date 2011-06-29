@@ -376,34 +376,30 @@ def nmr_sequences():
     nf = len(f)
     ng = len(g)
 
-    def helper(s_error):
+    def helper(fig, splot, s_error, title):
         """Apply the sequence on the state psi, plot the evolution."""
         out, t = seq.propagate(psi, s_error, out_func = state.bloch_vector)
         a = array(out)
-        ax = plot_bloch_sphere()
+        ax = fig.add_subplot(splot, projection = '3d')
+        plot_bloch_sphere(ax = ax)
         ax.plot(a[:,1], a[:,2], a[:,3])
         ax.scatter(array(a[-1,1]), [a[-1,2]], [a[-1,3]], color = 'k', marker = 'o')  # endpoint        
+        ax.set_title(title)
 
     for k, s in enumerate(seqs):
-        plt.figure()
+        fig = plt.figure()
         U = seq.seq2prop(s) # target propagator
 
         # in this simple example the errors can be fully included in the control sequence
         #==================================================
         s_error = deepcopy(s)
         s_error[:, 2] += 0.1 # off-resonance error
-
-        plt.subplot(2,2,1)
-        helper(s_error)
-        plt.title(titles[k] + ' evolution, off-resonance error')
+        helper(fig, 221, s_error, titles[k] + ' evolution, off-resonance error')
 
         #==================================================
         s_error = deepcopy(s)
         s_error[:, -1] *= 1.1 # pulse length error
-
-        plt.subplot(2,2,3)
-        helper(s_error)
-        plt.title(titles[k] + ' evolution, pulse length error')
+        helper(fig, 223, s_error, titles[k] + ' evolution, pulse length error')
 
         #==================================================
         s_error = deepcopy(s)
@@ -419,7 +415,7 @@ def nmr_sequences():
                 s_error[:, -1] = s[:, -1] * (1 + g[v]) # proportional pulse length error
                 fid[v, u] = u_fidelity(U, seq.seq2prop(s_error))
 
-        plt.subplot(2, 2, 4)  # FIXME colspan...
+        fig.add_subplot(2, 2, 4)  # FIXME colspan...
         X, Y = meshgrid(f, g)
         plt.contour(X, Y, 1-fid)
         #surf(X, Y, 1-fid)
@@ -538,7 +534,7 @@ def qft_circuit(dim=(2, 3, 3, 2)):
     dim is the dimension vector of the subsystems.
 
     NOTE: If dim is not palindromic the resulting circuit also
-    reverses the order of the dimensions
+    reverses the order of the dimensions in the SWAP cascade.
 
     .. math::
 

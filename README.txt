@@ -2,8 +2,8 @@
 Python Quantum Information Toolkit
 ==================================
 
-Version 0.9.10 (beta)
-Released 2011-06-26
+Version 0.9.11 (beta)
+Released 2011-07-??
 
 
 Introduction
@@ -16,15 +16,15 @@ It is a sister project of the MATLAB Quantum Information Toolkit
 and has equivalent functionality. PyQIT requires the following
 Python libraries:
 
-* `NumPy <http://scipy.org/>`_  1.3.0+  (TODO 1.6.0+)
+* `NumPy <http://scipy.org/>`_  1.5.1+  (TODO 1.6.0+)
 * `SciPy <http://scipy.org/>`_  0.7.2+
-* `Matplotlib <http://matplotlib.sourceforge.net/>`_  0.99.3+ (TODO 1.0.0+)
+* `Matplotlib <http://matplotlib.sourceforge.net/>`_  1.0.0+
 
 For interactive use the `IPython <http://ipython.scipy.org/>`_ interactive shell is recommended.
 
-The latest version can be downloaded from the project website,
+The latest version can be downloaded from our website,
 
-  http://sourceforge.net/projects/qit/
+  http://qit.sourceforge.net/
 
 The toolkit is installed by simply unzipping it, or downloading it
 directly from the SVN server. For an interactive session, start
