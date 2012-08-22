@@ -22,7 +22,7 @@ Contents:
    examples
 
 .. include:: ../README.txt
-   :start-line: 6
+   :start-line: 4
 
 
 

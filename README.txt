@@ -1,24 +1,22 @@
-==================================
-Python Quantum Information Toolkit
-==================================
+===========================
+Quantum Information Toolkit
+===========================
 
-Version 0.9.11 (beta)
-Released 2011-07-??
 
 
 Introduction
 ============
 
-Python Quantum Information Toolkit (PyQIT) is a free, open source
+Quantum Information Toolkit (QIT) is a free, open source
 Python 2.6 package for various quantum information and computing
 -related purposes, distributed under GPL.
 It is a sister project of the MATLAB Quantum Information Toolkit
-and has equivalent functionality. PyQIT requires the following
+and has equivalent functionality. QIT requires the following
 Python libraries:
 
-* `NumPy <http://scipy.org/>`_  1.5.1+  (TODO 1.6.0+)
-* `SciPy <http://scipy.org/>`_  0.7.2+
-* `Matplotlib <http://matplotlib.sourceforge.net/>`_  1.0.0+
+* `NumPy <http://numpy.scipy.org/>`_  1.5.1+  (TODO 1.6.0+)
+* `SciPy <http://www.scipy.org/>`_  0.9.0+
+* `Matplotlib <http://matplotlib.sourceforge.net/>`_  1.0.1+
 
 For interactive use the `IPython <http://ipython.scipy.org/>`_ interactive shell is recommended.
 
@@ -104,6 +102,6 @@ coding guidelines:
 Authors
 =======
 
-* Ville Bergholm          2008-2011
+* Ville Bergholm          2008-2012
 * Jacob D. Biamonte       2008-2009
 * James D. Whitfield      2009-2010

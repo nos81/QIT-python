@@ -37,8 +37,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'Python Quantum Information Toolkit'
-copyright = u'2011, Ville Bergholm et al.'
+project = u'Quantum Information Toolkit'
+copyright = u'2011-2012, Ville Bergholm et al.'
 
 import qit
 # The version info for the project you're documenting, acts as replacement for
