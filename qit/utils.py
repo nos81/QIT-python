@@ -9,7 +9,7 @@ from copy import deepcopy
 import numpy as np
 from numpy import array, mat, dtype, empty, zeros, ones, eye, prod, sqrt, exp, tanh, dot, sort, diag, trace, kron, pi, r_, c_, inf, isscalar, floor, ceil, log10, vdot
 from numpy.random import rand, randn, randint
-from numpy.linalg import qr, det, eig, eigvals
+from numpy.linalg import qr, det, eigh, eigvalsh
 from scipy.linalg import expm, norm, svdvals
 
 from base import *
@@ -85,8 +85,8 @@ def projector(v):
 
 
 def eigsort(A):
-    """Returns eigenvalues and eigenvectors sorted with a nonincreasing real part."""
-    d, v = eig(A)
+    """Returns eigenvalues and eigenvectors of a Hermitian matrix, sorted in nonincreasing order."""
+    d, v = eigh(A)
     ind = d.argsort()[::-1]  # nonincreasing real part
     return d[ind], v[:, ind]
 
@@ -945,7 +945,7 @@ def test():
     rho = mat(rand_positive(dim))
     assert_o(norm(rho - rho.H), 0, tol) # hermitian
     assert_o(trace(rho), 1, tol) # trace 1
-    temp = eigvals(rho)
+    temp = eigvalsh(rho)
     assert_o(norm(temp.imag), 0, tol) # real eigenvalues
     assert_o(norm(temp - abs(temp)), 0, tol) # nonnegative eigenvalues
 

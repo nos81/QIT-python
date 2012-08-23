@@ -22,3 +22,5 @@ b bugfix
 	      + lmap.trace()
 	      * Better documentation, docstring backslash problems fixed.
 	      b setup.py fixed.
+	      b eig/eigh, eigvals/eigvalsh in state.propagate() and elsewhere.
+	        Now we get orthonormal eigenvectors with degenerate eigenvalues as well.

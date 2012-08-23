@@ -7,7 +7,7 @@ from __future__ import print_function, division
 
 import numpy as np
 from numpy import array, zeros, ones, sin, cos, tanh, dot, sort, pi, r_, c_, linspace, outer
-from numpy.linalg import eigvals
+from numpy.linalg import eigvalsh
 import matplotlib.pyplot as plt
 
 from state import *
@@ -61,7 +61,7 @@ def plot_adiabatic_evolution(t, st, H_func, n=4):
     for k in range(m):
         tt = t[k]
         H = H_func(tt)
-        energies[k, :] = sort(eigvals(H).real)
+        energies[k, :] = sort(eigvalsh(H).real)
         for j in range(n):
             overlaps[k, j] = lowest[j].fidelity(st[k]) ** 2 # squared overlap with lowest final states
 

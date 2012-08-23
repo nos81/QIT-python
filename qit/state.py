@@ -15,7 +15,7 @@ import numpy as np
 from numpy import array, asarray, diag, sort, prod, cumsum, cumprod, exp, sqrt, trace, dot, vdot, roll, zeros, ones, r_, kron, isscalar, nonzero, ix_, linspace, meshgrid
 from numpy.random import rand, randn
 import scipy as sp
-from scipy.linalg import norm, eig
+from scipy.linalg import norm, eigh
 from scipy.integrate import ode
 
 from base import Q_Bell, tol
@@ -666,7 +666,7 @@ class state(lmap):
             if gen == 'H':
                 if dim_H < 500:
                     # eigendecomposition
-                    d, v = eig(H) # TODO eigs?
+                    d, v = eigh(H)
                     for k in t:
                         # propagator
                         U = dot(dot(v, diag(exp(-1j * k * d))), v.conj().transpose())
@@ -946,7 +946,7 @@ class state(lmap):
         s = self.to_op()
         # TODO could use original data
         A = r.data - s.data
-        return 0.5 * sum(abs(np.linalg.eigvals(A)))
+        return 0.5 * sum(abs(np.linalg.eigvalsh(A)))
         #return 0.5*trace(sqrtm(A'*A))
 
 
@@ -1033,7 +1033,7 @@ class state(lmap):
         if self.is_ket():
             return 0
         else:
-            p = np.linalg.eigvals(self.data)
+            p = np.linalg.eigvalsh(self.data)
             p[p == 0] = 1   # avoid trouble with the logarithm
             return -dot(p, np.log2(p))
 
@@ -1191,7 +1191,7 @@ class state(lmap):
 
         s.ptrace(sys, inplace = True)
         t.ptrace(sys, inplace = True)
-        return majorize(np.linalg.eigvals(s.data), np.linalg.eigvals(t.data))
+        return majorize(np.linalg.eigvalsh(s.data), np.linalg.eigvalsh(t.data))
 
 
 
