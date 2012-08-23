@@ -224,7 +224,7 @@ class state(lmap):
         """
         # Ville Bergholm 2009-2011
 
-        s = self.inplacer(inplace)
+        s = self._inplacer(inplace)
         if s.is_ket():
             # apply the phase convention: first nonzero element in state vector is real, positive
             v = s.data
@@ -239,7 +239,7 @@ class state(lmap):
 
     def normalize(self, inplace=False):
         """Normalize the state."""
-        s = self.inplacer(inplace)
+        s = self._inplacer(inplace)
         if s.is_ket():
             s.data /= norm(s.data)
         else:
@@ -269,7 +269,7 @@ class state(lmap):
         """
         # Ville Bergholm 2009-2010
 
-        s = self.inplacer(inplace)
+        s = self._inplacer(inplace)
         if not s.is_ket():
             # state op
             if abs(s.purity() - 1) > tol:
@@ -291,7 +291,7 @@ class state(lmap):
         """
         # Ville Bergholm 2009-2010
 
-        s = self.inplacer(inplace)
+        s = self._inplacer(inplace)
         if s.is_ket():
             s.data = np.outer(s.data, s.data.conj())
             s.dim = (s.dim[0], s.dim[0])
@@ -527,7 +527,7 @@ class state(lmap):
         # Ville Bergholm 2008-2011
         # James Whitfield 2009
 
-        s = self.inplacer(False)
+        s = self._inplacer(False)
         if isscalar(t):
             t = [t]
         t = asarray(t)
@@ -726,27 +726,27 @@ class state(lmap):
         ::
           (p, res, c)
             = measure()                 measure the entire system projectively
-            = measure([(1, 4))          measure subsystems 1 and 4 projectively
+            = measure((1, 4))           measure subsystems 1 and 4 projectively
             = measure([M_1, M_2, ...])  perform a general measurement
             = measure(A)                measure a Hermitian observable A
 
         Performs a quantum measurement on the state.
 
-        If no M is given, a full projective measurement in the
-        computational basis is performed.
+        * If no M is given, a full projective measurement in the
+          computational basis is performed.
 
-        If a vector of subsystems is given as the second parameter, only
-        those subsystems are measured, projectively, in the
-        computational basis.
+        * If a list/tuple of subsystems is given as the second parameter, only
+          those subsystems are measured, projectively, in the
+          computational basis.
 
-        A general measurement may be performed by giving a complete set
-        of measurement operators :math:`[M_1, M_2, \ldots]` as the second parameter.
-        A POVM can be emulated using :math:`M_i = \sqrt{P_i}` and discarding the collapsed state.
+        * A general measurement may be performed by giving a complete set
+          of measurement operators :math:`[M_1, M_2, \ldots]` as the second parameter.
+          A POVM can be emulated using :math:`M_i = \sqrt{P_i}` and discarding the collapsed state.
 
-        Finally, if the second parameter is a single Hermitian matrix A, the
-        corresponding observable is measured. In this case the second
-        column of p contains the eigenvalue of A corresponding to each
-        measurement result.
+        * Finally, if the second parameter is a single Hermitian matrix A, the
+          corresponding observable is measured. In this case the second
+          column of p contains the eigenvalue of A corresponding to each
+          measurement result.
 
         p = measure(..., do='P') returns the vector p, where p[k] is the probability of
         obtaining result k in the measurement. For a projective measurement

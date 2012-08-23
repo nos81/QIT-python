@@ -8,10 +8,9 @@ from operator import mod
 from copy import deepcopy
 
 import numpy as np
-from numpy import array, diag, kron, prod, floor, ceil, sqrt, log2, exp, angle, arange, linspace, logical_not, sin, cos, arctan2, empty, zeros, ones, eye, sort, nonzero, pi, trace, dot, meshgrid, r_
+from numpy import asarray, array, diag, kron, prod, floor, ceil, sqrt, log2, exp, angle, arange, linspace, logical_not, sin, cos, arctan2, empty, zeros, ones, eye, sort, nonzero, pi, trace, dot, meshgrid, r_
 from numpy.linalg import eig, norm
 import numpy.random as npr
-from numpy.random import randint
 from scipy.misc import factorial
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import figure, hold, plot, bar, title, xlabel, ylabel, axis, legend
@@ -56,7 +55,7 @@ def adiabatic_qc_3sat(n=6, n_clauses=None, clauses=None, problem='3sat'):
         for k in range(n_clauses):
             bits = range(n)
             for j in range(3):
-                clauses[k, j] = bits.pop(randint(len(bits))) + 1 # zero can't be negated, add one
+                clauses[k, j] = bits.pop(npr.randint(len(bits))) + 1 # zero can't be negated, add one
         clauses = sort(clauses, 1)
 
         if problem == '3sat':
@@ -247,6 +246,80 @@ def bb84(n=50):
     print('Eve\'s presence with the probability 1-(3/4)^k.')
 
 
+
+def bernstein_vazirani(n=6, linear=True):
+    """Bernstein-Vazirani algorithm demo.
+
+    Simulates the Bernstein-Vazirani algorithm [BV]_, which, given a black box oracle
+    implementing a linear Boolean function :math:`f_a(x) := a \cdot x`, returns the bit
+    vector a (and thus identifies the function) with just a single oracle call.
+
+    If the oracle function is not linear, the algorithm will fail.
+
+    .. [BV] E.Bernstein and U.Vazirani, Proceedings of the 25th Annual ACM Symposium on the Theory of Computing (ACM Press, New York, 1993), pp. 11-20.
+    """
+    # Ville Bergholm 2011-2012
+
+    print('\n\n=== Bernstein-Vazirani algorithm ===\n')
+
+    print('Using {0} qubits.'.format(n))
+    dim = qubits(n)
+    H = gate.walsh(n) # n-qubit Walsh-Hadamard gate
+    N = 2 ** n
+
+    def oracle(f):
+        """Returns a unitary oracle for the Boolean function f(x), given as a truth table."""
+        return (-1) ** f.reshape((-1, 1))
+
+    def linear_func(a):
+        """Builds the linear Boolean function f(x) = a \cdot x as a truth table."""
+        dim = qubits(len(a))
+        N = prod(dim)
+        U = empty(N, dtype = int)
+        for k in range(N):
+            x = np.unravel_index(k, dim)
+            U[k] = mod(dot(a, x), 2)
+        return U
+
+    # black box oracle encoding the Boolean function f (given as the diagonal)
+    if linear:
+        # linear f
+        a = asarray(npr.rand(n) > 0.5, dtype = int)
+        f = linear_func(a)
+        print('\nUsing the linear function f_a(x) := dot(a, x), defined by the binary vector a = {0}.'.format(a))
+    else:
+        # general f
+        f = asarray(npr.rand(N) > 0.5, dtype = int)
+        # special case: not(linear)
+        #a = asarray(npr.rand(n) > 0.5, dtype = int)
+        #f = 1-linear_func(a)
+        print('\nNonlinear function f:\n{0}.'.format(f))
+    U_oracle = oracle(f)
+
+    # start with all-zero state
+    s = state(0, dim)
+    # initial superposition
+    s = s.u_propagate(H)
+    # oracle phase flip
+    s.data = U_oracle * s.data
+    # final Hadamards
+    s = s.u_propagate(H)
+
+    s.plot()
+
+    p, res = s.measure()
+    # measured binary vector
+    b = asarray(np.unravel_index(res, dim))
+    print('\nMeasured binary vector b = {0}.'.format(b))
+    if not(linear):
+        g = linear_func(b)
+        print('\nCorresponding linear function g_b:\n{0}.'.format(g))
+        print('\nNormalized Hamming distance: |f - g_b| = {0}.'.format(sum(abs(f-g)) / N))
+
+    return p
+
+
+
 def grover_search(n=8):
     """Grover search algorithm demo.
 
@@ -262,7 +335,7 @@ def grover_search(n=8):
     A = gate.walsh(n) # Walsh-Hadamard gate for generating uniform superpositions
     N = 2 ** n # number of states
 
-    sol = randint(N)
+    sol = npr.randint(N)
     reps = int(pi/(4*asin(sqrt(1/N))))
 
     print('Using {0} qubits.'.format(n))
@@ -930,7 +1003,7 @@ def shor_factorization(N=9, cheat=False):
 
     # classical reduction of factoring to order-finding
     while True:
-        a = randint(2, N) # random integer, 2 <= a < N
+        a = npr.randint(2, N) # random integer, 2 <= a < N
         print('Random integer: a = {0}'.format(a))
   
         p = gcd(a, N)
@@ -1194,6 +1267,10 @@ def tour():
     pause()
 
     quantum_channels()
+    pause()
+
+    bernstein_vazirani(6, linear = True)
+    bernstein_vazirani(6, linear = False)
     pause()
 
     grover_search(6)

@@ -10,8 +10,14 @@ Ville Bergholm 2011
 
 from __future__ import print_function, division
 
+
 # toolkit version number
-__version__ = '0.9.11 beta'
+__version__ = '0.9.12a1'
+
+def version():
+    """Returns the QIT version number (as a string)."""
+    return __version__
+
 
 import scipy as sp
 import scipy.constants as const

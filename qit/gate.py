@@ -56,15 +56,13 @@ def id(dim):
 def mod_add(dim1, dim2, N=None):
     r"""Modular adder gate.
 
-    U = mod_add(d1, d2)     N == prod(d2)
-    U = mod_add(d1, d2, N)  target register dimension prod(d2) must be >= N
-
     Returns the gate U, which, operating on the computational state
     :math:`|x, y\rangle`, produces
     :math:`|x, y+x (\mod N)\rangle`.
-    d1 and d2 are the control and target register dimensions.
+    dim1 and dim2 are the control and target register dimension vectors.
 
-    If N is given, U will act trivially on target states >= N.
+    By default N == prod(dim2).
+    If N is explicitly given we must have N <= prod(dim2), and U will act trivially on target states >= N.
 
     Notes:
     The modular subtractor gate can be obtained by taking the

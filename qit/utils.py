@@ -401,10 +401,10 @@ def vec(rho):
 
 
 def inv_vec(v, dim=None):
-    """Reshapes a vector into a matrix.
+    r"""Reshapes a vector into a matrix.
 
-    Given dim == (n, m), reshapes vector v (length n*m) into a matrix rho (shape == dim),
-    using column-major ordering. If dim is not given, rho is assumed to be square.
+    Given dim == (n, m), reshapes vector v (length n*m) into a matrix :math:`\rho` (shape == dim),
+    using column-major ordering. If dim is not given, :math:`\rho` is assumed to be square.
 
     Used e.g. to convert state operators from superoperator representation
     to standard matrix representation.
@@ -426,12 +426,14 @@ def inv_vec(v, dim=None):
 
 
 def lmul(L, q=None):
-    """Superoperator equivalent for multiplying from the left.
+    r"""Superoperator equivalent for multiplying from the left.
 
-    L * rho == inv_vec(lmul(L) * vec(rho))
+    .. math::
 
-    Dimensions: L is [m, p], rho is [p, q].
-    If q is not given rho is assumed square.
+       L \rho = \text{inv\_vec}(\text{lmul}(L) * \text{vec}(\rho))
+
+    Dimensions: L is [m, p], :math:`\rho` is [p, q].
+    If q is not given :math:`\rho` is assumed square.
     """
     # Ville Bergholm 2009
 
@@ -441,12 +443,14 @@ def lmul(L, q=None):
 
 
 def rmul(R, p=None):
-    """Superoperator equivalent for multiplying from the right.
+    r"""Superoperator equivalent for multiplying from the right.
 
-    rho * R == inv_vec(rmul(R) * vec(rho))
+    .. math::
 
-    Dimensions: rho is [p, q], R is [q, r].
-    If p is not given rho is assumed square.
+       \rho R = \text{inv\_vec}(\text{rmul}(R) * \text{vec}(\rho))
+
+    Dimensions: :math:`\rho` is [p, q], R is [q, r].
+    If p is not given :math:`\rho` is assumed square.
     """
     # Ville Bergholm 2009
 
@@ -456,9 +460,11 @@ def rmul(R, p=None):
 
 
 def lrmul(L, R):
-    """Superoperator equivalent for multiplying both from left and right.
+    r"""Superoperator equivalent for multiplying both from left and right.
 
-    L * rho * R == inv_vec(lrmul(L, R) * vec(rho))
+    .. math::
+
+       L \rho R = \text{inv\_vec}(\text{lrmul}(L, R) * \text{vec}(\rho))
     """
     # Ville Bergholm 2009-2011
 
@@ -854,8 +860,15 @@ def qubits(n):
 def majorize(x, y):
     """Majorization partial order of real vectors.
 
-    Returns true iff vector x is majorized by vector y,
-    i.e. :math:`x \preceq y`.
+    Returns true iff the real vector x is majorized by the real vector y,
+    denoted by :math:`x \preceq y`. This is equivalent to
+    .. math::
+
+       \sum_{k=1}^n x^{\downarrow}_k \le \sum_{k=1}^n y^{\downarrow}_k` \quad \text{for all} \quad n \in \{1, 2, \ldots, d\},
+
+    where d is the dimension of the vectors x and y, and :math:`x^{\downarrow}` is the vector x with the elements sorted in nonincreasing order.
+
+    :math:`x \preceq y` if and only if x is in the convex hull of all the coordinate permutations of y.
     """
     #Ville Bergholm 2010
 

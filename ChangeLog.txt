@@ -6,13 +6,19 @@ Changelog for Quantum Information Toolkit (Python version)
 b bugfix
 
 
-2011-06-26    Version 0.9.10 (first public beta)
+0.9.10      2011-06-26 (first public beta)
 	      * based on the MATLAB QIT version 0.9.9, with several bugfixes.
 	      + Sphinx documentation.
 
-2012-08-22    Version 0.9.11 (beta)
+0.9.11      2012-08-22
 	      * Bump dependencies: matplotlib 1.0.1+, NumPy 1.5.1+, SciPy 0.9.0+.
                 This fixes several problems with 3D plotting.
 		Sparse matrix handling is improved.
               + setup.py, proper distutils packaging.
               b 3D subplots fixed.
+
+0.9.12	    in progress
+	      + Bernstein-Vazirani algorithm example.
+	      + lmap.trace()
+	      * Better documentation, docstring backslash problems fixed.
+	      b setup.py fixed.

@@ -178,10 +178,10 @@ class lmap(object):
 
 # utilities
 
-    def inplacer(self, inplace):
+    def _inplacer(self, inplace):
         """Utility for implementing inplace operations.
 
-        Functions using this should begin with s = self.inplacer(inplace)
+        Functions using this should begin with s = self._inplacer(inplace)
         and end with return s
         """
         if inplace:
@@ -244,13 +244,14 @@ class lmap(object):
 
     def __mul__(self, t):
         """Multiplication of lmaps by lmaps and scalars."""
+        # must be able to handle sparse data
         if isinstance(t, lmap):
             if self.dim[1] != t.dim[0]:
                 raise ValueError('The dimensions do not match.')
             else:
                 s = copy(self)
                 s.dim = (self.dim[0], t.dim[1])
-                s.data = np.dot(self.data, t.data)
+                s.data = self.data.dot(t.data)
         else:
             # t is a scalar
             s = copy(self)
@@ -326,6 +327,17 @@ class lmap(object):
         return self
 
 
+    def trace(self):
+        """Trace of the lmap.
+
+        The trace is only properly defined if self.dim[0] == self.dim[1].
+        """
+        if not np.array_equal(self.dim[0], self.dim[1]):
+            raise ValueError('Trace not defined for non-endomorphisms.')
+
+        return np.trace(self.data)
+
+
     def norm(self):
         """Matrix norm of the lmap."""
         return np.linalg.norm(self.data)
@@ -340,11 +352,18 @@ class lmap(object):
 
         A permutation can be either None (do nothing), a pair (a, b) of subsystems to be swapped,
         or a tuple containing a full permutation of the subsystems.
+        Two subsystems to be swapped must be in decreasing order so as not
+        to mistake the full identity permutation (0, 1) for a swap.
 
         reorder((None, (2, 1, 0)))   ignore first index, reverse the order of subsystems in the second
-        reorder(((2, 5), None))            swap the subsystems 2 and 5 in the first index, ignore the second
+        reorder(((5, 2), None))      swap the subsystems 2 and 5 in the first index, ignore the second
+
+        NOTE: The full permutations are interpreted in the same sense as
+        numpy.transpose() understands them, i.e. the permutation
+        tuple is the new ordering of the old subsystem indices.
+        This is the inverse of the mathematically more common "one-line" notation.
         """
-        s = self.inplacer(inplace)
+        s = self._inplacer(inplace)
 
         orig_d = s.data.shape  # original dimensions
         total_d = []
@@ -353,9 +372,13 @@ class lmap(object):
         newdim = list(s.dim)
 
         # loop over indices
-        for k in range(len(perm)):
+        for k, this_perm in enumerate(perm):
+            # avoid a subtle problem with the input syntax, (0, 1) must not be understood as swap!
+            if this_perm != None and tuple(this_perm) == (0, 1):
+                this_perm = None;
+
             # requested permutation for this index
-            if perm[k] == None:
+            if this_perm == None:
                 # no change
                 # let the dimensions vector be, lump all subsystems in this index into one
                 this_dim = (orig_d[k],)
@@ -363,7 +386,7 @@ class lmap(object):
                 this_n = 1
             else:
                 this_dim  = np.array(s.dim[k])  # subsystem dims
-                this_perm = np.array(perm[k])  # requested permutation for this index
+                this_perm = np.array(this_perm) # requested permutation for this index
                 this_n = len(this_dim)  # number of subsystems
 
                 temp = np.arange(this_n) # identity permutation
