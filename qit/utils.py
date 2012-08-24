@@ -2,8 +2,8 @@
 """Utility functions."""
 # Ville Bergholm 2008-2011
 
+from __future__ import division, absolute_import, print_function, unicode_literals
 
-from __future__ import print_function, division
 from copy import deepcopy
 
 import numpy as np
@@ -12,7 +12,7 @@ from numpy.random import rand, randn, randint
 from numpy.linalg import qr, det, eigh, eigvalsh
 from scipy.linalg import expm, norm, svdvals
 
-from base import *
+from .base import *
 
 __all__ = ['assert_o', 'copy_memoize', 'gcd', 'lcm', 'rank', 'projector', 'eigsort', 'comm', 'acomm', 'expv',
            'rand_hermitian', 'rand_U', 'rand_SU', 'rand_U1', 'rand_positive',
@@ -228,7 +228,7 @@ def expv(t, A, v, tol=1.0e-7, m=None, iteration='arnoldi'):
         return m+1, False  # one extra vector for error control
 
     # choose iteration type
-    iteration = str.lower(iteration)
+    iteration = iteration.lower()
     if iteration == 'lanczos':
         iteration = iterate_lanczos  # only works for Hermitian matrices!
     elif iteration == 'arnoldi':
@@ -910,22 +910,29 @@ def test():
 
     dim = 10
 
-    # math funcs
+    # expv
     A = randn(dim, dim) + 1j * randn(dim, dim)
+    H = rand_hermitian(dim)
     v = randn(dim) + 1j * randn(dim)
 
+    # arbitrary matrix with Arnoldi iteration
     w, err, hump = expv(1, A, v, m = dim // 2)
     assert_o(norm(w - dot(expm(1*A), v)), 0, 1e2*tol)
     w, err, hump = expv(1, A, v, m = dim)  # force a happy breakdown
     assert_o(norm(w - dot(expm(1*A), v)), 0, 1e2*tol)
 
-    #A = rand_hermitian(dim)
+    # Hermitian matrix with Lanczos iteration
+    w, err, hump = expv(1, H, v, m = dim // 2, iteration = 'lanczos')
+    assert_o(norm(w - dot(expm(1*H), v)), 0, 1e2*tol)
+    w, err, hump = expv(1, H, v, m = dim, iteration = 'lanczos')
+    assert_o(norm(w - dot(expm(1*H), v)), 0, 1e2*tol)
+
     # FIXME why does Lanczos work with nonhermitian matrices?
     w, err, hump = expv(1, A, v, m = dim // 2, iteration = 'lanczos')
     assert_o(norm(w - dot(expm(1*A), v)), 0, 1e2*tol)
     w, err, hump = expv(1, A, v, m = dim, iteration = 'lanczos')
     assert_o(norm(w - dot(expm(1*A), v)), 0, 1e2*tol)
-    return
+
 
     dim = 5
 

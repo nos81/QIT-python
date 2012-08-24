@@ -3,9 +3,10 @@
 
 .. [NC] M.A. Nielsen, I.L. Chuang, "Quantum Computation and Quantum Information" (2000).
 """
-# Ville Bergholm 2008-2011
+# Ville Bergholm 2008-2012
 
-from __future__ import print_function, division
+from __future__ import division, absolute_import, print_function, unicode_literals
+
 import collections
 import numbers
 import types
@@ -18,15 +19,15 @@ import scipy as sp
 from scipy.linalg import norm, eigh
 from scipy.integrate import ode
 
-from base import Q_Bell, tol
-from lmap import *
-from utils import *
+from .base import Q_Bell, tol
+from .lmap import *
+from .utils import *
 
 __all__ = ['equal_dims', 'index_muls', 'state', 'fidelity', 'trace_dist']
 
 
 
-def warn(s):
+def _warn(s):
     """Prints a warning."""
     print('Warning: ' + s)
 
@@ -108,9 +109,9 @@ class state(lmap):
         elif isinstance(s, basestring):
             # string
 
-            if str.isalpha(s[0]):
+            if s[0].isalpha():
                 # named state
-                name = str.lower(s)
+                name = s.lower()
 
                 if dim == None:
                     dim = (2, 2, 2) # default: three-qubit state
@@ -708,7 +709,7 @@ class state(lmap):
             for k in E:
                 temp += dot(k.conj().transpose(), k)
             if norm(temp.data - eye(temp.shape)) > tol:
-                warn('Unphysical quantum operation.')
+                _warn('Unphysical quantum operation.')
 
         if self.is_ket():
             if n == 1:
@@ -766,7 +767,7 @@ class state(lmap):
 
         perform = True
         collapse = False
-        do = str.upper(do)
+        do = do.upper()
         if do in ('C', 'D'):
             collapse = True
         elif do == 'P':
@@ -1052,7 +1053,7 @@ class state(lmap):
         # Ville Bergholm 2006-2010
 
         if abs(self.trace() - 1) > tol:
-            warn('State not properly normalized.')
+            _warn('State not properly normalized.')
 
         dim = self.dims()
 

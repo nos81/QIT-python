@@ -1,27 +1,49 @@
 # -*- coding: utf-8 -*-
-# Author: Ville Bergholm 2011
 """Examples and demos."""
+# Ville Bergholm 2011-2012
 
-from __future__ import print_function, division
+from __future__ import division, absolute_import, print_function, unicode_literals
+
 from math import asin
 from operator import mod
 from copy import deepcopy
 
 import numpy as np
-from numpy import asarray, array, diag, kron, prod, floor, ceil, sqrt, log2, exp, angle, arange, linspace, logical_not, sin, cos, arctan2, empty, zeros, ones, eye, sort, nonzero, pi, trace, dot, meshgrid, r_
+from numpy import (asarray, array, diag, kron, prod, floor, ceil, sqrt, log2, exp, angle, arange, linspace, logical_not,
+                   sin, cos, arctan2, empty, zeros, ones, eye, sort, nonzero, pi, trace, dot, meshgrid, r_)
 from numpy.linalg import eig, norm
 import numpy.random as npr
 from scipy.misc import factorial
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import figure, hold, plot, bar, title, xlabel, ylabel, axis, legend
 
-from base import *
-from lmap import *
-from utils import *
-from state import *
-from plot import *
-import gate
-import ho
+from .base import *
+from .lmap import *
+from .utils import *
+from .state import *
+from .plot import *
+from . import gate, ho
+
+
+__all__ = [
+ 'adiabatic_qc_3sat',
+ 'adiabatic_qc',
+ 'bb84',
+ 'bernstein_vazirani',
+ 'grover_search',
+ 'markov_decoherence',
+ 'nmr_sequences',
+ 'phase_estimation',
+ 'phase_estimation_precision',
+ 'qft_circuit',
+ 'quantum_channels',
+ 'quantum_walk'
+ 'qubit_and_resonator',
+ 'shor_factorization',
+ 'find_order',
+ 'superdense_coding',
+ 'teleportation',
+ 'tour']
 
 
 def adiabatic_qc_3sat(n=6, n_clauses=None, clauses=None, problem='3sat'):
@@ -230,7 +252,16 @@ def bb84(n=50):
     #sum(xor(sent, eavesdrop))/n
     #sum(xor(sent, received))/n
 
-    print('Now Bob announces on a public classical channel that he has received all the qubits.')
+    print('\nbasis_A = {0}\nbits_A  = {1}'.format(asarray(basis_A, dtype=int),
+                                                 asarray(sent, dtype=int)))
+
+    print('\nbasis_E = {0}\nbits_E  = {1}'.format(asarray(basis_E, dtype=int),
+                                                     asarray(eavesdrop, dtype=int)))
+
+    print('\nbasis_B = {0}\nbits_B  = {1}'.format(asarray(basis_B, dtype=int),
+                                                     asarray(received, dtype=int)))
+
+    print('\nNow Bob announces on a public classical channel that he has received all the qubits.')
     print('Alice then reveals the bases she used, and Bob compares them to his.')
     print('Whenever the bases match, so should the prepared/measured values unless there\'s an eavesdropper.')
 
@@ -238,10 +269,13 @@ def bb84(n=50):
     key_A = sent[match]
     key_B = received[match]
     m = len(key_A)
-    print('\nMismatch frequency between Alice and Bob: {0}\n'.format(np.sum(np.logical_xor(key_A, key_B)) / m))
+    print('\nmatch = {0}\nkey_A = {1}\nkey_B = {2}'.format(asarray(match, dtype=int),
+                                                             asarray(key_A, dtype=int),
+                                                             asarray(key_B, dtype=int)))
+    print('\nMismatch frequency between Alice and Bob: {0}'.format(np.sum(np.logical_xor(key_A, key_B)) / m))
 
-    print('Alice and Bob then sacrifice k bits of their shared key to compare them.')
-    print('If an nonmatching bit is found, the reason is either an eavesdropper or a noisy channel.')
+    print('\nAlice and Bob then sacrifice k bits of their shared key to compare them.')
+    print('If a nonmatching bit is found, the reason is either an eavesdropper or a noisy channel.')
     print('Since the probability for each eavesdropped bit to be wrong is 1/4, they will detect')
     print('Eve\'s presence with the probability 1-(3/4)^k.')
 
@@ -380,7 +414,7 @@ def markov_decoherence(T1, T2, B=None):
     """
     # Ville Bergholm 2009-2011
 
-    import markov
+    from . import markov
     print('\n\n=== Markovian decoherence in a qubit ===\n')
 
     omega0 = 2*pi* 1e9 # Hz
@@ -436,7 +470,7 @@ def nmr_sequences():
     """
     # Ville Bergholm 2006-2011
 
-    import seq
+    from . import seq
     from mpl_toolkits.mplot3d import Axes3D
     print('\n\n=== NMR control sequences for correcting systematic errors ===\n')
 

@@ -5,16 +5,18 @@ The functions in this module return by default sparse lmaps.
 The data type is float unless complex entries are actually needed.
 """
 
-from __future__ import print_function, division
+from __future__ import division, absolute_import, print_function, unicode_literals
+
 from copy import deepcopy
 
 from numpy import pi, prod, diag, eye, empty, zeros, trace, exp, sqrt, mod, isscalar, kron, array, ones, array_equal
 import scipy.sparse as sparse
 
+from .lmap import *
+from .utils import qubits, op_list, assert_o, copy_memoize, gcd
 
-from lmap import *
-from utils import qubits, op_list, assert_o, copy_memoize, gcd
 
+__all__ = ['dist', 'id', 'mod_add', 'mod_inc', 'mod_mul', 'phase', 'qft', 'swap', 'walsh', 'controlled', 'single', 'two', 'test']
 
 # TODO reshape will cause problems for sparse matrices!
 # TODO utils.op_list too!
@@ -232,7 +234,7 @@ def walsh(n):
     """
     # Ville Bergholm 2009-2010
 
-    from base import H
+    from .base import H
 
     U = 1
     for k in range(n):
@@ -374,7 +376,7 @@ def test():
     # Ville Bergholm 2010
 
     from numpy.random import randn
-    from base import sx, sy, sz, tol
+    from .base import sx, sy, sz, tol
 
     dim = (2, 4)
 

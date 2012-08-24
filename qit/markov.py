@@ -7,16 +7,18 @@ The treatment in this module follows [BP]_.
 """
 # Ville Bergholm 2011
 
-
-from __future__ import print_function, division
+from __future__ import division, absolute_import, print_function, unicode_literals
 
 from numpy import array, sqrt, exp, sin, cos, arctan2, tanh, dot, argsort, pi, r_, linspace, logspace, searchsorted, inf, newaxis, isscalar, unravel_index
 from scipy.linalg import norm
 from scipy.integrate import quad
 import scipy.constants as const
 
-from base import *
-from utils import *
+from .base import *
+from .utils import *
+
+
+__all__ = ['bath', 'ops', 'lindblad_ops', 'test']
 
 
 class bath(object):

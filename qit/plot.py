@@ -2,16 +2,15 @@
 """Plots."""
 # Ville Bergholm 2011
 
-
-from __future__ import print_function, division
+from __future__ import division, absolute_import, print_function, unicode_literals
 
 import numpy as np
 from numpy import array, zeros, ones, sin, cos, tanh, dot, sort, pi, r_, c_, linspace, outer
 from numpy.linalg import eigvalsh
 import matplotlib.pyplot as plt
 
-from state import *
-from utils import copy_memoize, eigsort
+from .state import *
+from .utils import copy_memoize, eigsort
 
 __all__ = ['plot_adiabatic_evolution', 'plot_bloch_sphere', 'plot_pcolor',
            'asongoficeandfire', 'sphere']

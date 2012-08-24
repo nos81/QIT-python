@@ -7,20 +7,26 @@ b bugfix
 
 
 0.9.10      2011-06-26 (first public beta)
-	      * based on the MATLAB QIT version 0.9.9, with several bugfixes.
-	      + Sphinx documentation.
+              * based on the MATLAB QIT version 0.9.9, with several bugfixes.
+              + Sphinx documentation.
 
 0.9.11      2012-08-22
-	      * Bump dependencies: matplotlib 1.0.1+, NumPy 1.5.1+, SciPy 0.9.0+.
+              * Bump dependencies: matplotlib 1.0.1+, NumPy 1.5.1+, SciPy 0.9.0+.
                 This fixes several problems with 3D plotting.
-		Sparse matrix handling is improved.
+                Sparse matrix handling is improved.
               + setup.py, proper distutils packaging.
               b 3D subplots fixed.
 
-0.9.12	    in progress
-	      + Bernstein-Vazirani algorithm example.
-	      + lmap.trace()
-	      * Better documentation, docstring backslash problems fixed.
-	      b setup.py fixed.
-	      b eig/eigh, eigvals/eigvalsh in state.propagate() and elsewhere.
-	        Now we get orthonormal eigenvectors with degenerate eigenvalues as well.
+0.9.12      in progress
+              + Bernstein-Vazirani algorithm example.
+              + lmap.trace()
+              + invariant.LU()
+	      * Initialization message removed.
+              * Better documentation, docstring backslash problems fixed.
+              * examples.bb84() now also prints the interesting stuff.
+              * Preparing for Python 3 conversion: added the absolute_import and
+                unicode_literals __future__ features. Now we use every non-redundant
+                __future__ feature available in Python 2.6.
+              b setup.py fixed.
+              b eig/eigh, eigvals/eigvalsh in state.propagate() and elsewhere.
+                Now we get orthonormal eigenvectors with degenerate eigenvalues as well.

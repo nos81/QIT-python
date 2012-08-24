@@ -2,15 +2,16 @@
 """Control sequences module."""
 # Ville Bergholm 2011
 
-from __future__ import print_function, division
+from __future__ import division, absolute_import, print_function, unicode_literals
 
 from numpy import sin, cos, arcsin, arccos, pi, asarray, eye, zeros, r_, c_, dot, nonzero, ceil, linspace
 from scipy.linalg import expm
 from scipy.optimize import brentq
 
-from base import *
+from .base import *
 
 
+__all__ = ['nmr', 'bb1', 'corpse', 'cpmg', 'scrofulous', 'seq2prop', 'propagate', 'test']
 
 def nmr(a):
     r"""Convert NMR-style rotations into a one-qubit control sequence.
@@ -181,11 +182,11 @@ def test():
     # Ville Bergholm 2011
 
     from numpy.random import rand
-    import state
-    from utils import rand_positive, assert_o
+    from . import state
+    from .utils import rand_positive, assert_o
 
     dim = 2
-    s = state.state(rand_positive(dim))
+    s = state(rand_positive(dim))
     seq = scrofulous(pi*rand(), 2*pi*rand())
 
     # equivalent propagations

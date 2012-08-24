@@ -2,16 +2,72 @@
 """Invariants module."""
 # Ville Bergholm 2011
 
-from __future__ import print_function, division
+from __future__ import division, absolute_import, print_function, unicode_literals
 
 import numpy as np
-from numpy import array, empty, zeros, ones, sqrt, sin, cos, dot, sort, trace, kron, pi, r_, c_, linspace, meshgrid, roll, concatenate, angle
+from numpy import array, asarray, arange, empty, zeros, ones, sqrt, sin, cos, dot, sort, trace, kron, pi, r_, c_, linspace, meshgrid, roll, concatenate, angle
 from numpy.linalg import det, eigvals
 from scipy.linalg import norm
 import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d
 
-from base import *
+from .base import *
+from .lmap import *
+
+# TODO these function names are terrible
+__all__ = ['canonical', 'makhlin', 'max_concurrence', 'plot_weyl_2q', 'plot_makhlin_2q', 'LU', 'test']
+
+
+def LU(rho, k, perms):
+    """Local unitary polynomial invariants of quantum states.
+
+    Computes the permutation invariant $I_{k; \pi_1, \pi_2, ..., \pi_n}$ for the state $\rho$.
+    perms is a tuple containing $n$ $k$-permutation tuples.
+
+    Example: $I_{3; (123),(12)}(\rho)$ = LU_inv(rho, 3, [(1, 2, 0), (1, 0, 2)])
+
+    This function can be very inefficient for some invariants, since
+    it does no partial traces etc. which might simplify the calculation.
+
+    Uses the algorithm in [BBL2012]_.
+
+    .. [BBL2012] J.D.Biamonte, V.Bergholm, M.Lanzagorta, "Invariant Theory for Matrix Product States" (2012). TODO
+    """
+    # Ville Bergholm 2011-2012
+
+    def tensor_pow(rho, n):
+        """Returns $\rho^{\otimes n}$."""
+        rho = rho.to_op()
+        ret = lmap(rho)
+        for k in range(1, n):
+            ret = tensor(ret, rho)
+        return ret
+
+
+    n = len(perms)
+    if n != rho.subsystems():
+        raise ValueError('Need one permutation per subsystem.')
+
+    # convert () to identity permutation
+    perms = list(perms)
+    for j, p in enumerate(perms):
+        if len(p) == 0:
+            perms[j] = range(k)
+
+    # splice k sequential copies of the entire system into k copies of each subsystem
+    s = arange(n * k).reshape((k, n)).flatten()
+
+    # permute the k copies of each subsystem
+    temp = kron(k * arange(n), ones(k, int))
+    p = asarray(perms).flatten() + temp
+
+    # Permutations: a*b = a(b), x = y * z^{-1}  <=>  x * z = x(z) = y.
+    s_inv = empty(s.shape, int)
+    s_inv[s] = arange(n*k)
+    total = s_inv[p[s]] # total = s^{-1} * p * s
+
+    # TODO this could be done much more efficiently
+    return tensor_pow(rho, k).reorder((total, None)).trace()
 
 
 
@@ -206,8 +262,8 @@ def plot_weyl_2q():
 
 def test():
     """Test script for invariant methods."""
-    from utils import assert_o, rand_U
-    import gate
+    from .utils import assert_o, rand_U
+    from . import gate
 
     U = rand_U(4) # random two-qubit gate
     L = kron(rand_U(2), rand_U(2)) # random local 2-qubit gate

@@ -2,6 +2,7 @@
 """Basic definitions."""
 # Ville Bergholm 2008-2011
 
+from __future__ import division, absolute_import, print_function, unicode_literals
 
 from numpy import array, eye, sqrt, finfo
 

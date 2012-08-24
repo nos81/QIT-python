@@ -2,15 +2,15 @@
 """Bounded linear maps.""" 
 # Ville Bergholm 2008-2011
 
+from __future__ import division, absolute_import, print_function, unicode_literals
 
-from __future__ import print_function, division
 import sys
 from copy import copy, deepcopy
 
 import numpy as np
 import scipy.sparse as ssp
 
-from base import tol
+from .base import tol
 
 __all__ = ['numstr_to_array', 'array_to_numstr', 'lmap', 'tensor']
 

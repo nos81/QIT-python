@@ -9,15 +9,17 @@ of the harmonic oscillator, where n is the truncation dimension.
 The corresponding truncated annihilation operator can be obtained with :func:`qit.utils.boson_ladder`.
 """
 
-from __future__ import print_function, division
+from __future__ import division, absolute_import, print_function, unicode_literals
 
 from numpy import array, mat, empty, arange, diag, sqrt, ones, prod, sqrt, pi, isscalar, linspace, newaxis
 from scipy import factorial
 from scipy.linalg import expm, norm
 
-from base import tol
-from state import *
-from utils import boson_ladder, comm
+from .base import tol
+from .state import *
+from .utils import boson_ladder, comm
+
+__all__ = ['coherent_state', 'displace', 'squeeze', 'position', 'momentum', 'position_state', 'momentum_state', 'husimi', 'wigner', 'test']
 
 
 # default truncation limit for number states
@@ -286,7 +288,7 @@ def wigner(s, alpha=None, res=(20, 20), lim=(-2, 2, -2, 2)):
 def test():
     """Testing script for the harmonic oscillator module."""
     from numpy.random import randn
-    from utils import assert_o
+    from .utils import assert_o
 
     def randc():
         """Random complex number."""
