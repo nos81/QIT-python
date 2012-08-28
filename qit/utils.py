@@ -107,7 +107,7 @@ def acomm(A, B):
     return dot(A, B) + dot(B, A)
 
 
-def expv(t, A, v, tol=1.0e-7, m=None, iteration='arnoldi'):
+def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
     r"""Multiply a vector by an exponentiated matrix.
 
     Approximates :math:`exp(t A) v` using a Krylov subspace technique.
@@ -116,8 +116,8 @@ def expv(t, A, v, tol=1.0e-7, m=None, iteration='arnoldi'):
 
     Input:
     t           vector of nondecreasing time instances >= 0
-    A           (usually sparse) n*n matrix
-    v           n-dimensional vector
+    A           n*n matrix (usually sparse) (as an (n,n)-shaped ndarray)
+    v           n-dimensional vector (as an (n,)-shaped ndarray)
     tol         tolerance
     m           Krylov subspace dimension, <= n
     iteration   'arnoldi' or 'lanczos'. Lanczos is faster but requires a Hermitian A.
@@ -131,11 +131,14 @@ def expv(t, A, v, tol=1.0e-7, m=None, iteration='arnoldi'):
 
     .. [EXPOKIT] Sidje, R.B., "EXPOKIT: A Software Package for Computing Matrix Exponentials", ACM Trans. Math. Softw. 24, 130 (1998).
     """
-    # Ville Bergholm 2009-2011
+    # Ville Bergholm 2009-2012
+
+    # just in case somebody tries to use numpy.matrix instances here
+    if isinstance(A, np.matrix) or isinstance(v, np.matrix):
+        raise ValueError("A and v must be plain numpy.ndarray instances, not numpy.matrix.")
 
     n = A.shape[0]
-    if m == None:
-        m = min(n, 30)  # default Krylov space dimension
+    m = min(n, m)  # Krylov space dimension, m <= n 
 
     if isscalar(t):
         tt = array([t])

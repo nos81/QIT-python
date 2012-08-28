@@ -21,7 +21,7 @@ b bugfix
               + Bernstein-Vazirani algorithm example.
               + lmap.trace()
               + invariant.LU()
-	      * Initialization message removed.
+              * Initialization message removed.
               * Better documentation, docstring backslash problems fixed.
               * examples.bb84() now also prints the interesting stuff.
               * Preparing for Python 3 conversion: added the absolute_import and
@@ -30,3 +30,5 @@ b bugfix
               b setup.py fixed.
               b eig/eigh, eigvals/eigvalsh in state.propagate() and elsewhere.
                 Now we get orthonormal eigenvectors with degenerate eigenvalues as well.
+              b utils.expv() no longer crashes with a cryptic error message when
+                given np.matrix instances as input, now raising an exception instead.
