@@ -19,7 +19,9 @@ b bugfix
 
 0.9.12      in progress
               + Bernstein-Vazirani algorithm example.
+              + lmap.norm()
               + lmap.trace()
+              + utils.rand_SL()
               + invariant.LU()
               * Initialization message removed.
               * Better documentation, docstring backslash problems fixed.

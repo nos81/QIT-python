@@ -387,6 +387,19 @@ def rand_positive(n):
     return array((A + A.H) / 2)   # eliminate rounding errors
 
 
+def rand_SL(n):
+    """Random SL(n, C) matrix.
+
+    Returns a random special linear n*n matrix.
+    NOTE: The randomness is not defined in any deeply meaningful sense.
+    """
+    # Ville Bergholm 2011
+
+    S = randn(n,n) +1j*randn(n,n)
+    d = det(S) ** (1/n)
+    return S/d
+
+
 
 # superoperators
 
