@@ -26,7 +26,5 @@ setup(name             = 'qit',
         'Topic :: Scientific/Engineering :: Physics'
         ],
       packages         = ['qit'],
-      provides         = ['qit']
+      package_data     = {'qit': ['../doc/*.rst', '../doc/conf.py', '../doc/Makefile', '../doc/make.bat']}
       )
-
-# TODO package_data (docs!)
