@@ -188,10 +188,10 @@ def bb84(n=50):
     Simulate the protocol with n qubits transferred.
 
     """
-    # Ville Bergholm 2009
+    # Ville Bergholm 2009-2012
 
     print('\n\n=== BB84 protocol ===\n')
-    print('Using {0} transmitted qubits.\n'.format(n))
+    print('Using {0} transmitted qubits, intercept-resend attack.\n'.format(n))
 
     # Alice generates two random bit vectors
     sent    = npr.rand(n) > 0.5
@@ -205,10 +205,11 @@ def bb84(n=50):
     basis_E = zeros(n, bool)
     eavesdrop = zeros(n, bool)
 
-    print('Alice transmits a sequence of qubits to Bob using a quantum channel.')
-    print('For every qubit, she randomly chooses a basis (computational or diagonal)')
-    print('and randomly prepares the qubit in either the |0> or the |1> state in that basis.\n')
-    print('When Bob receives the qubits, he randomly measures them in either basis')
+    print("""Alice transmits a sequence of qubits to Bob using a quantum channel.
+For every qubit, she randomly chooses a basis (computational or diagonal)
+and randomly prepares the qubit in either the |0> or the |1> state in that basis.""")
+    print("\nbasis_A = {0}\nbits_A  = {1}".format(asarray(basis_A, dtype=int),
+                                                  asarray(sent, dtype=int)))
 
     temp = state('0')
     for k in range(n):
@@ -252,32 +253,36 @@ def bb84(n=50):
     #sum(xor(sent, eavesdrop))/n
     #sum(xor(sent, received))/n
 
-    print('\nbasis_A = {0}\nbits_A  = {1}'.format(asarray(basis_A, dtype=int),
-                                                 asarray(sent, dtype=int)))
+    print("""\nHowever, there's an eavesdropper, Eve, on the line. She intercepts the qubits,
+randomly measures them in either basis (thus destroying the originals!), and then sends
+a new batch of qubits corresponding to her measurements and basis choices to Bob.
+Since Eve on the average can choose the right basis only 50% of the time,
+about 1/4 of her bits differ from Alice's.""")
+    print("\nbasis_E = {0}\nbits_E  = {1}".format(asarray(basis_E, dtype=int),
+                                                  asarray(eavesdrop, dtype=int)))
 
-    print('\nbasis_E = {0}\nbits_E  = {1}'.format(asarray(basis_E, dtype=int),
-                                                     asarray(eavesdrop, dtype=int)))
+    print("\nWhen Bob receives the qubits, he randomly measures them in either basis.")
+    print("\nbasis_B = {0}\nbits_B  = {1}".format(asarray(basis_B, dtype=int),
+                                                  asarray(received, dtype=int)))
 
-    print('\nbasis_B = {0}\nbits_B  = {1}'.format(asarray(basis_B, dtype=int),
-                                                     asarray(received, dtype=int)))
-
-    print('\nNow Bob announces on a public classical channel that he has received all the qubits.')
-    print('Alice then reveals the bases she used, and Bob compares them to his.')
-    print('Whenever the bases match, so should the prepared/measured values unless there\'s an eavesdropper.')
+    print("""\nNow Bob announces on a public classical channel that he has received all the qubits.
+Alice and Bob then reveal the bases they used. Whenever the bases happen to match,
+(about 50% of the time on the average), they both add their corresponding bit to
+their personal key. The two keys should be identical unless there's been an eavesdropper.""")
 
     match = np.logical_not(np.logical_xor(basis_A, basis_B))
     key_A = sent[match]
     key_B = received[match]
     m = len(key_A)
     print('\nmatch = {0}\nkey_A = {1}\nkey_B = {2}'.format(asarray(match, dtype=int),
-                                                             asarray(key_A, dtype=int),
-                                                             asarray(key_B, dtype=int)))
+                                                           asarray(key_A, dtype=int),
+                                                           asarray(key_B, dtype=int)))
     print('\nMismatch frequency between Alice and Bob: {0}'.format(np.sum(np.logical_xor(key_A, key_B)) / m))
 
-    print('\nAlice and Bob then sacrifice k bits of their shared key to compare them.')
-    print('If a nonmatching bit is found, the reason is either an eavesdropper or a noisy channel.')
-    print('Since the probability for each eavesdropped bit to be wrong is 1/4, they will detect')
-    print('Eve\'s presence with the probability 1-(3/4)^k.')
+    print("""\nAlice and Bob then sacrifice k bits of their shared key to compare them.
+If a nonmatching bit is found, the reason is either an eavesdropper or a noisy channel.
+Since the probability for each eavesdropped bit to be wrong is 1/4, they will detect
+Eve's presence with the probability 1-(3/4)^k.""")
 
 
 
