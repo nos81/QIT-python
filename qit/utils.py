@@ -7,7 +7,7 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 from copy import deepcopy
 
 import numpy as np
-from numpy import array, mat, dtype, empty, zeros, ones, eye, prod, sqrt, exp, tanh, dot, sort, diag, trace, kron, pi, r_, c_, inf, isscalar, floor, ceil, log10, vdot
+from numpy import array, mat, dtype, empty, zeros, ones, eye, prod, sqrt, exp, tanh, dot, sort, diag, trace, kron, pi, r_, c_, inf, isscalar, floor, ceil, log, log10, vdot
 from numpy.random import rand, randn, randint
 from numpy.linalg import qr, det, eigh, eigvalsh
 from scipy.linalg import expm, norm, svdvals
@@ -15,7 +15,7 @@ from scipy.linalg import expm, norm, svdvals
 from .base import *
 
 __all__ = ['assert_o', 'copy_memoize', 'gcd', 'lcm', 'rank', 'projector', 'eigsort', 'comm', 'acomm', 'expv',
-           'rand_hermitian', 'rand_U', 'rand_SU', 'rand_U1', 'rand_positive',
+           'rand_hermitian', 'rand_U', 'rand_SU', 'rand_U1', 'rand_pu', 'rand_positive', 'rand_SL', 
            'vec', 'inv_vec', 'lmul', 'rmul', 'lrmul', 'superop_lindblad',
            'angular_momentum', 'boson_ladder', 'fermion_ladder',
            'R_nmr', 'R_x', 'R_y', 'R_z',
@@ -367,24 +367,40 @@ def rand_U1(n):
     return diag(exp(2j * pi * rand(n)))
 
 
+def rand_pu(n):
+    r"""Random n-partition of unity.
 
-# randi(n) == np.random.random_integers(n)
+    Returns the n-partition p, which is random with respect to
+    the order-n Dirichlet distribution :math:`Dir(\alpha)`
+    with :math:`\alpha = (1, 1, ..., 1)`.
+    """
+    # Ville Bergholm 2008-2012
+
+    # Sample the Dirichlet distribution using n gamma-distributed
+    # random vars. The (shared) scale parameter of the gamma pdfs is irrelevant,
+    # and the shape parameters correspond to the Dirichlet \alpha params.
+    # Furthermore, Gamma(x; 1,1) = exp(-x), so
+    p = -log(rand(n))  # Gamma(1,1) -distributed
+    return p / sum(p)  # Dir(1, 1, ..., 1) -distributed
+
+    # TODO this would be a simpler choice, but what's the exact distribution?
+    #p = sort(rand(n-1))  # n-1 points in [0,1]
+    #d = sort(r_[p, 1] - r_[0, p])  # n deltas between points = partition of unity
+
 
 def rand_positive(n):
     """Random n*n positive semidefinite matrix.
 
-    Normalized as Tr(A) = 1.
-    Since the matrix has purely real eigenvalues, it is also
-    Hermitian by construction.
+    Normalized to Tr(A) = 1.
+    Since A has all-real eigenvalues, it is Hermitian by construction.
     """
-    # Ville Bergholm 2008-2009
+    # Ville Bergholm 2008-2012
 
-    p = sort(rand(n-1))  # n-1 points in [0,1]
-    d = sort(r_[p, 1] - r_[0, p])  # n deltas between points = partition of unity
-
+    d = rand_pu(n) # random partition of unity
     U = mat(rand_U(n)) # random unitary
     A = U.H * diag(d) * U
     return array((A + A.H) / 2)   # eliminate rounding errors
+    # An alternative would be to use an inverse purification, but this would be expensive.
 
 
 def rand_SL(n):
@@ -886,7 +902,7 @@ def majorize(x, y):
 
     :math:`x \preceq y` if and only if x is in the convex hull of all the coordinate permutations of y.
     """
-    #Ville Bergholm 2010
+    # Ville Bergholm 2010-2012
 
     if x.ndim != 1 or y.ndim != 1 or np.iscomplexobj(x) or np.iscomplexobj(y):
         raise ValueError('Inputs must be real vectors.')
@@ -897,9 +913,9 @@ def majorize(x, y):
     x = cumsum(sort(x)[::-1])
     y = cumsum(sort(y)[::-1])
 
-    if abs(x[-1] -y[-1]) < tol:
+    if abs(x[-1] -y[-1]) <= tol:
         # exact majorization
-        return all(x <= y)
+        return all(x-y <= tol)
     else:
         # weak majorization could still be possible, but...
         warn('Vectors have unequal sums.')

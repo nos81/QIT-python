@@ -32,7 +32,9 @@ Random matrices
    rand_U
    rand_SU
    rand_U1
+   rand_pu
    rand_positive
+   rand_SL
 
 
 Superoperators
