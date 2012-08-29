@@ -4,7 +4,7 @@
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
-from numpy import sin, cos, arcsin, arccos, pi, asarray, eye, zeros, r_, c_, dot, nonzero, ceil, linspace
+from numpy import array, sin, cos, arcsin, arccos, pi, asarray, eye, zeros, r_, c_, dot, nonzero, ceil, linspace
 from scipy.linalg import expm
 from scipy.optimize import brentq
 
@@ -12,6 +12,7 @@ from .base import *
 
 
 __all__ = ['nmr', 'bb1', 'corpse', 'cpmg', 'scrofulous', 'seq2prop', 'propagate', 'test']
+
 
 def nmr(a):
     r"""Convert NMR-style rotations into a one-qubit control sequence.
@@ -42,7 +43,15 @@ def nmr(a):
     rows = nonzero(theta < 0)[0]
     theta[rows] = -theta[rows]
     phi[rows] = phi[rows] + pi
-    return c_[cos(phi), sin(phi), zeros(phi.shape), theta]
+
+    # construct the sequence TODO make it a class?
+    # NOTE the strange sign convention in A and B
+    s = {'A': zeros((2, 2)),
+         'B': [0.5j * sx, 0.5j * sy],
+         'tau': theta,
+         'control': c_[cos(phi), sin(phi)]
+         }
+    return s 
 
 
 def bb1(theta, phi=0, location=0.5):
@@ -55,13 +64,11 @@ def bb1(theta, phi=0, location=0.5):
 
     .. [Wimperis] S.Wimperis, "Broadband, Narrowband, and Passband Composite Pulses for Use in Advanced NMR Experiments", J. Magn. Reson. A 109, 221--231 (1994).
     """
-    # Ville Bergholm 2009
+    # Ville Bergholm 2009-2012
 
     ph1 = arccos(-theta / (4*pi))
-    W1  = nmr([[pi, ph1], [2*pi, 3*ph1], [pi, ph1]])
-    return r_[nmr([[location * theta, phi]]), W1, nmr([[(1-location) * theta, phi]])]
-
-
+    W1  = [[pi, ph1], [2*pi, 3*ph1], [pi, ph1]]
+    return nmr([[location * theta, phi]] + W1 + [[(1-location) * theta, phi]])
 
 
 def corpse(theta, phi=0):
@@ -98,12 +105,16 @@ def cpmg(t, n):
     under a nonuniform z drift, it is not meant to be a full memory protocol.
     The target operation for this sequence is identity.
     """
-    # Ville Bergholm 2007-2009
+    # Ville Bergholm 2007-2012
 
     s = nmr([[pi/2, pi/2]]) # initial y rotation
-    step = r_[[[0, 0, 0, t]], nmr([[pi, 0]]), [[0, 0, 0, t]]] # wait, pi x rotation, wait
+
+    # step: wait, pi x rotation, wait
+    step_tau  = array([t, pi, t])
+    step_ctrl = array([[0, 0], [1, 0], [0, 0]])
     for k in range(n):
-        s = r_[s, step]
+        s['tau'] = r_[s['tau'], step_tau]
+        s['control'] = r_[s['control'], step_ctrl]
     return s
 
 
@@ -117,32 +128,41 @@ def scrofulous(theta, phi=0):
 
     SCROFULOUS: Short Composite ROtation For Undoing Length Over- and UnderShoot
     """
-    # Ville Bergholm 2006-2009
+    # Ville Bergholm 2006-2012
 
     th1 = brentq(lambda t: (sin(t)/t -(2 / pi) * cos(theta / 2)), 0.1, 4.6)
     ph1 = arccos(-pi * cos(th1) / (2 * th1 * sin(theta / 2)))
     ph2 = ph1 - arccos(-pi / (2 * th1))
 
-    u1 = nmr([[th1, ph1]])
-    u2 = nmr([[pi, ph2]])
-    return r_[u1, u2, u1]
+    u1 = [[th1, ph1]]
+    u2 = [[pi,  ph2]]
+    return nmr(u1 + u2 + u1)
 
 
-def seq2prop(seq):
-    r"""SU(2) propagator corresponding to a single-qubit control sequence.
+def seq2prop(s):
+    r"""Propagator corresponding to a control sequence.
 
-    Returns the SU(2) rotation matrix U corresponding to the
-    action of the single-qubit control sequence s alone.
+    Returns the propagator matrix corresponding to the
+    action of the control sequence s.
+
+    Governing equation: :math:`\dot(X)(t) = -(A +\sum_k u_k(t) B_k) X(t) = -G(t) X(t)`.
     """
-    # Ville Bergholm 2009
+    # Ville Bergholm 2009-2012
 
-    U = eye(2)
-    for k in seq:
-        H = 0.5 * (sx * k[0] + sy * k[1] + sz * k[2])
-        t = k[-1]
-        U = dot(expm(-1j * H * t), U)
-    return U
+    A = s['A'];
+    B = s['B'];
 
+    n = len(s['tau'])
+    P = eye(A.shape[0])
+    for j in range(n):
+        G = A
+        for k, b in enumerate(B):
+            G = G + s['control'][j, k] * b
+
+        temp = expm(-s['tau'][j] * G)  # NOTE the sign convention here
+        P = dot(temp, P)
+
+    return P
 
 
 def propagate(s, seq, out_func=lambda x: x):
@@ -150,24 +170,29 @@ def propagate(s, seq, out_func=lambda x: x):
     
     If no output function is given, we use an identity map.
     """
-    # Ville Bergholm 2009-2010
+    # Ville Bergholm 2009-2012
+
+    A = seq['A'];
+    B = seq['B'];
 
     base_dt = 0.1
+    n = len(seq['tau'])
     t = [0]  # initial time
     out = [out_func(s)]  # initial state
 
     # loop over the sequence
-    for q in seq:
-        # TODO qudits, gellmann basis
-        H = 0.5 * (sx * q[0] +sy * q[1] +sz * q[2])
-        T = q[-1]  # pulse duration
-    
+    for j in range(n):
+        G = A
+        for k, b in enumerate(B):
+            G = G + seq['control'][j, k] * b
+
+        T = seq['tau'][j]  # pulse duration
         n_steps = max(int(ceil(T / base_dt)), 1)
         dt = T / n_steps
 
-        U = expm(-1j * H * dt)
-        for j in range(n_steps):
-            s = s.u_propagate(U)
+        P = expm(-G * dt)  # NOTE the sign convention here
+        for k in range(n_steps):
+            s = s.u_propagate(P)
             out.append(out_func(s))
 
         temp = t[-1]

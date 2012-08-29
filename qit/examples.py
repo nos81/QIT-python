@@ -473,10 +473,11 @@ def nmr_sequences():
 
     Reproduces fidelity plots in [Cummins]_.
     """
-    # Ville Bergholm 2006-2011
+    # Ville Bergholm 2006-2012
 
     from . import seq
-    from mpl_toolkits.mplot3d import Axes3D
+    from plot import plot_state_trajectory
+
     print('\n\n=== NMR control sequences for correcting systematic errors ===\n')
 
     seqs = [seq.nmr([[pi, 0]]), seq.corpse(pi), seq.scrofulous(pi), seq.bb1(pi)]
@@ -491,26 +492,25 @@ def nmr_sequences():
     def helper(fig, splot, s_error, title):
         """Apply the sequence on the state psi, plot the evolution."""
         out, t = seq.propagate(psi, s_error, out_func = state.bloch_vector)
-        a = array(out)
         ax = fig.add_subplot(splot, projection = '3d')
-        plot_bloch_sphere(ax = ax)
-        ax.plot(a[:,1], a[:,2], a[:,3])
-        ax.scatter(array(a[-1,1]), [a[-1,2]], [a[-1,3]], color = 'k', marker = 'o')  # endpoint        
         ax.set_title(title)
+        plot_state_trajectory(out, ax = ax)
+
 
     for k, s in enumerate(seqs):
         fig = plt.figure()
         U = seq.seq2prop(s) # target propagator
 
-        # in this simple example the errors can be fully included in the control sequence
+        # The two systematic error types we are interested here can be
+        # incorporated into the control sequence.
         #==================================================
         s_error = deepcopy(s)
-        s_error[:, 2] += 0.1 # off-resonance error
+        s_error['A'] = s['A'] + 0.1 * 0.5j * sz  # off-resonance error (constant \sigma_z drift term)
         helper(fig, 221, s_error, titles[k] + ' evolution, off-resonance error')
 
         #==================================================
         s_error = deepcopy(s)
-        s_error[:, -1] *= 1.1 # pulse length error
+        s_error['tau'] = s['tau'] * 1.1  # proportional pulse length error
         helper(fig, 223, s_error, titles[k] + ' evolution, pulse length error')
 
         #==================================================
@@ -522,9 +522,9 @@ def nmr_sequences():
             return 0.5 * abs(trace(dot(a.conj().transpose(), b)))
 
         for u in range(nf):
-            s_error[:, 2] = s[:, 2] + f[u] # off-resonance error (constant \sigma_z interaction)
+            s_error['A'] = s['A'] + f[u] * 0.5j * sz  # off-resonance error
             for v in range(ng):
-                s_error[:, -1] = s[:, -1] * (1 + g[v]) # proportional pulse length error
+                s_error['tau'] = s['tau'] * (1 + g[v])  # proportional pulse length error
                 fid[v, u] = u_fidelity(U, seq.seq2prop(s_error))
 
         fig.add_subplot(2, 2, 4)  # FIXME colspan...

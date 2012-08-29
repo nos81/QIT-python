@@ -28,6 +28,8 @@ b bugfix
               * Better documentation, docstring backslash problems fixed.
               * examples.bb84() now also prints the interesting stuff.
 	      * utils.majorize() now uses tolerances.
+              * plot.plot_bloch_sphere no longer accepts a state.
+              * Entire seq module revamped.
               * Preparing for Python 3 conversion: added the absolute_import and
                 unicode_literals __future__ features. Now we use every non-redundant
                 __future__ feature available in Python 2.6.
