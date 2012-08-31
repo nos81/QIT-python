@@ -19,12 +19,12 @@ __all__ = ['canonical', 'makhlin', 'max_concurrence', 'plot_weyl_2q', 'plot_makh
 
 
 def LU(rho, k, perms):
-    """Local unitary polynomial invariants of quantum states.
+    r"""Local unitary polynomial invariants of quantum states.
 
-    Computes the permutation invariant $I_{k; \pi_1, \pi_2, ..., \pi_n}$ for the state $\rho$.
-    perms is a tuple containing $n$ $k$-permutation tuples.
+    Computes the permutation invariant :math:`I_{k; \pi_1, \pi_2, \ldots, \pi_n}` for the state :math:`\rho`.
+    perms is a tuple containing n k-permutation tuples.
 
-    Example: $I_{3; (123),(12)}(\rho)$ = LU_inv(rho, 3, [(1, 2, 0), (1, 0, 2)])
+    Example: :math:`I_{3; (123),(12)}(\rho)` = LU_inv(rho, 3, [(1, 2, 0), (1, 0, 2)])
 
     This function can be very inefficient for some invariants, since
     it does no partial traces etc. which might simplify the calculation.

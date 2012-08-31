@@ -14,7 +14,7 @@ It is a sister project of the MATLAB Quantum Information Toolkit
 and has equivalent functionality. QIT requires the following
 Python libraries:
 
-* `NumPy <http://numpy.scipy.org/>`_  1.5.1+  (TODO 1.6.0+)
+* `NumPy <http://numpy.scipy.org/>`_  1.5.1+
 * `SciPy <http://www.scipy.org/>`_  0.9.0+
 * `Matplotlib <http://matplotlib.sourceforge.net/>`_  1.0.1+
 
@@ -28,7 +28,7 @@ The toolkit is installed by simply unzipping it, or downloading it
 directly from the SVN server. For an interactive session, start
 IPython with ::
 
-  ipython -pylab
+  ipython --pylab
 
 and then import the toolkit using ::
 
@@ -95,7 +95,7 @@ coding guidelines:
 * Use brief comments to explain the logic of your code.
 * When you add new functions also add testing scripts for validating
   your code. If you modify existing code, make sure you didn't break
-  anything by checking that the testing scripts still run flawlessly.
+  anything by checking that the testing scripts still run successfully.
 
 
 

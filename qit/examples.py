@@ -36,7 +36,7 @@ __all__ = [
  'phase_estimation_precision',
  'qft_circuit',
  'quantum_channels',
- 'quantum_walk'
+ 'quantum_walk',
  'qubit_and_resonator',
  'shor_factorization',
  'find_order',

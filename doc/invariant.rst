@@ -13,6 +13,7 @@ Contents
 
 .. autosummary::
 
+   LU
    canonical
    makhlin
    max_concurrence

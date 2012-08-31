@@ -17,7 +17,7 @@ b bugfix
               + setup.py, proper distutils packaging.
               b 3D subplots fixed.
 
-0.9.12      in progress
+0.9.12      2012-08-31
               * Initialization message removed.
               * Better documentation, docstring backslash problems fixed.
               * Preparing for Python 3 conversion: added the absolute_import and

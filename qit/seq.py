@@ -58,7 +58,7 @@ def bb1(theta, phi=0, location=0.5):
     r"""Sequence for correcting pulse length errors.
 
     Returns the Broadband number 1 control sequence for correcting
-    errors in pulse length (or amplitude) [Wimperis]_.
+    proportional errors in pulse length (or amplitude) [Wimperis]_.
 
     The target rotation is :math:`\theta_\phi` in the NMR notation.
 
