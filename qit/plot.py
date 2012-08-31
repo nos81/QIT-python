@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Plots."""
-# Ville Bergholm 2011
+# Ville Bergholm 2011-2012
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
@@ -8,11 +8,12 @@ import numpy as np
 from numpy import array, zeros, ones, sin, cos, tanh, dot, sort, pi, r_, c_, linspace, outer
 from numpy.linalg import eigvalsh
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 
 from .state import *
 from .utils import copy_memoize, eigsort
 
-__all__ = ['plot_adiabatic_evolution', 'plot_bloch_sphere', 'plot_pcolor',
+__all__ = ['adiabatic_evolution', 'state_trajectory', 'bloch_sphere', 'correlation_simplex_2q', 'pcolor',
            'asongoficeandfire', 'sphere']
 
 
@@ -26,7 +27,7 @@ def sphere(N=15):
     return X, Y, Z
 
 
-def plot_adiabatic_evolution(t, st, H_func, n=4):
+def adiabatic_evolution(t, st, H_func, n=4):
     """Adiabatic evolution plot.
 
     Input: vector t of time instances, cell vector st of states corresponding
@@ -87,7 +88,7 @@ def plot_adiabatic_evolution(t, st, H_func, n=4):
     # axis([0, 1, 0, max(overlaps)])
 
 
-def plot_bloch_sphere(s=None, ax=None):
+def bloch_sphere(ax=None):
     """Bloch sphere plot.
 
     Plots a Bloch sphere, a geometrical representation of the state space of a single qubit.
@@ -96,37 +97,207 @@ def plot_bloch_sphere(s=None, ax=None):
 
     s is a two dimensional state to be plotted.
     """
-    # Ville Bergholm  2005-2011
+    # Ville Bergholm  2005-2012
     # James Whitfield 2010
 
-    import mpl_toolkits.mplot3d
+    if ax == None:
+        ax = plt.subplot(111, projection='3d')
 
-    if (ax == None):
-        ax = plt.gcf().add_subplot(111, projection='3d')
-    plt.hold(True)
+    ax.hold(True)
+    # surface
     X, Y, Z = sphere()
     ax.plot_surface(X, Y, Z, rstride = 1, cstride = 1, color = 'g', alpha = 0.2, linewidth = 0) #cmap = xxx
-    ax.axis('equal')
-    ax.scatter(zeros(2), zeros(2), [1, -1], c = ['r', 'b'], marker = 'o')  # poles
-    # TODO ax.scatter(*coord_array, c = ['r', 'b'], marker = 'o')  # poles
-    # labels
+    ax.axis('tight')
+    # poles
+    coords = array([[0, 0, 1], [0, 0, -1]]).transpose()  # easier to read this way
+    ax.scatter(*coords, c = 'r', marker = 'o')
     ax.text(0, 0,  1.1, '$|0\\rangle$')
     ax.text(0, 0, -1.2, '$|1\\rangle$')
+
+    # TODO equator?
+    # labels
     ax.set_xlabel('x')
     ax.set_ylabel('y')
     ax.set_zlabel('z')
-
-    # plot a given state as well?
-    if s != None:
-        v = s.bloch_vector()
-        ax.scatter(array([v[1]]), [v[2]], [v[3]], c = 'k', marker = 'x')
-
     plt.show()
     return ax
 
 
+def correlation_simplex_2q(ax=None, labels='diagonal'):
+    """Plots the correlations simplexes for two-qubit states.
 
-def plot_pcolor(W, a, b, clim=(0, 1)):
+    Plots the geometrical representation of the set of allowed
+    correlations in a two-qubit state. For each group of three
+    correlation variables the set is a tetrahedron.
+
+    The groups are 'diagonal', 'pos' and 'neg'.
+    For diagonal correlations the vertices correspond to the four Bell states.
+
+    Returns the Axes instance and a vector of three linear
+    indices denoting the correlations to be plotted as the x, y and z coordinates.
+
+    NOTE the strange logic in the ordering of the pos and neg
+    correlations follows the logic of the Bell state labeling convention, kind of.
+    """
+    # Ville Bergholm 2011-2012
+
+    import mpl_toolkits.mplot3d as mplot3
+
+    if ax == None:
+        ax = plt.subplot(111, projection='3d')
+
+    ax.hold(True)
+    ax.grid(True)
+    ax.view_init(20, -105)
+
+    # tetrahedron
+    # vertices and faces
+    v = array([[-1, -1, -1], [-1, 1, 1], [1, -1, 1], [1, 1, -1]])
+    f = [[0,1,2], [0,2,3], [0,3,1], [3,2,1]]
+    polys = [v[k, :] for k in f]
+    polyc = mplot3.art3d.Poly3DCollection(polys, color = 'g', alpha = 0.2)
+    ax.add_collection(polyc)
+    ax.set_xlim3d(-1, 1)
+    ax.set_ylim3d(-1, 1)
+    ax.set_zlim3d(-1, 1)
+
+    # mark vertices
+    ax.scatter([0], [0], [0], c = 'r', marker = '.')  # center
+    ax.scatter(v[:,0], v[:,1], v[:,2], c = 'r', marker = '.')  # vertices
+
+    # label axes and vertices
+    if labels == 'diagonal':
+        ax.set_title('diagonal correlations')
+        ax.set_xlabel('XX')
+        ax.set_ylabel('YY')
+        ax.set_zlabel('ZZ')
+        ax.text(1.1, 1.1, -1.1, r'$|\Psi^+\rangle$')
+        ax.text(1.1, -1.1, 1.1, r'$|\Phi^+\rangle$')
+        ax.text(-1.1, 1.1, 1.1, r'$|\Phi^-\rangle$')
+        ax.text(-1.2, -1.2, -1.2, r'$|\Psi^-\rangle$')
+        ind = [5, 10, 15]
+
+    elif labels == 'pos':
+        ax.set_title('pos correlations')
+        ax.set_xlabel('ZX')
+        ax.set_ylabel('XY')
+        ax.set_zlabel('YZ')
+        ax.text(1.1, -1.1, 1.1, r'$|y+,0\rangle +|y-,1\rangle$')
+        ax.text(-1.1, 1.1, 1.1, r'$|y+,0\rangle -|y-,1\rangle$')
+        ax.text(1.1, 1.1, -1.1, r'$|y-,0\rangle +|y+,1\rangle$')
+        ax.text(-1.2, -1.2, -1.2, r'$|y-,0\rangle -|y+,1\rangle$')
+        ind = [7, 9, 14]
+
+    elif labels == 'neg':
+        ax.set_title('neg correlations')
+        ax.set_xlabel('XZ')
+        ax.set_ylabel('YX')
+        ax.set_zlabel('ZY')
+        ax.text(1.1, 1.1, -1.1, r'$|0,y-\rangle +|1,y+\rangle$')
+        ax.text(-1.1, 1.1, 1.1, r'$|0,y+\rangle -|1,y-\rangle$')
+        ax.text(1.1, -1.1, 1.1, r'$|0,y+\rangle +|1,y-\rangle$')
+        ax.text(-1.2, -1.2, -1.2, r'$|0,y-\rangle -|1,y+\rangle$')
+        ind = [13, 6, 11]
+
+    elif labels == 'none':
+        ind = []
+
+    else:
+        raise ValueError('Unknown set of correlations.')
+
+    plt.show()
+    return ax, ind
+
+
+def state_trajectory(traj, reset=True, ax=None, color='b'):
+    """Plot a state trajectory in the correlation representation.
+
+    For a single-qubit system, plots the trajectory in the Bloch sphere.
+
+    For a two-qubit system, plots the reduced single-qubit states (in
+    Bloch spheres), as well as the interqubit correlations.
+
+    traj is a list of generalized Bloch vectors.
+    It can be obtained e.g. by using one of the continuous-time
+    state propagation functions and feeding the results to
+    bloch_vector.
+
+    If reset is false, adds another trajectory to current plot
+    without erasing it.
+
+    Example 1: trajectory of s under the Hamiltonian H
+      out = propagate(s, H, t, @(s,H) bloch_vector(s))
+      bloch_trajectory(out)
+
+    Example 2: just a single state s
+      bloch_trajectory({bloch_vector(s)})
+    """
+    # Ville Bergholm  2006-2012
+
+    if ax == None:
+        ax = plt.subplot(111, projection='3d')
+
+    def plot_traj(ax, A, ind):
+        """Plots the trajectory formed by the correlations given in ind."""
+
+        ax.scatter(A[0,  ind[0]],  A[0,  ind[1]],  A[0,  ind[2]], c = color, marker = 'x')
+        # if we only have a single point, do not bother with these
+        if len(A) > 1:
+            ax.plot(A[:,  ind[0]],  A[:,  ind[1]],  A[:,  ind[2]], c = color)
+            ax.scatter(A[-1, ind[0]],  A[-1, ind[1]],  A[-1, ind[2]], c = color, marker = 'o')
+
+
+    if isinstance(traj, list):
+        d = traj[0].size
+    else:
+        d = traj.size
+    A = array(traj).reshape((-1, d), order='F')  # list index becomes the first dimension
+
+    if len(A[0]) == 4:
+        # single qubit
+        if reset:
+            bloch_sphere(ax)
+        plot_traj(ax, A, [1, 2, 3])
+  
+    elif len(A[0]) == 16:
+        # two qubits (or a single ququat...)
+
+        # TODO split ax into subplots...
+        fig = plt.gcf()
+        if reset:
+            gs = GridSpec(2, 3)
+
+            ax = fig.add_subplot(gs[0, 0], projection = '3d')
+            bloch_sphere(ax)
+            ax.set_title('qubit A')
+    
+            ax = fig.add_subplot(gs[0, 1], projection = '3d')
+            bloch_sphere(ax)
+            ax.set_title('qubit B')
+
+            ax = fig.add_subplot(gs[1, 0], projection = '3d')
+            correlation_simplex_2q(ax, labels = 'diagonal')
+
+            ax = fig.add_subplot(gs[1, 1], projection = '3d')
+            correlation_simplex_2q(ax, labels = 'pos')
+
+            ax = fig.add_subplot(gs[1, 2], projection = '3d')
+            correlation_simplex_2q(ax, labels = 'neg')
+
+        # update existing axes instances
+        qqq = fig.get_axes()
+        plot_traj(qqq[0], A, [1, 2, 3])
+        plot_traj(qqq[1], A, [4, 8, 12])
+        plot_traj(qqq[2], A, [5, 10, 15])
+        plot_traj(qqq[3], A, [7, 9, 14])
+        plot_traj(qqq[4], A, [13, 6, 11])
+    
+    else:
+        raise ValueError('At the moment only plots one- and two-qubit trajectories.')
+
+
+
+def pcolor(W, a, b, clim=(0, 1)):
     """Easy pseudocolor plot.
 
     Plots the 2D function given in the matrix W.

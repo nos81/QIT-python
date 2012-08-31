@@ -15,14 +15,13 @@ from numpy.linalg import eig, norm
 import numpy.random as npr
 from scipy.misc import factorial
 import matplotlib.pyplot as plt
-from matplotlib.pyplot import figure, hold, plot, bar, title, xlabel, ylabel, axis, legend
+from matplotlib.gridspec import GridSpec
 
 from .base import *
 from .lmap import *
 from .utils import *
 from .state import *
-from .plot import *
-from . import gate, ho
+from . import gate, ho, plot
 
 
 __all__ = [
@@ -161,11 +160,11 @@ def adiabatic_qc(H0, H1, s0, tmax=50):
     # plots
     # final state probabilities
     plt.figure()
-    plot_adiabatic_evolution(t, res, H_func)
+    plot.adiabatic_evolution(t, res, H_func)
 
     plt.figure()
     res[-1].plot()
-    title('Final state')
+    plt.title('Final state')
 
     print('Final Hamiltonian (diagonal):')
     print(H1)
@@ -476,7 +475,6 @@ def nmr_sequences():
     # Ville Bergholm 2006-2012
 
     from . import seq
-    from plot import plot_state_trajectory
 
     print('\n\n=== NMR control sequences for correcting systematic errors ===\n')
 
@@ -489,16 +487,16 @@ def nmr_sequences():
     nf = len(f)
     ng = len(g)
 
-    def helper(fig, splot, s_error, title):
+    def helper(ax, s_error, title):
         """Apply the sequence on the state psi, plot the evolution."""
         out, t = seq.propagate(psi, s_error, out_func = state.bloch_vector)
-        ax = fig.add_subplot(splot, projection = '3d')
         ax.set_title(title)
-        plot_state_trajectory(out, ax = ax)
+        plot.state_trajectory(out, ax = ax)
 
 
     for k, s in enumerate(seqs):
         fig = plt.figure()
+        gs = GridSpec(2, 2)
         U = seq.seq2prop(s) # target propagator
 
         # The two systematic error types we are interested here can be
@@ -506,12 +504,14 @@ def nmr_sequences():
         #==================================================
         s_error = deepcopy(s)
         s_error['A'] = s['A'] + 0.1 * 0.5j * sz  # off-resonance error (constant \sigma_z drift term)
-        helper(fig, 221, s_error, titles[k] + ' evolution, off-resonance error')
+        ax = fig.add_subplot(gs[0, 0], projection = '3d')
+        helper(ax, s_error, titles[k] + ' evolution, off-resonance error')
 
         #==================================================
         s_error = deepcopy(s)
         s_error['tau'] = s['tau'] * 1.1  # proportional pulse length error
-        helper(fig, 223, s_error, titles[k] + ' evolution, pulse length error')
+        ax = fig.add_subplot(gs[1, 0], projection = '3d')
+        helper(ax, s_error, titles[k] + ' evolution, pulse length error')
 
         #==================================================
         s_error = deepcopy(s)
@@ -527,13 +527,13 @@ def nmr_sequences():
                 s_error['tau'] = s['tau'] * (1 + g[v])  # proportional pulse length error
                 fid[v, u] = u_fidelity(U, seq.seq2prop(s_error))
 
-        fig.add_subplot(2, 2, 4)  # FIXME colspan...
+        ax = fig.add_subplot(gs[:, 1])
         X, Y = meshgrid(f, g)
-        plt.contour(X, Y, 1-fid)
-        #surf(X, Y, 1-fid)
-        plt.xlabel('Off-resonance error')
-        plt.ylabel('Pulse length error')
-        plt.title(titles[k] + ' fidelity')
+        ax.contour(X, Y, 1-fid)
+        #ax.surf(X, Y, 1-fid)
+        ax.set_xlabel('Off-resonance error')
+        ax.set_ylabel('Pulse length error')
+        ax.set_title(titles[k] + ' fidelity')
         plt.show()
 
 
@@ -621,20 +621,20 @@ def phase_estimation_precision(t, U, u=None):
     w = 0.8 / T
 
     # plot probability distribution
-    figure()
-    hold(True)
-    bar(x, p, width = w) # TODO align = 'center' ???
-    xlabel('phase / $2\pi$')
-    ylabel('probability')
-    title('Phase estimation')
+    plt.figure()
+    plt.hold(True)
+    plt.bar(x, p, width = w) # TODO align = 'center' ???
+    plt.xlabel('phase / $2\pi$')
+    plt.ylabel('probability')
+    plt.title('Phase estimation')
     #axis([-1/(T*2), 1-1/(T*2), 0, 1])
 
     # compare to correct answer
     target = angle(d) / (2*pi) + 1
     target -= floor(target)
-    plot(target, 0.5*max(p)*ones(len(target)), 'mo')
+    plt.plot(target, 0.5*max(p)*ones(len(target)), 'mo')
 
-    legend(('Target phases', 'Measurement probability distribution'))
+    plt.legend(('Target phases', 'Measurement probability distribution'))
     return p
 
 
@@ -689,7 +689,7 @@ def quantum_channels(p=0.3):
 
     Visualizes the effect of different quantum channels on a qubit using the Bloch sphere representation.
     """
-    # Ville Bergholm 2009
+    # Ville Bergholm 2009-2012
 
     print('\n\n=== Quantum channels ===\n')
 
@@ -703,10 +703,10 @@ def quantum_channels(p=0.3):
     channels = [E_bitflip, E_phaseflip, E_bitphaseflip, E_depolarize, E_amplitudedamp]
     titles   = ['Bit flip', 'Phase flip', 'Bit and phase flip', 'Depolarization', 'Amplitude damping']
 
-    X, Y, Z = sphere()
+    X, Y, Z = plot.sphere()
     S = array([X, Y, Z])
 
-    def present(S, E, T):
+    def present(ax, E, T):
         """Helper"""
         s = S.shape
         res = empty(s)
@@ -716,17 +716,18 @@ def quantum_channels(p=0.3):
                 temp = state.bloch_state(r_[1, S[:,a,b]])
                 res[:, a, b] = temp.kraus_propagate(E).bloch_vector()[1:]  # skip the normalization
 
-        ax = plot_bloch_sphere()
+        plot.bloch_sphere(ax)
         ax.plot_surface(res[0], res[1], res[2], rstride = 1, cstride = 1, color = 'm', alpha = 0.2, linewidth = 0)
-        plt.title(T)
+        ax.set_title(T)
 
-    plt.figure()
+    fig = plt.figure()
     n = len(channels)
+    gs = GridSpec(2, int(ceil(n / 2)))
     for k in range(n):
-        plt.subplot(2, int(ceil(n/2)), k+1)
-        present(S, channels[k], titles[k])
-        plt.show()
-    return
+        ax = fig.add_subplot(gs[k], projection = '3d')
+        present(ax, channels[k], titles[k])
+
+    plt.show()
 
 
 
@@ -882,7 +883,7 @@ def qubit_and_resonator(d_r=30):
         out[k, :] = s.propagate(LL, t, out_func = readout)
 
     plt.figure()
-    plot_pcolor(out, t, detunings / (2*pi*1e-3))
+    plot.pcolor(out, t, detunings / (2*pi*1e-3))
     #plt.colorbar(orientation = 'horizontal')
     plt.xlabel('Interaction time $\\tau$ (ns)')
     plt.ylabel('Detuning, $\\Delta/(2\\pi)$ (MHz)')
@@ -952,11 +953,11 @@ def qubit_and_resonator(d_r=30):
     out2 = s2.propagate(H(0, 0, 0), t, readout)
 
     plt.figure()
-    plot(t, out1, 'b-', t, out2, 'r-')
-    xlabel('Interaction time $\\tau$ (ns)')
-    ylabel('$P_e$')
-    title('Resonator readout through qubit.')
-    legend(('$|1\\rangle + |3\\rangle$', '$|1\\rangle + i|3\\rangle$'))
+    plt.plot(t, out1, 'b-', t, out2, 'r-')
+    plt.xlabel('Interaction time $\\tau$ (ns)')
+    plt.ylabel('$P_e$')
+    plt.title('Resonator readout through qubit.')
+    plt.legend(('$|1\\rangle + |3\\rangle$', '$|1\\rangle + i|3\\rangle$'))
 
 
     #=================================
@@ -981,11 +982,11 @@ def qubit_and_resonator(d_r=30):
     print('\nComputing the Wigner function...')
     s = s.ptrace((1,))
     W, a, b = ho.wigner(s, res = (80, 80), lim = (-2.5, 2.5, -2.5, 2.5))
-    figure()
-    plot_pcolor(W, a, b, (-1, 1))
-    title('Wigner function $W(\\alpha)$')
-    xlabel('Re($\\alpha$)')
-    ylabel('Im($\\alpha$)')
+    plt.figure()
+    plot.pcolor(W, a, b, (-1, 1))
+    plt.title('Wigner function $W(\\alpha)$')
+    plt.xlabel('Re($\\alpha$)')
+    plt.ylabel('Im($\\alpha$)')
 
 
 
@@ -1297,9 +1298,9 @@ def tour():
     pause()
 
     phase_estimation_precision(5, rand_U(4))
-    title('Phase estimation, eigenstate')
+    plt.title('Phase estimation, eigenstate')
     phase_estimation_precision(5, rand_U(4), state(0, [4]))
-    title('Phase estimation, random state')
+    plt.title('Phase estimation, random state')
     pause()
 
     nmr_sequences()

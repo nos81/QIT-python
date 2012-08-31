@@ -18,21 +18,24 @@ b bugfix
               b 3D subplots fixed.
 
 0.9.12      in progress
-              + Bernstein-Vazirani algorithm example.
-              + lmap.norm()
-              + lmap.trace()
-	      + utils.rand_pu(), this is how utils.rand_positive() now gets its partition of unity.
-              + utils.rand_SL()
-              + invariant.LU()
               * Initialization message removed.
               * Better documentation, docstring backslash problems fixed.
-              * examples.bb84() now also prints the interesting stuff.
-	      * utils.majorize() now uses tolerances.
-              * plot.plot_bloch_sphere no longer accepts a state.
-              * Entire seq module revamped.
               * Preparing for Python 3 conversion: added the absolute_import and
                 unicode_literals __future__ features. Now we use every non-redundant
                 __future__ feature available in Python 2.6.
+              * examples.bb84() now also prints the interesting stuff.
+              * examples.quantum_channels and examples.nmr_sequences use GridSpec to define the subplots.
+              * utils.majorize() now uses tolerances.
+              * Entire seq module revamped.
+              * Renamed some functions in the plot module by removing the redundant plot_ prefix.
+              * plot.bloch_sphere no longer accepts a state as input.
+              + Bernstein-Vazirani algorithm example.
+              + lmap.norm()
+              + lmap.trace()
+              + utils.rand_pu(), this is how utils.rand_positive() now gets its partition of unity.
+              + utils.rand_SL()
+              + invariant.LU()
+              + plot.state_trajectory(), plot.correlation_simplex_2q()
               b setup.py fixed.
               b eig/eigh, eigvals/eigvalsh in state.propagate() and elsewhere.
                 Now we get orthonormal eigenvectors with degenerate eigenvalues as well.

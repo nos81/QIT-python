@@ -225,7 +225,7 @@ def plot_makhlin_2q(sdiv=31, tdiv=31):
     return ax
 
 
-def plot_weyl_2q():
+def plot_weyl_2q(ax=None):
     """Plots the two-qubit Weyl chamber.
 
     Plots the Weyl chamber for the local invariants
@@ -233,11 +233,11 @@ def plot_weyl_2q():
 
     Returns the Axes3D object.
     """
-    # Ville Bergholm 2005-2011
+    # Ville Bergholm 2005-2012
 
-    fig = plt.gcf()
-    ax = fig.add_subplot(111, projection='3d')
-    plt.hold(True)
+    if ax == None:
+        ax = plt.subplot(111, projection='3d')
+    ax.hold(True)
     ax.plot_surface(array([[0, 0.5, 1], [0, 0.5, 1]]), array([[0, 0, 0], [0, 0.5, 0]]), array([[0, 0, 0], [0, 0.5, 0]]), alpha = 0.2)
     ax.plot_surface(array([[0, 0.5], [0, 0.5]]), array([[0, 0.5], [0, 0.5]]), array([[0, 0], [0, 0.5]]), alpha = 0.2)
     ax.plot_surface(array([[0.5, 1], [0.5, 1]]), array([[0.5, 0], [0.5, 0]]), array([[0, 0], [0.5, 0]]), alpha = 0.2)
@@ -255,7 +255,6 @@ def plot_weyl_2q():
     ax.text(0.45, 0.55, -0.05, 'DCNOT')
     ax.text(0.20, 0.25, 0, 'SWAP$^{1/2}$')
     ax.text(0.75, 0.25, 0, 'SWAP$^{-1/2}$')
-    plt.hold(False)
     return ax
 
 
