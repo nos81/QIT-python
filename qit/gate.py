@@ -1,8 +1,32 @@
 # -*- coding: utf-8 -*-
-"""Quantum gates and other linear maps.
+"""
+Quantum gates (:mod:`qit.gate`)
+===============================
 
-The functions in this module return by default sparse lmaps.
+This module implements many common types of quantum gates (and some
+other useful linear maps). The returned gates are represented as sparse :class:`lmap` instances.
 The data type is float unless complex entries are actually needed.
+
+.. currentmodule:: qit.gate
+
+
+Contents
+--------
+
+.. autosummary::
+
+   dist
+   id
+   phase
+   qft
+   mod_inc
+   mod_mul
+   swap
+   mod_add
+   controlled
+   single
+   two
+   walsh
 """
 
 from __future__ import division, absolute_import, print_function, unicode_literals

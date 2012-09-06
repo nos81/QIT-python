@@ -1,18 +1,40 @@
 # -*- coding: utf-8 -*-
-# Author: Ville Bergholm 2011
-r"""Harmonic oscillators.
+# Author: Ville Bergholm 2011-2012
+r"""
+Harmonic oscillators (:mod:`qit.ho`)
+====================================
 
+.. currentmodule:: qit.ho
+
+This module simulates harmonic oscillators by truncating the state
+space dimension to a finite value. Higher truncation limits give more accurate results.
 All the functions in this module operate in the truncated number basis
 :math:`\{|0\rangle, |1\rangle, ..., |n-1\rangle\}`
 of the harmonic oscillator, where n is the truncation dimension.
 
 The corresponding truncated annihilation operator can be obtained with :func:`qit.utils.boson_ladder`.
+
+
+Contents
+--------
+
+.. autosummary::
+
+   coherent_state
+   position_state
+   momentum_state
+   position
+   momentum
+   displace
+   squeeze
+   husimi
+   wigner
 """
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
 from numpy import array, mat, empty, arange, diag, sqrt, ones, prod, sqrt, pi, isscalar, linspace, newaxis
-from scipy import factorial
+from scipy.misc import factorial
 from scipy.linalg import expm, norm
 
 from .base import tol

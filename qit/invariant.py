@@ -1,5 +1,25 @@
 # -*- coding: utf-8 -*-
-"""Invariants module."""
+"""
+Local invariants (:mod:`qit.invariant`)
+=======================================
+
+This module contains tools for computing and plotting the values of
+various local gate and state invariants.
+
+.. currentmodule:: qit.invariant
+
+Contents
+--------
+
+.. autosummary::
+
+   LU
+   canonical
+   makhlin
+   max_concurrence
+   plot_makhlin_2q
+   plot_weyl_2q   
+"""
 # Ville Bergholm 2011
 
 from __future__ import division, absolute_import, print_function, unicode_literals

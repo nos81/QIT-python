@@ -1,9 +1,43 @@
 # -*- coding: utf-8 -*-
-"""Born-Markov noise module.
+"""
+Born-Markov noise (:mod:`qit.markov`)
+=====================================
 
-The treatment in this module follows [BP]_.
+
+This module simulates the effects of a heat bath coupled to a quantum
+system, using the Born-Markov approximation.
+
+The treatment in this module mostly follows [BP]_.
 
 .. [BP] Breuer, Heinz-Peter and Petruccione, Francesco, "The Theory of Open Quantum Systems", Oxford University Press (2002).
+
+
+
+Contents
+--------
+
+.. currentmodule:: qit.markov
+
+.. autosummary::
+
+   ops
+   lindblad_ops
+   superop   
+   bath
+
+
+:class:`bath` methods
+---------------------
+
+.. currentmodule:: qit.markov.bath
+
+.. autosummary::
+
+   build_LUT
+   S_func
+   set_cutoff
+   corr
+   fit
 """
 # Ville Bergholm 2011
 
