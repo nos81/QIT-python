@@ -16,13 +16,13 @@ Utilities
 
 .. autosummary::
 
+   check
    subsystems
    dims
    clean_selection
    invert_selection
    fix_phase
    normalize
-   purity
    to_ket
    to_op
    trace
@@ -31,7 +31,6 @@ Utilities
    reorder
    tensor
    plot
-
 
 
 Physics
@@ -56,6 +55,7 @@ Quantum information
 
    fidelity
    trace_dist
+   purity
    schmidt
    entropy
    concurrence
@@ -89,7 +89,7 @@ import numpy as np
 from numpy import array, asarray, diag, sort, prod, cumsum, cumprod, exp, sqrt, trace, dot, vdot, roll, zeros, ones, r_, kron, isscalar, nonzero, ix_, linspace, meshgrid
 from numpy.random import rand, randn
 import scipy as sp
-from scipy.linalg import norm, eigh
+from scipy.linalg import norm, eigh, eigvalsh
 from scipy.integrate import ode
 
 from .base import Q_Bell, tol
@@ -267,6 +267,24 @@ class state(lmap):
 
 
 # utility methods
+# TODO design issue: for valid states, lots of these funcs should return reals (marked with a commented-out .real). should we just drop the imaginary part? what about if the state is invalid, how will the user know? what about numerical errors?
+# TODO same thing except with normalization, should we assume states are normalized?
+
+    def check(self):
+        """Checks the validity of the state.
+
+        Makes sure it is normalized, and if an operator, Hermitian and semipositive.
+        """
+        if abs(s.trace() - 1) > tol:
+            raise ValueError('State not properly normalized.')
+
+        if not is_ket(s):
+            if norm(s.data - s.data.conj().transpose()) > tol:
+                raise ValueError('State operator not Hermitian.')
+
+            if min(eigvalsh(s.data)) < -tol:
+                raise ValueError('State operator not semipositive.')
+
 
     def subsystems(self):
         """Number of subsystems in the state."""
@@ -332,7 +350,8 @@ class state(lmap):
         if self.is_ket():
             return 1
         else:
-            return trace(dot(self.data, self.data))
+            # rho is hermitian so purity should be real
+            return trace(dot(self.data, self.data)) # .real
 
 
     def to_ket(self, inplace=False):
@@ -364,7 +383,7 @@ class state(lmap):
         (q.data) is guaranteed to be a state operator.
         """
         # Ville Bergholm 2009-2010
-
+        # slight inefficiency when self.is_ket() and inplace==False: the ket data is copied for no reason
         s = self._inplacer(inplace)
         if s.is_ket():
             s.data = np.outer(s.data, s.data.conj())
@@ -379,12 +398,13 @@ class state(lmap):
         Returns the trace of the state operator of quantum state s.
         For a pure state this is equal to the squared norm of the state vector.
         """
-        # Ville Bergholm 2008
+        # Ville Bergholm 2008-2012
 
         if self.is_ket():
-            return vdot(self.data, self.data)
+            # squared norm, thus always real
+            return vdot(self.data, self.data).real
         else:
-            return trace(self.data)
+            return trace(self.data)  # .real
 
 
     def ptrace(self, sys, inplace=False):
@@ -438,8 +458,6 @@ class state(lmap):
 
         s.dim = (dim, dim)
         return s
-
-
 
 
 
@@ -508,7 +526,7 @@ class state(lmap):
         else:
             # state operator
             x = trace(dot(A, self.data))
-        return x.real # Hermitian observable
+        return x.real # .real for a Hermitian observable and valid state
 
 
     def var(self, A):
@@ -534,7 +552,7 @@ class state(lmap):
             temp = self.data.ravel() # into 1D array
             return (temp * temp.conj()).real  # == np.absolute(self.data) ** 2
         else:
-            return diag(self.data).real
+            return diag(self.data).real # .real
 
 
     def projector(self):
@@ -571,7 +589,7 @@ class state(lmap):
             raise TypeError('States can only be propagated using lmaps and arrays.')
 
 
-    def propagate(self, G, t, out_func=lambda x, h: x, **kwargs):
+    def propagate(self, G, t, out_func=lambda x, h: deepcopy(x), **kwargs):
         r"""Propagate the state continuously in time.
         ::
 
@@ -715,7 +733,7 @@ class state(lmap):
 
             # do we want the initial state too? (the integrator can't handle t=0!)
             if t[0] == 0:
-                out.append(out_func(deepcopy(s), F(0)))
+                out.append(out_func(s, F(0)))
                 t = t[1:]
 
             # ODE solver default parameters
@@ -733,7 +751,7 @@ class state(lmap):
                 if not r.successful():
                     raise RuntimeError('ODE integrator failed.')
                 s.data = inv_vec(r.y, dim)
-                out.append(out_func(deepcopy(s), F(k)))
+                out.append(out_func(s, F(k)))
 
         else:
             # time independent case
@@ -993,13 +1011,13 @@ class state(lmap):
             if r.is_ket():
                 return abs(vdot(self.data, r.data))
             else:
-                return sqrt(vdot(self.data, dot(r.data, self.data)).real)
+                return sqrt(vdot(self.data, dot(r.data, self.data)).real)  # .real
         else:
             if r.is_ket():
-                return sqrt(vdot(r.data, dot(self.data, r.data)).real)
+                return sqrt(vdot(r.data, dot(self.data, r.data)).real)  # .real
             else:
                 temp = sp.linalg.sqrtm(self.data)
-                return trace(sp.linalg.sqrtm(dot(dot(temp, r.data), temp))).real
+                return trace(sp.linalg.sqrtm(dot(dot(temp, r.data), temp))).real  # .real
 
 
     def trace_dist(self, r):
@@ -1016,11 +1034,12 @@ class state(lmap):
         if not isinstance(r, state):
             raise TypeError('Not a state.')
 
-        r = r.to_op()
-        s = self.to_op()
-        # TODO could use original data
-        A = r.data - s.data
-        return 0.5 * sum(abs(np.linalg.eigvalsh(A)))
+        # avoid copying state ops since we just do read-only stuff here
+        S = self.to_op() if self.is_ket() else self
+        R = r.to_op() if r.is_ket() else r
+
+        A = R.data - S.data
+        return 0.5 * sum(abs(eigvalsh(A)))
         #return 0.5*trace(sqrtm(A'*A))
 
 
@@ -1087,27 +1106,37 @@ class state(lmap):
             return s, u, vh.transpose()
 
 
-    def entropy(self, sys=None):
-        r"""Von Neumann entropy of the state.
 
-        If sys == None, returns the entropy of the state:
+    def entropy(self, sys=None, alpha=1):
+        r"""Von Neumann or Rényi entropy of the state.
+
+        Returns the Rényi entropy of order :math:`\alpha`,
+        :math:`S_\alpha(\rho) = \frac{1}{1-\alpha} \log_2 \mathrm{Tr}(\rho^\alpha)`.
+        
+        When :math:`\alpha = 1`, this coincides with the von Neumann entropy
         :math:`S(\rho) = -\mathrm{Tr}(\rho \log_2(\rho))`.
 
-        If a vector of subsystem indices sys is given, returns the
+        If sys == None, returns the entropy of the state.
+        If sys is a vector of subsystem indices, returns the
         entropy of entanglement of the state wrt. the partitioning
-        defined by sys.
-
-        Entropy of entanglement is only defined for pure states.
+        defined by sys. Entropy of entanglement is only defined for pure states.
         """
-        # Ville Bergholm 2009-2010
+        # Ville Bergholm 2009-2012
 
         if sys != None:
-            s = ptrace(to_ket(s), sys) # partial trace over one partition
-
-        if self.is_ket():
-            return 0
+            s = self.to_ket().ptrace(sys) # partial trace over one partition
         else:
-            p = np.linalg.eigvalsh(self.data)
+            s = self
+
+        if s.is_ket():
+            return 0
+
+        p = eigvalsh(s.data)
+        if alpha != 1:
+            # Rényi entropy
+            return np.log2(sum(p ** alpha)) / (1 - alpha)
+        else:
+            # Von Neumann entropy
             p[p == 0] = 1   # avoid trouble with the logarithm
             return -dot(p, np.log2(p))
 
@@ -1141,7 +1170,7 @@ class state(lmap):
             # pure state
             n = len(dim)
             rho_A = self.ptrace(self.invert_selection(sys)) # trace over everything but sys
-            C = 2 * sqrt(real(det(rho_A.data))) # = sqrt(2*(1-real(trace(temp*temp))))
+            C = 2 * sqrt(det(rho_A.data).real) # = sqrt(2*(1-real(trace(temp*temp)))), .real
             return
 
         # concurrence between two qubits
@@ -1165,10 +1194,10 @@ class state(lmap):
             temp = dot(p, X)  # X.conj() == X so this works
             temp = dot(temp, temp.conj())  # == p * X * conj(p) * X
             if abs(purity(self) - 1) > tol:
-                L = sqrt(sort(np.linalg.eigvals(temp).real)[::-1]).real
+                L = sqrt(sort(np.linalg.eigvals(temp).real)[::-1]).real  # .real?
                 C = max(0, L[1] -L[2] -L[3] -L[4])
             else:
-                C = sqrt(trace(temp).real) # same formula as for state vecs
+                C = sqrt(trace(temp).real) # same formula as for state vecs, .real?
 
 
     def negativity(self, sys):
@@ -1265,7 +1294,7 @@ class state(lmap):
 
         s.ptrace(sys, inplace = True)
         t.ptrace(sys, inplace = True)
-        return majorize(np.linalg.eigvalsh(s.data), np.linalg.eigvalsh(t.data))
+        return majorize(eigvalsh(s.data), eigvalsh(t.data))
 
 
 
@@ -1341,10 +1370,11 @@ class state(lmap):
 
             c = phases(self.data)  # use phases as colors
             ax = fig.add_subplot(111, projection = '3d')
+            ax.view_init(40, -115)
 
             width = 0.6  # bar width
             temp = np.arange(-width/2, N-1) # center the labels
-            x, y = meshgrid(temp, temp)
+            x, y = meshgrid(temp, temp[::-1])
             x = x.ravel()
             y = y.ravel()
             z = abs(self.data.ravel())
@@ -1352,7 +1382,7 @@ class state(lmap):
             ax.bar3d(x, y, zeros(x.shape), dx, dx, z, color='b')
 
             # now the colors
-            pcol = ax.get_children()[2]  # poly3Dcollection
+            pcol = ax.get_children()[3]  # FIXME we need a robust way of getting the poly3Dcollection
             pcol.set_norm(nn)
             pcol.set_cmap(cm.hsv)
             pcol.set_array(kron(c.ravel(), (1,)*6))  # six faces per bar
@@ -1371,7 +1401,7 @@ class state(lmap):
             #ax.set_xticks(ticks)
             ax.set_xticklabels(ticklabels)
             #ax.set_yticks(ticks)
-            ax.set_yticklabels(ticklabels)
+            ax.set_yticklabels(ticklabels[::-1])
             #ax.set_alpha(0.8)
             # TODO ticks, ticklabels, alpha
 

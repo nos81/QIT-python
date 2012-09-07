@@ -308,6 +308,13 @@ class lmap(object):
         return self.__mul__(t)
 
 
+    def __div__(self, t):
+        """Division of lmaps by scalars from the right."""
+        s = copy(self)
+        s.data = self.data / t
+        return s
+
+
     def __truediv__(self, t):
         """Division of lmaps by scalars from the right."""
         s = copy(self)

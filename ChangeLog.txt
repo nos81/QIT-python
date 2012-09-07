@@ -41,3 +41,15 @@ b bugfix
                 Now we get orthonormal eigenvectors with degenerate eigenvalues as well.
               b utils.expv() no longer crashes with a cryptic error message when
                 given np.matrix instances as input, now raising an exception instead.
+
+0.9.13      in progress
+              * Sphinx module docs moved into the module docstrings.
+              * state.entropy() now also gives Rényi entropies.
+              + state.check()
+              + lmap.__div__() for convenience until we migrate to Python 3.
+              b Scipy 0.10 fix: scipy.misc.factorial now imported from the correct module.
+              b state.plot() 3D plot of mixed states fixed. Color is
+                back, better viewpoint, bars follow matrix ordering.
+              b state.propagate() now uses deepcopy on the results by default,
+                multiple input time instances produce the correct output.
+                
