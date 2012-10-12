@@ -368,7 +368,7 @@ class state(lmap):
             if abs(s.purity() - 1) > tol:
                 raise ValueError('The state is not pure, and thus cannot be represented by a ket vector.')
 
-            d, v = eigsort(s.data)
+            d, v = eighsort(s.data)
             s.data = v[:, [0]]  # corresponds to the highest eigenvalue, i.e. 1
             s.fix_phase(inplace = True)  # clean up global phase
             s.dim = (s.dim[0], (1,))
@@ -1624,7 +1624,7 @@ class state(lmap):
         r = state(randn(30) + 1j*randn(30), [5, 6]).normalize()
         #x = r.schmidt((0,)) ** 2  # FIXME crashes ipython!
         temp = r.ptrace([1])
-        y, dummy = eigsort(temp.data)
+        y, dummy = eighsort(temp.data)
         #assert_o(norm(x-y), 0, tol)
 
 

@@ -23,33 +23,40 @@ b bugfix
               * Preparing for Python 3 conversion: added the absolute_import and
                 unicode_literals __future__ features. Now we use every non-redundant
                 __future__ feature available in Python 2.6.
-              * examples.bb84() now also prints the interesting stuff.
+              * examples.bb84 now also prints the interesting stuff.
               * examples.quantum_channels and examples.nmr_sequences use GridSpec to define the subplots.
-              * utils.majorize() now uses tolerances.
+              * utils.majorize now uses tolerances.
               * Entire seq module revamped.
               * Renamed some functions in the plot module by removing the redundant plot_ prefix.
               * plot.bloch_sphere no longer accepts a state as input.
               + Bernstein-Vazirani algorithm example.
-              + lmap.norm()
-              + lmap.trace()
-              + utils.rand_pu(), this is how utils.rand_positive() now gets its partition of unity.
-              + utils.rand_SL()
-              + invariant.LU()
-              + plot.state_trajectory(), plot.correlation_simplex_2q()
+              + lmap.norm
+              + lmap.trace
+              + utils.rand_pu, this is how utils.rand_positive now gets its partition of unity.
+              + utils.rand_SL
+              + invariant.LU
+              + plot.state_trajectory, plot.correlation_simplex_2q
               b setup.py fixed.
-              b eig/eigh, eigvals/eigvalsh in state.propagate() and elsewhere.
+              b eig/eigh, eigvals/eigvalsh in state.propagate and elsewhere.
                 Now we get orthonormal eigenvectors with degenerate eigenvalues as well.
-              b utils.expv() no longer crashes with a cryptic error message when
+              b utils.expv no longer crashes with a cryptic error message when
                 given np.matrix instances as input, now raising an exception instead.
 
 0.9.13      in progress
               * Sphinx module docs moved into the module docstrings.
-              * state.entropy() now also gives Rényi entropies.
-              + state.check()
-              + lmap.__div__() for convenience until we migrate to Python 3.
+              * state.entropy now also gives Rényi entropies.
+              + state.check
+              + lmap.__div__ for convenience until we migrate to Python 3.
+              + utils.orth
+              + utils.nullspace
+              + utils.nullspace_hermitian
+              + utils.superop_fp
+              * utils.gellmann now returns a 3-dimensional array instead of a list.
+              * utils.rank now uses a smarter default tolerance.
+              * utils.eigsort renamed to utils.eighsort
               b Scipy 0.10 fix: scipy.misc.factorial now imported from the correct module.
-              b state.plot() 3D plot of mixed states fixed. Color is
+              b state.plot 3D plot of mixed states fixed. Color is
                 back, better viewpoint, bars follow matrix ordering.
-              b state.propagate() now uses deepcopy on the results by default,
+              b state.propagate now uses deepcopy on the results by default,
                 multiple input time instances produce the correct output.
                 

@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 
 from .state import *
-from .utils import copy_memoize, eigsort
+from .utils import copy_memoize, eighsort
 
 __all__ = ['adiabatic_evolution', 'state_trajectory', 'bloch_sphere', 'correlation_simplex_2q', 'pcolor',
            'asongoficeandfire', 'sphere']
@@ -49,7 +49,7 @@ def adiabatic_evolution(t, st, H_func, n=4):
     # find the n lowest eigenstates of the final Hamiltonian
     #d, v = scipy.sparse.linalg.eigs(H, n, which = 'SR')
     #ind = d.argsort()  # increasing real part
-    d,v = eigsort(H)
+    d,v = eighsort(H)
     lowest = []
     for j in range(n):
         #j = ind[j]

@@ -13,16 +13,26 @@ Mathematical utilities
 
 .. autosummary::
 
-   comm
-   acomm
    gcd
    lcm
-   rank
-   projector
-   eigsort
-   expv
-   mkron
    majorize
+
+
+Matrix functions
+----------------
+
+.. autosummary::
+
+   comm
+   acomm
+   mkron
+   rank
+   orth
+   nullspace
+   nullspace_hermitian
+   projector
+   eighsort
+   expv
 
 
 Random matrices
@@ -50,7 +60,7 @@ Superoperators
    rmul
    lrmul
    superop_lindblad   
-
+   superop_fp
 
 Physics
 -------
@@ -87,29 +97,32 @@ Miscellaneous
    R_z
    test
 """
-# Ville Bergholm 2008-2011
+# Ville Bergholm 2008-2012
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
 from copy import deepcopy
 
 import numpy as np
+import scipy as sp
 from numpy import array, mat, dtype, empty, zeros, ones, eye, prod, sqrt, exp, tanh, dot, sort, diag, trace, kron, pi, r_, c_, inf, isscalar, floor, ceil, log, log10, vdot
 from numpy.random import rand, randn, randint
 from numpy.linalg import qr, det, eigh, eigvalsh
-from scipy.linalg import expm, norm, svdvals
+from scipy.linalg import expm, norm, svd, svdvals
 
 from .base import *
 
-__all__ = ['assert_o', 'copy_memoize', 'gcd', 'lcm', 'rank', 'projector', 'eigsort', 'comm', 'acomm', 'expv',
+__all__ = ['assert_o', 'copy_memoize',
+           'gcd', 'lcm', 'majorize',
+           'comm', 'acomm', 'mkron', 'rank', 'orth', 'nullspace', 'nullspace_hermitian', 'projector', 'eighsort', 'expv',
            'rand_hermitian', 'rand_U', 'rand_SU', 'rand_U1', 'rand_pu', 'rand_positive', 'rand_SL', 
-           'vec', 'inv_vec', 'lmul', 'rmul', 'lrmul', 'superop_lindblad',
+           'vec', 'inv_vec', 'lmul', 'rmul', 'lrmul', 'superop_lindblad', 'superop_fp',
            'angular_momentum', 'boson_ladder', 'fermion_ladder',
            'R_nmr', 'R_x', 'R_y', 'R_z',
            'spectral_decomposition',
            'gellmann', 'tensorbasis',
            'op_list',
-           'qubits', 'majorize', 'mkron']
+           'qubits']
 
 
 # the functions in this module return ndarrays, not lmaps, for now
@@ -160,10 +173,99 @@ def lcm(a, b):
     return a * (b // gcd(a, b))
 
 
-def rank(A, eps=1e-8):
+def rank(A, tol=None):
     """Matrix rank."""
     s = svdvals(A)
-    return sum(s > eps)
+    if tol == None:
+        tol = max(A.shape) * np.amax(s) * np.finfo(A.dtype).eps
+    return np.sum(s > tol, dtype=int)
+
+
+def orth(A, tol=None, kernel=False, spectrum=False):
+    """Construct an orthonormal basis for the range of A using SVD
+
+    Parameters
+    ----------
+    A : array, shape (M, N)
+
+    Returns
+    -------
+    Q : array, shape (M, K)
+        Orthonormal basis for the range of A.
+        K = effective rank of A, as determined by tolerance
+
+    Adaptation of scipy.linalg.orth with optional absolute tolerance.
+    """
+    U, s, Vh = svd(A, full_matrices=False)
+    if tol == None:
+        tol = max(A.shape) * np.amax(s) * np.finfo(A.dtype).eps
+    num = np.sum(s > tol, dtype=int)
+
+    if not kernel:
+        # range of A
+        ret = U[:, :num]
+    else:
+        # kernel of A
+        ret = Vh[num:, :].conj().transpose()
+
+    if spectrum:
+        return ret, s
+    else:
+        return ret
+
+
+def nullspace(A, tol=None, spectrum=False):
+    """Kernel of a matrix.
+
+    Given a matrix A (and optionally a tolerance tol), returns a basis
+    for the kernel (null space) of A in the columns of Z.
+    """
+    # the computation is almost the same as in orth, so...
+    return orth(A, tol, kernel=True, spectrum=spectrum)
+
+
+def nullspace_hermitian(A, tol=None):
+    r"""Kernel of a superoperator matrix restricted to the Hermitian subspace.
+
+    Solves the intersection of the kernel of the superop A and the Hermitian subspace.
+    A maps d*d matrices to whatever.
+
+    Singular values <= tol are considered zero.
+    """
+    # Hermitian and antihermitian (orthogonal) real subspaces: V = H \oplus A, h \in H, a \in A
+    # If G = A'*A is either block-diagonal or block-antidiagonal wrt these, 
+    # x = h+a, Gx = \lambda x implies that Gh = \lambda h and Aa = \lambda a.
+    # Hence...
+    # Ax := [Q, x] is block-antidiagonal if Q is hermitian
+    
+    # Ville Bergholm 2011-2012
+
+    def to_real(C):
+        """Represents a complex linear map in a real vector space.
+        Corresponding transformation for column vectors: x_R = r_[x.real, x.imag]
+        """
+        return r_[c_[C.real, -C.imag], c_[C.imag, C.real]]
+
+    D = A.shape[1]
+    d = int(sqrt(D))  # since A is a superop
+
+    # Hermitian basis.
+    # reshape uses row-major order, so technically we would need transpose each matrix,
+    # but since they're Hermitian and orthonormal either way it doesn't really matter.
+    V = gellmann(d).reshape((D-1, D))
+    # Add identity
+    V = c_[eye(d).flatten() / sqrt(d), V.transpose()]
+    U = r_[V.real, V.imag] # same, except now in a real vector space
+
+    # find A restricted to the Hermitian (real) subspace H
+    AH = dot(to_real(A), U)
+
+    # solve the kernel
+    Z, spectrum = nullspace(AH, tol, spectrum=True) # null space (kernel) of AH
+
+    # columns of C: complex orthogonal vectors spanning the kernel (with real coefficients)
+    C = dot(V, Z)
+    return C, spectrum
 
 
 def projector(v):
@@ -171,7 +273,7 @@ def projector(v):
     return np.outer(v, v.conj())
 
 
-def eigsort(A):
+def eighsort(A):
     """Returns eigenvalues and eigenvectors of a Hermitian matrix, sorted in nonincreasing order."""
     d, v = eigh(A)
     ind = d.argsort()[::-1]  # nonincreasing real part
@@ -591,7 +693,7 @@ def lrmul(L, R):
     return kron(R.transpose(), L)
 
 
-def superop_lindblad(A, H=0):
+def superop_lindblad(A, H=None):
     r"""Liouvillian superoperator for a set of Lindblad operators.
 
     A is a vector of traceless, orthogonal Lindblad operators.
@@ -606,16 +708,105 @@ def superop_lindblad(A, H=0):
     # Ville Bergholm 2009-2010
 
     # Hamiltonian
-    iH = 1j * H
+    if H == None:
+        sh = A[0].shape
+        iH = 0
+    else:
+        sh = H.shape
+        iH = 1j * H
 
-    L = zeros(array(H.shape) ** 2, complex)
-    acomm = zeros(H.shape, complex)
+    L = zeros(array(sh) ** 2, complex)
+    acomm = zeros(sh, complex)
     for k in A:
         acomm += 0.5 * dot(k.conj().transpose(), k)
         L += lrmul(k, k.conj().transpose()) 
 
     L += lmul(-acomm -iH) +rmul(-acomm +iH)
     return L
+
+
+def superop_fp(L, tol=None):
+    r"""Fixed point states of a Liouvillian superoperator.
+
+    Finds the intersection of the kernel of the Liouvillian L
+    with the set of valid state operators, thus giving the set of
+    fixed point states for the quantum channel represented by the
+    master equation
+
+    .. math:: \dot{\rho} = \text{inv_vec}(L * \text{vec}(\rho)).
+
+    Let size(L) == [D, D] (and d = sqrt(D) be the dimension of the Hilbert space).
+
+    Returns the D*n array A, which contains as its columns a set
+    of n vectorized orthogonal Hermitian matrices (with respect to
+    the Hilbert-Schmidt inner product) which "span" the set of FP
+    states in the following sense:
+
+    .. math:: vec(\rho) = A c,  \quad \text{where} \quad c \in \R^n \quad \text{and} \quad c_1 = 1.
+
+    A[:,0] is the shortest vector in the Hermitian kernel of L that
+    has trace 1, the other columns of A are traceless and normalized.
+    Hence, A defines an (n-1)-dimensional hyperplane.
+
+    A valid state operator also has to fulfill :math:`\rho \ge 0`.
+    These operators form a convex set in the Hermitian trace-1 hyperplane
+    defined by A. Currently this function does nothing to enforce
+    positivity, it is up to the user to choose the coefficients :math:`a_k`
+    such that this condition is satisfied.
+
+    Singular values of L less than or equal to the tolerance tol are
+    treated as zero.
+    """
+    #If L has Lindblad form, if L(rho) = \lambda * rho,
+    #we also have L(rho') = conj(\lambda) * rho'
+    #Hence the non-real eigenvalues of L come in conjugate pairs.
+    #Especially if rho \in Ker L, also rho' \in Ker L.
+
+    # Ville Bergholm 2011-2012
+
+    # Hilbert space dimension
+    d = sqrt(L.shape[1])
+
+    # Get the kernel of L, restricted to vec-mapped Hermitian matrices.
+    # columns of A: complex orthogonal vectors A_i spanning the kernel (with real coefficients)
+    A, spectrum = nullspace_hermitian(L, tol)
+
+    # Extract the trace-1 core of A and orthonormalize the rest.
+    # We want A_i to be orthonormal wrt. the H-S inner product
+    # <X, Y> := trace(X' * Y) = vec(X)' * vec(Y)
+
+    # With this inner product, trace(A) = <eye(d), A>.
+    temp = vec(eye(d, d))
+    a = dot(temp, A)  # a_i = trace(A_i)
+
+    # Construct the shortest linear combination of A_i which has tr = 1.
+    # This is simply (1/d) * eye(d) _iff_ it belongs to span(A_i).
+    core = dot(A, (a / norm(a)**2))  # trace-1
+
+    # Remove the component parallel to core from all A_i.
+    temp = core / norm(core) # normalized
+    A = A -np.outer(temp, dot(temp.conj(), A))
+
+    # Re-orthonormalize the vectors, add the core
+    ttt = orth(A, 1e-6)
+    A = c_[core, ttt]  # TODO tolerance?
+
+    N = A.shape[1]
+    for k in range(N):
+        temp = inv_vec(A[:, k])
+        A[:, k] = vec(0.5 * (temp + temp.conj().transpose())) # re-Hermitize to fix numerical errors
+
+    # TODO intersect with positive ops
+
+    #[u,t] = schur(L)
+    #unnormality = norm(t, 'fro')^2 -norm(diag(t))^2
+    #[us, ts] = ordschur(u, t, 'udi')
+    #E = ordeig(t)
+    # TODO eigendecomposition, find orthogonal complement to span(v) = ker(v').
+    # these are the states which do not belong to eigenspaces and
+    # should show transient polynomial behavior
+
+    return A, spectrum
 
 
 
@@ -777,7 +968,7 @@ def spectral_decomposition(A):
     """
     # Ville Bergholm 2010
 
-    d, v = eigsort(A)
+    d, v = eighsort(A)
     d = d.real  # A is assumed Hermitian
 
     # combine projectors for degenerate eigenvalues
@@ -799,37 +990,42 @@ def spectral_decomposition(A):
 # tensor bases
 
 @copy_memoize
-def gellmann(n):
-    r"""Gell-Mann matrices of dimension n.
+def gellmann(d):
+    r"""Gell-Mann matrices.
 
-    Returns the n**2 - 1 (traceless, Hermitian) Gell-Mann matrices of dimension n,
+    Returns the d**2 - 1 (traceless, Hermitian) Gell-Mann matrices of dimension d,
     normalized such that :math:`\mathrm{Tr}(G_i^\dagger G_j) = \delta_{ij}`.
-    """
-    # Ville Bergholm 2006-2011
+    They form an orthonormal basis for the real vector space of d*d traceless Hermitian matrices.
 
-    if n < 1:
+    The matrices are returned in the array A, arranged such that the n:th Gell-Mann matrix is A[n,:,:].
+    """
+    # Ville Bergholm 2006-2012
+
+    if d < 1:
         raise ValueError('Dimension must be >= 1.')
 
-    G = []
+    G = zeros((d**2 - 1, d, d), dtype=complex)
+
     # diagonal
-    d = zeros(n)
-    d[0] = 1
-    for k in range(1, n):
+    ddd = zeros(d)
+    ddd[0] = 1
+    x = 1 / sqrt(2);
+    # iterate through the lower triangle
+    n = 0
+    for k in range(1, d):
+        ddd[k] = -sum(ddd)
+        G[n, :, :] = diag(ddd) / norm(ddd)
+        ddd[k] = 1
+        n += 1
         for j in range(0, k):
             # nondiagonal
-            temp = zeros((n, n))
-            temp[k,j] = 1 / sqrt(2)
-            temp[j,k] = 1 / sqrt(2)
-            G.append(temp)
-  
-            temp = zeros((n, n), dtype=complex)
-            temp[k,j] = 1j / sqrt(2)
-            temp[j,k] = -1j / sqrt(2)
-            G.append(temp)
+            G[n, k, j] = x;
+            G[n, j, k] = x;
+            n += 1
 
-        d[k] = -sum(d)
-        G.append(diag(d) / norm(d))
-        d[k] = 1 
+            G[n, k, j] =  1j * x;
+            G[n, j, k] = -1j * x;
+            n += 1
 
     return G
 
