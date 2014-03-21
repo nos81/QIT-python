@@ -59,4 +59,4 @@ b bugfix
                 back, better viewpoint, bars follow matrix ordering.
               b state.propagate now uses deepcopy on the results by default,
                 multiple input time instances produce the correct output.
-                
+              b state/negativity: extra sqrt removed

@@ -1211,11 +1211,11 @@ class state(lmap):
         .. [Peres] A.Peres, "Separability Criterion for Density Matrices", PRL 77, 1413 (1996).
         .. [Horodecki1] M.Horodecki et al., "Separability of Mixed States: Necessary and Sufficient Conditions", Physics Letters A 223, 1-8 (1996).
         """
-        # Ville Bergholm 2008
+        # Ville Bergholm 2008-2014
 
         s = self.ptranspose(sys)  # partial transpose the state
         x = sp.linalg.svdvals(s.data)  # singular values
-        return (sum(sqrt(x)) - 1) / 2
+        return (sum(x) - 1) / 2
 
 
     def lognegativity(self, sys):
@@ -1249,6 +1249,7 @@ class state(lmap):
         dim = self.dims()
         n = self.subsystems()
 
+        # TODO FIXME use itertools.combinations(iterable, r)
         def nchoosek(n, k):
             """List of k-combination lists of range(n)."""
             # FIXME probably horribly inefficient, but sp.comb doesn't do this.
