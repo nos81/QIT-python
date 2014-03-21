@@ -1,0 +1,4 @@
+*~
+*.diff
+*.pyc
+doc/_build

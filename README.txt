@@ -25,7 +25,7 @@ The latest version can be downloaded from our website,
   http://qit.sourceforge.net/
 
 The toolkit is installed by simply unzipping it, or downloading it
-directly from the SVN server. For an interactive session, start
+directly from the Git repository. For an interactive session, start
 IPython with ::
 
   ipython --pylab
@@ -102,6 +102,6 @@ coding guidelines:
 Authors
 =======
 
-* Ville Bergholm          2008-2012
+* Ville Bergholm          2008-2014
 * Jacob D. Biamonte       2008-2009
 * James D. Whitfield      2009-2010
