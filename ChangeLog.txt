@@ -60,3 +60,5 @@ b bugfix
               b state.propagate now uses deepcopy on the results by default,
                 multiple input time instances produce the correct output.
               b state/negativity: extra sqrt removed
+              b state/projector: should only work on kets
+              b state/scott: works again, lexicographic ordering of output terms

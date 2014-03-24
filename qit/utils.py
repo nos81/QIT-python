@@ -517,7 +517,7 @@ def rand_U(n):
 
     .. [Mezzadri] F.Mezzadri, "How to generate random matrices from the classical compact groups", Notices of the AMS 54, 592 (2007). arXiv.org:math-ph/0609050
     """
-    # Ville Bergholm 2005-2009
+    # Ville Bergholm 2005-2014
 
     # sample the Ginibre ensemble, p(Z(i,j)) == 1/pi * exp(-abs(Z(i,j))^2),
     # p(Z) == 1/pi^(n^2) * exp(-trace(Z'*Z))
@@ -527,7 +527,7 @@ def rand_U(n):
     Q, R = qr(Z)
 
     # eliminate multivaluedness in Q
-    P = diag(R)
+    P = diag(R).copy()  # TODO remove copy() once we have numpy 1.10
     P /= abs(P)
     return dot(Q, diag(P))
 

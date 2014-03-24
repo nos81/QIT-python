@@ -86,7 +86,7 @@ import types
 from copy import deepcopy
 
 import numpy as np
-from numpy import array, asarray, diag, sort, prod, cumsum, cumprod, exp, sqrt, trace, dot, vdot, roll, zeros, ones, r_, kron, isscalar, nonzero, ix_, linspace, meshgrid
+from numpy import array, asarray, empty, diag, sort, prod, cumsum, cumprod, exp, sqrt, trace, dot, vdot, roll, zeros, ones, r_, kron, isscalar, nonzero, ix_, linspace, meshgrid
 from numpy.random import rand, randn
 import scipy as sp
 from scipy.linalg import norm, eigh, eigvalsh
@@ -112,7 +112,7 @@ def equal_dims(s, t):
 
 def index_muls(dim):
     """Index multipliers for C-ordered data"""
-    # TODO with numpy 1.6:
+    # FIXME with numpy 1.6:
     # ind = ravel_multi_index(s, dim) == dot(index_muls(dim), s)
     if len(dim) == 0:
         return array(())
@@ -223,7 +223,7 @@ class state(lmap):
                 s = numstr_to_array(s)
                 if any(s >= dim):
                     raise ValueError('Invalid basis ket.')
-                # TODO numpy 1.6:
+                # FIXME numpy 1.6:
                 # ind = ravel_multi_index(s, dim)
                 muls = index_muls(dim)
                 ind = dot(muls, s)
@@ -275,15 +275,21 @@ class state(lmap):
 
         Makes sure it is normalized, and if an operator, Hermitian and semipositive.
         """
+        ok = True
         if abs(s.trace() - 1) > tol:
-            raise ValueError('State not properly normalized.')
+            _warn('State not properly normalized.')
+            ok = False
 
         if not is_ket(s):
             if norm(s.data - s.data.conj().transpose()) > tol:
-                raise ValueError('State operator not Hermitian.')
-
+                _warn('State operator not Hermitian.')
+                ok = False
             if min(eigvalsh(s.data)) < -tol:
-                raise ValueError('State operator not semipositive.')
+                _warn('State operator not semipositive.')
+                ok = False
+
+        if not ok:
+            raise ValueError('Not a valid state.')
 
 
     def subsystems(self):
@@ -559,11 +565,13 @@ class state(lmap):
         """Projection operator defined by the state.
 
         Returns the projection operator P defined by the state.
-        TODO remove?        """
-        # Ville Bergholm 2009-2010
+        """
+        # Ville Bergholm 2009-2014
+        if abs(self.purity() - 1) > tol:
+            raise ValueError('The state is not pure, and thus does not correspond to a projector.')
 
         s = self.to_op()
-        return lmap(s.data, s.dim)
+        return lmap(s)
 
 
     def u_propagate(self, U):
@@ -1244,33 +1252,30 @@ class state(lmap):
         .. [MW] D.A. Meyer and N.R. Wallach, "Global entanglement in multiparticle systems", J. Math. Phys. 43, 4273 (2002).
         """
         # Jacob D. Biamonte 2008
-        # Ville Bergholm 2008-2010
+        # Ville Bergholm 2008-2014
+
+        import itertools
 
         dim = self.dims()
         n = self.subsystems()
 
-        # TODO FIXME use itertools.combinations(iterable, r)
-        def nchoosek(n, k):
-            """List of k-combination lists of range(n)."""
-            # FIXME probably horribly inefficient, but sp.comb doesn't do this.
-            # power set of range(n)
-            temp = [[i for i in range(n) if x & (1 << i)] for x in range(2**n)]
-            # subset of elements with the correct length
-            return [i for i in temp if len(i) == k]
-
-        S = nchoosek(n, m)  # all m-combinations of n subsystems
+        if m < 1 or m > n-1:
+            raise ValueError('Partition size must be between 1 and n-1.')
 
         D = min(dim) # FIXME correct for arbitrary combinations of qudits??
-        C = (D**m / (D**m - 1)) / sp.comb(n, m)  # normalization
+        N = sp.misc.comb(n, m, exact=True)
+        C = (D**m / (D**m - 1)) / N  # normalization
 
-        Q = []
-        all_systems = set(range(n))
-        for sys in S:
-            temp = self.ptrace(all_systems.difference(sys))  # trace over everything except S_k
-            # NOTE: For pure states, tr(\rho_S^2) == tr(\rho_{\bar{S}}^2),
-            # so for them we could just use self.ptrace(sys) here.
-            Q.append(C * (1 - trace(np.linalg.matrix_power(temp.data, 2))))
+        Q = empty((N,))
+        # Loop over all m-combinations of n subsystems, trace over everything except them.
+        # reversed() fixes the order since we are actually looping over the complements.
+        for k, sys in enumerate(reversed(list(itertools.combinations(xrange(n), n-m)))):
+            temp = self.ptrace(sys)  # trace over everything except S_k
+            # NOTE: For pure states, tr(\rho_S^2) == tr(\rho_{\bar{S}}^2)
+            temp = 1 - trace(np.linalg.matrix_power(temp.data, 2))
+            Q[k] = C * temp.real
         return Q
+
 
 
     def locc_convertible(self, t, sys):
