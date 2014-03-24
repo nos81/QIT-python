@@ -383,7 +383,14 @@ def bernstein_vazirani(n=6, linear=True):
     # final Hadamards
     s = s.u_propagate(H)
 
+    plt.figure()
     s.plot()
+    title = 'Bernstein-Vazirani algorithm, '
+    if linear:
+        title += 'linear oracle'
+    else:
+        title += 'nonlinear oracle (fails)'
+    plt.title(title)
 
     p, res = s.measure()
     # measured binary vector
@@ -761,6 +768,7 @@ def quantum_channels(p=0.3):
         ax.set_title(T)
 
     fig = plt.figure()
+    plt.title('Quantum channels')
     n = len(channels)
     gs = GridSpec(2, int(ceil(n / 2)))
     for k in range(n):
@@ -1318,21 +1326,21 @@ def tour():
     """Guided tour to the quantum information toolkit.
 
     """
-    # Ville Bergholm 2009-2011
+    # Ville Bergholm 2009-2014
 
     print('This is the guided tour for the Quantum Information Toolkit.')
+    print("It should be run in the interactive mode, 'ipython --pylab'.")
     print('Between examples, press any key to proceed to the next one.')
 
     def pause():
         plt.waitforbuttonpress()
 
-    pause()
-
+    temp = plt.figure()
     teleportation()
     pause()
-
     superdense_coding()
     pause()
+    plt.close(temp)
 
     adiabatic_qc_3sat(5, 25)
     pause()

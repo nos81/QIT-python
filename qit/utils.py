@@ -999,7 +999,7 @@ def gellmann(d):
 
     The matrices are returned in the array A, arranged such that the n:th Gell-Mann matrix is A[n,:,:].
     """
-    # Ville Bergholm 2006-2012
+    # Ville Bergholm 2006-2014
 
     if d < 1:
         raise ValueError('Dimension must be >= 1.')
@@ -1013,10 +1013,6 @@ def gellmann(d):
     # iterate through the lower triangle
     n = 0
     for k in range(1, d):
-        ddd[k] = -sum(ddd)
-        G[n, :, :] = diag(ddd) / norm(ddd)
-        ddd[k] = 1
-        n += 1
         for j in range(0, k):
             # nondiagonal
             G[n, k, j] = x;
@@ -1026,6 +1022,10 @@ def gellmann(d):
             G[n, k, j] =  1j * x;
             G[n, j, k] = -1j * x;
             n += 1
+        ddd[k] = -sum(ddd)
+        G[n, :, :] = diag(ddd) / norm(ddd)
+        ddd[k] = 1
+        n += 1
 
     return G
 
