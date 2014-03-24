@@ -51,7 +51,7 @@ def LU(rho, k, perms):
 
     Uses the algorithm in [BBL2012]_.
 
-    .. [BBL2012] J.D.Biamonte, V.Bergholm, M.Lanzagorta, "Invariant Theory for Matrix Product States" (2012). TODO
+    .. [BBL2012] J.D.Biamonte, V.Bergholm, M.Lanzagorta, "Tensor network methods for invariant theory", J.Phys.A 46, 475301 (2013). doi:10.1088/1751-8113/46/47/475301
     """
     # Ville Bergholm 2011-2012
 

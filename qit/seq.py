@@ -215,17 +215,16 @@ def seq2prop(s):
     return P
 
 
-def propagate(s, seq, out_func=lambda x: x):
+def propagate(s, seq, out_func=lambda x: x, base_dt=0.1):
     """Propagate a state in time using a control sequence.
     
     If no output function is given, we use an identity map.
     """
-    # Ville Bergholm 2009-2012
+    # Ville Bergholm 2009-2014
 
     A = seq['A'];
     B = seq['B'];
 
-    base_dt = 0.1
     n = len(seq['tau'])
     t = [0]  # initial time
     out = [out_func(s)]  # initial state
@@ -240,7 +239,7 @@ def propagate(s, seq, out_func=lambda x: x):
         n_steps = max(int(ceil(T / base_dt)), 1)
         dt = T / n_steps
 
-        P = expm(-G * dt)  # NOTE the sign convention here
+        P = expm(-G * dt)  # NOTE TODO the sign convention here
         for k in range(n_steps):
             s = s.u_propagate(P)
             out.append(out_func(s))

@@ -13,7 +13,7 @@ from matplotlib.gridspec import GridSpec
 from .state import *
 from .utils import copy_memoize, eighsort
 
-__all__ = ['adiabatic_evolution', 'state_trajectory', 'bloch_sphere', 'correlation_simplex_2q', 'pcolor',
+__all__ = ['adiabatic_evolution', 'state_trajectory', 'bloch_sphere', 'correlation_simplex', 'pcolor',
            'asongoficeandfire', 'sphere']
 
 
@@ -115,6 +115,8 @@ def bloch_sphere(ax=None):
     ax.text(0, 0, -1.2, '$|1\\rangle$')
 
     # TODO equator?
+    #phi = linspace(0, 2*pi, 40);
+    #plot3(cos(phi), sin(phi), zeros(size(phi)), 'k-');
     # labels
     ax.set_xlabel('x')
     ax.set_ylabel('y')
@@ -123,7 +125,7 @@ def bloch_sphere(ax=None):
     return ax
 
 
-def correlation_simplex_2q(ax=None, labels='diagonal'):
+def correlation_simplex(ax=None, labels='diagonal'):
     """Plots the correlations simplexes for two-qubit states.
 
     Plots the geometrical representation of the set of allowed
@@ -276,13 +278,13 @@ def state_trajectory(traj, reset=True, ax=None, color='b'):
             ax.set_title('qubit B')
 
             ax = fig.add_subplot(gs[1, 0], projection = '3d')
-            correlation_simplex_2q(ax, labels = 'diagonal')
+            correlation_simplex(ax, labels = 'diagonal')
 
             ax = fig.add_subplot(gs[1, 1], projection = '3d')
-            correlation_simplex_2q(ax, labels = 'pos')
+            correlation_simplex(ax, labels = 'pos')
 
             ax = fig.add_subplot(gs[1, 2], projection = '3d')
-            correlation_simplex_2q(ax, labels = 'neg')
+            correlation_simplex(ax, labels = 'neg')
 
         # update existing axes instances
         qqq = fig.get_axes()

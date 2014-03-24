@@ -66,4 +66,8 @@ b bugfix
 
 0.10.0      in progress
               * Bump dependencies: NumPy 1.7.1, SciPy 0.11.0, matplotlib 1.2
-              *
+              * Code cleanup, references updated.
+              + utils.comm
+              + utils.acomm
+              * renames:
+                 plot.correlation_simplex_2q   =>   plot.correlation_simplex

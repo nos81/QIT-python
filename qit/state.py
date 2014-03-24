@@ -112,8 +112,7 @@ def equal_dims(s, t):
 
 def index_muls(dim):
     """Index multipliers for C-ordered data"""
-    # FIXME with numpy 1.6:
-    # ind = ravel_multi_index(s, dim) == dot(index_muls(dim), s)
+    # ravel_multi_index(s, dim) == dot(index_muls(dim), s)
     if len(dim) == 0:
         return array(())
     muls = roll(cumprod(dim[::-1]), 1)[::-1]
@@ -199,9 +198,8 @@ class state(lmap):
                     s = deepcopy(Q_Bell[:, ord(name[-1]) - ord('1')])
                 elif name == 'ghz':
                     # Greenberger-Horne-Zeilinger state
-                    muls = index_muls(dim)
                     for k in range(dmin):
-                        s[dot(k * ones(n), muls)] = 1
+                        s[np.ravel_multi_index(n*(k,), dim)] = 1
                 elif name == 'w':
                     # W state
                     ind = 1
@@ -223,10 +221,8 @@ class state(lmap):
                 s = numstr_to_array(s)
                 if any(s >= dim):
                     raise ValueError('Invalid basis ket.')
-                # FIXME numpy 1.6:
-                # ind = ravel_multi_index(s, dim)
-                muls = index_muls(dim)
-                ind = dot(muls, s)
+
+                ind = np.ravel_multi_index(s, dim)
                 s = zeros(prod(dim)) # ket
                 s[ind] = 1
 
@@ -444,9 +440,9 @@ class state(lmap):
             # build the index "stencil"
             inds = array([0])
             for k in range(n):
-                if k == j:
-                    continue
-                inds = tensorsum(inds, r_[0 : muls[k] * d[k] : muls[k]])
+                if k != j:
+                    inds = tensorsum(inds, r_[0 : muls[k] * d[k] : muls[k]])
+                    # np.arange(d[k]) * muls[k]
 
             stride = muls[j] # stride for moving the stencil while summing
             temp = len(inds)
@@ -1116,9 +1112,9 @@ class state(lmap):
 
 
     def entropy(self, sys=None, alpha=1):
-        r"""Von Neumann or Rényi entropy of the state.
+        ur"""Von Neumann or Renyi entropy of the state.
 
-        Returns the Rényi entropy of order :math:`\alpha`,
+        Returns the Renyi entropy of order :math:`\alpha`,
         :math:`S_\alpha(\rho) = \frac{1}{1-\alpha} \log_2 \mathrm{Tr}(\rho^\alpha)`.
         
         When :math:`\alpha = 1`, this coincides with the von Neumann entropy
