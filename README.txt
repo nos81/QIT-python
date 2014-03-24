@@ -14,11 +14,11 @@ It is a sister project of the MATLAB Quantum Information Toolkit
 and has equivalent functionality. QIT requires the following
 Python libraries:
 
-* `NumPy <http://numpy.scipy.org/>`_  1.5.1+
-* `SciPy <http://www.scipy.org/>`_  0.9.0+
-* `Matplotlib <http://matplotlib.sourceforge.net/>`_  1.0.1+
+* `NumPy <http://numpy.org/>`_  1.7.1
+* `SciPy <http://scipy.org/>`_  0.11.0
+* `matplotlib <http://matplotlib.org/>`_  1.2
 
-For interactive use the `IPython <http://ipython.scipy.org/>`_ interactive shell is recommended.
+For interactive use the `IPython <http://ipython.org/>`_ interactive shell is recommended.
 
 The latest version can be downloaded from our website,
 

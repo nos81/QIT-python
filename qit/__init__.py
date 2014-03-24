@@ -4,13 +4,13 @@
 See the README.txt file included in this distribution
 or the project website at http://qit.sourceforge.net/
 """
-# Ville Bergholm 2011-2012
+# Ville Bergholm 2011-2014
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
 
 # toolkit version number
-__version__ = '0.9.13'
+__version__ = '0.10.0a'
 
 def version():
     """Returns the QIT version number (as a string)."""

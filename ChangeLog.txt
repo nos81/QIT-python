@@ -64,3 +64,6 @@ b bugfix
               b state.projector: should only work on kets.
               b state.scott: works again, lexicographic ordering of output terms.
 
+0.10.0      in progress
+              * Bump dependencies: NumPy 1.7.1, SciPy 0.11.0, matplotlib 1.2
+              *
