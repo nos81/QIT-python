@@ -509,7 +509,7 @@ def markov_decoherence(T1, T2, B=None):
 
 
 
-def nmr_sequences():
+def nmr_sequences(seqs=None, titles=None):
     """NMR control sequences demo.
 
     Compares the performance of different single-qubit NMR control
@@ -519,14 +519,17 @@ def nmr_sequences():
 
     Reproduces fidelity plots in [Cummins]_.
     """
-    # Ville Bergholm 2006-2012
+    # Ville Bergholm 2006-2014
 
     from . import seq
 
     print('\n\n=== NMR control sequences for correcting systematic errors ===\n')
 
-    seqs = [seq.nmr([[pi, 0]]), seq.corpse(pi), seq.scrofulous(pi), seq.bb1(pi)]
-    titles = ['Plain $\pi$ pulse', 'CORPSE', 'SCROFULOUS', 'BB1']
+    if seqs == None:
+        seqs = [seq.nmr([[pi, 0]]), seq.corpse(pi), seq.scrofulous(pi), seq.bb1(pi)]
+        titles = ['Plain $\pi$ pulse', 'CORPSE', 'SCROFULOUS', 'BB1']
+    elif titles == None:
+        titles = ['User-given seq'] * len(seqs)
 
     psi = state('0') # initial state
     f = arange(-1, 1, 0.05)
@@ -541,27 +544,27 @@ def nmr_sequences():
         plot.state_trajectory(out, ax = ax)
 
 
-    for k, s in enumerate(seqs):
+    for tt, ss in zip(titles, seqs):
         fig = plt.figure()
         gs = GridSpec(2, 2)
-        U = seq.seq2prop(s) # target propagator
+        U = seq.seq2prop(ss) # target propagator
 
         # The two systematic error types we are interested here can be
         # incorporated into the control sequence.
         #==================================================
-        s_error = deepcopy(s)
-        s_error['A'] = s['A'] + 0.1 * 0.5j * sz  # off-resonance error (constant \sigma_z drift term)
+        s_error = deepcopy(ss)
+        s_error['A'] = ss['A'] + 0.1 * 0.5j * sz  # off-resonance error (constant \sigma_z drift term)
         ax = fig.add_subplot(gs[0, 0], projection = '3d')
-        helper(ax, s_error, titles[k] + ' evolution, off-resonance error')
+        helper(ax, s_error, tt + ' evolution, off-resonance error')
 
         #==================================================
-        s_error = deepcopy(s)
-        s_error['tau'] = s['tau'] * 1.1  # proportional pulse length error
+        s_error = deepcopy(ss)
+        s_error['tau'] = ss['tau'] * 1.1  # proportional pulse length error
         ax = fig.add_subplot(gs[1, 0], projection = '3d')
-        helper(ax, s_error, titles[k] + ' evolution, pulse length error')
+        helper(ax, s_error, tt + ' evolution, pulse length error')
 
         #==================================================
-        s_error = deepcopy(s)
+        s_error = deepcopy(ss)
         fid = empty((ng, nf))
 
         def u_fidelity(a, b):
@@ -569,9 +572,9 @@ def nmr_sequences():
             return 0.5 * abs(trace(dot(a.conj().transpose(), b)))
 
         for u in range(nf):
-            s_error['A'] = s['A'] + f[u] * 0.5j * sz  # off-resonance error
+            s_error['A'] = ss['A'] + f[u] * 0.5j * sz  # off-resonance error
             for v in range(ng):
-                s_error['tau'] = s['tau'] * (1 + g[v])  # proportional pulse length error
+                s_error['tau'] = ss['tau'] * (1 + g[v])  # proportional pulse length error
                 fid[v, u] = u_fidelity(U, seq.seq2prop(s_error))
 
         ax = fig.add_subplot(gs[:, 1])
@@ -580,7 +583,7 @@ def nmr_sequences():
         #ax.surf(X, Y, 1-fid)
         ax.set_xlabel('Off-resonance error')
         ax.set_ylabel('Pulse length error')
-        ax.set_title(titles[k] + ' fidelity')
+        ax.set_title(tt + ' fidelity')
         plt.show()
 
 
