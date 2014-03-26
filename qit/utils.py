@@ -1138,7 +1138,7 @@ def op_list(G, dim):
     # Ville Bergholm 2009-2010
 
     # TODO we could try to infer dim from the operators
-    H = 0
+    H = 0j
     for spec in G:
         a = -1  # last subsystem taken care of
         term = 1

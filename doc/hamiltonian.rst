@@ -1,0 +1,2 @@
+.. automodule:: qit.hamiltonian
+   :members:

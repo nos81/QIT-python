@@ -69,6 +69,7 @@ b bugfix
               * Code cleanup, references updated.
               + utils.comm
               + utils.acomm
+              + hamiltonian.heisenberg
               * examples.nmr_sequences can also plot a user-given sequence.
               * renames:
                  plot.correlation_simplex_2q   =>   plot.correlation_simplex

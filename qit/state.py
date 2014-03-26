@@ -820,6 +820,7 @@ class state(lmap):
     def measure(self, M=None, do='R'):
         r"""Quantum measurement.
         ::
+
           (p, res, c)
             = measure()                 measure the entire system projectively
             = measure((1, 4))           measure subsystems 1 and 4 projectively

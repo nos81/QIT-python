@@ -17,6 +17,7 @@ def version():
     return __version__
 
 
+import numpy as np
 import scipy as sp
 import scipy.constants as const
 import matplotlib.pyplot as plt
@@ -26,7 +27,7 @@ from .lmap import *
 from .utils import *
 from .state import *
 from .plot import *
-from . import gate, ho, invariant, markov, seq, examples
+from . import gate, hamiltonian, ho, invariant, markov, seq, examples
 
 #print('Python Quantum Information Toolkit, version {0}.'.format(__version__))
 

@@ -15,6 +15,7 @@ Contents:
    utils
    state
    gate
+   hamiltonian
    ho
    invariant
    markov
