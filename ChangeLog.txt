@@ -70,6 +70,10 @@ b bugfix
               + utils.comm
               + utils.acomm
               + hamiltonian.heisenberg
+              + hamiltonian.jaynes_cummings
+              + hamiltonian.hubbard
+              + hamiltonian.bose_hubbard
               * examples.nmr_sequences can also plot a user-given sequence.
               * renames:
                  plot.correlation_simplex_2q   =>   plot.correlation_simplex
+              b utils.fermion_ladder simplified and fixed.

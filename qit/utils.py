@@ -651,7 +651,7 @@ def lmul(L, q=None):
 
     .. math::
 
-       L \rho = \text{inv\_vec}(\text{lmul}(L) * \text{vec}(\rho))
+       L \rho = \text{inv\_vec}(\text{lmul}(L) \text{vec}(\rho))
 
     Dimensions: L is [m, p], :math:`\rho` is [p, q].
     If q is not given :math:`\rho` is assumed square.
@@ -668,7 +668,7 @@ def rmul(R, p=None):
 
     .. math::
 
-       \rho R = \text{inv\_vec}(\text{rmul}(R) * \text{vec}(\rho))
+       \rho R = \text{inv\_vec}(\text{rmul}(R) \text{vec}(\rho))
 
     Dimensions: :math:`\rho` is [p, q], R is [q, r].
     If p is not given :math:`\rho` is assumed square.
@@ -685,7 +685,7 @@ def lrmul(L, R):
 
     .. math::
 
-       L \rho R = \text{inv\_vec}(\text{lrmul}(L, R) * \text{vec}(\rho))
+       L \rho R = \text{inv\_vec}(\text{lrmul}(L, R) \text{vec}(\rho))
     """
     # Ville Bergholm 2009-2011
 
@@ -702,7 +702,7 @@ def superop_lindblad(A, H=None):
     Returns the Liouvillian superoperator L corresponding to the
     diagonal-form Lindblad equation
 
-    .. math:: \dot{\rho} = \text{inv\_vec}(L * \text{vec}(\rho)) = -i [H, \rho] +\sum_k \left(A_k \rho A_k^\dagger -\frac{1}{2} \{A_k^\dagger A_k, \rho\}\right)
+    .. math:: \dot{\rho} = \text{inv\_vec}(L \text{vec}(\rho)) = -i [H, \rho] +\sum_k \left(A_k \rho A_k^\dagger -\frac{1}{2} \{A_k^\dagger A_k, \rho\}\right)
     """
     # James D. Whitfield 2009
     # Ville Bergholm 2009-2010
@@ -733,7 +733,7 @@ def superop_fp(L, tol=None):
     fixed point states for the quantum channel represented by the
     master equation
 
-    .. math:: \dot{\rho} = \text{inv_vec}(L * \text{vec}(\rho)).
+    .. math:: \dot{\rho} = \text{inv\_vec}(L \text{vec}(\rho)).
 
     Let size(L) == [D, D] (and d = sqrt(D) be the dimension of the Hilbert space).
 
@@ -742,7 +742,7 @@ def superop_fp(L, tol=None):
     the Hilbert-Schmidt inner product) which "span" the set of FP
     states in the following sense:
 
-    .. math:: vec(\rho) = A c,  \quad \text{where} \quad c \in \R^n \quad \text{and} \quad c_1 = 1.
+    .. math:: vec(\rho) = A c,  \quad \text{where} \quad c \in \text{R}^n \quad \text{and} \quad c_1 = 1.
 
     A[:,0] is the shortest vector in the Hermitian kernel of L that
     has trace 1, the other columns of A are traceless and normalized.
@@ -858,7 +858,7 @@ def boson_ladder(n):
 
 
 @copy_memoize
-def fermion_ladder(grouping):
+def fermion_ladder(n):
     r"""Fermionic ladder operators.
 
     Returns a vector of fermionic annihilation operators for a
@@ -871,42 +871,39 @@ def fermion_ladder(grouping):
 
     .. math::
 
-       s &:= (\sigma_x + i \sigma_y)/2   = [[0, 1], [0, 0]],\\
-       n &:= s^\dagger s = (I-sz)/2 = [[0, 0], [0, 1]],\\
-       &s|0\rangle = 0, \quad s|1\rangle = |0\rangle, \quad n|k\rangle = k|k\rangle.
+      \sigma^- &:= (\sigma_x + i \sigma_y)/2,\\
+      n &:= \sigma^+ \sigma^- = (I-\sigma_z)/2,\\
+      &\sigma^-|0\rangle = 0, \quad \sigma^-|1\rangle = |0\rangle, \quad n|k\rangle = k|k\rangle.
 
     Then define a phase operator to keep track of sign changes when
-    permuting the order of the operators: :math:`\phi_k := \sum_{j=0}^{k-1} n_j`.
+    permuting the order of the operators: :math:`\phi_k := \sum_{j=1}^{k-1} n_j`.
     Now, the fermionic annihilation operators for the n-mode system are given by
-    :math:`f_k := (-1)^{\phi_k} s_k`.
+
+    .. math::
+
+      f_k := (-1)^{\phi_k} \sigma^-_k = \left(\bigotimes_{j=1}^{k-1} {\sigma_z}_j \right) \sigma^-_k.
+
     These operators fulfill the required anticommutation relations:
 
     .. math::
 
-       \{f_k, f_j\}  &= 0,\\
-       \{f_k, f_j^\dagger\} &= I \delta_{kj},\\
+       \{f_j, f_k\}  &= 0,\\
+       \{f_j, f_k^\dagger\} &= I \delta_{jk},\\
        f_k^\dagger f_k &= n_k.
     """
-    # Ville Bergholm 2009-2010
-
-    n = prod(grouping)
-    d = 2 ** n
-
-    # number and phase operators (diagonal, so we store them as such)
-    temp = zeros(d)
-    phi = [temp]
-    for k in range(n-1):  # we don't need the last one
-        num = mkron(ones(2 ** k), array([0, 1]), ones(2 ** (n-k-1))) # number operator n_k as a diagonal
-        temp += num # sum of number ops up to n_k, diagonal
-        phi.append(temp)
+    # Ville Bergholm 2009-2014
 
     s = array([[0, 1], [0, 0]]) # single annihilation op
+    temp = 1
 
     # empty array for the annihilation operators
-    f = empty(grouping, object)
-    # annihilation operators for a set of fermions (Jordan-Wigner transform)
+    f = empty(n, object)
+
+    # Jordan-Wigner transform
     for k in range(n):
-        f.flat[k] = ((-1) ** array(phi[k])) * mkron(eye(2 ** k), s, eye(2 ** (n-k-1)))
+        f[k] = mkron(temp, s, eye(2 ** (n-k-1)))
+        temp = kron(temp, sz)
+
     return f
 
 
@@ -1291,13 +1288,16 @@ def test():
     temp = comm(a, a.H)
     assert_o(norm(temp[:-1,:-1] - eye(dim-1)), 0, tol)  # [a, a'] == I  (truncated, so skip the last row/col!)
 
-    f = fermion_ladder(2)
-    temp = f[0].conj().transpose()
-    assert_o(norm(acomm(f[0], f[0]) ), 0, tol)  # {f_j, f_k} = 0
-    assert_o(norm(acomm(f[0], f[1]) ), 0, tol)
-    assert_o(norm(acomm(temp, f[0]) -eye(4)), 0, tol)  # {f_j^\dagger, f_k} = I \delta_{jk}
-    assert_o(norm(acomm(temp, f[1]) ), 0, tol)
-
+    f = fermion_ladder(3)
+    # {f_j, f_k} = 0
+    # {f_j, f_k^\dagger} = I \delta_{jk}
+    for k in range(3):
+        temp = f[k].conj().transpose()
+        assert_o(norm(acomm(f[k], f[k])), 0, tol)
+        assert_o(norm(acomm(f[k], temp) -eye(8)), 0, tol)
+        for j in range(k):
+            assert_o(norm(acomm(f[j], f[k])), 0, tol)
+            assert_o(norm(acomm(f[j], temp)), 0, tol)
 
     # SU(2) rotations
 
