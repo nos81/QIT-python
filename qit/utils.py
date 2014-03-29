@@ -1130,27 +1130,26 @@ def op_list(G, dim):
     .. math::
 
        \sigma_{z1} +\sigma_{z2} +2 \sigma_{z3} +\sigma_{x1} \sigma_{x3} +\sigma_{y1} \sigma_{y3} +\sigma_{z1} \sigma_{z3} +A_2 (B+C)_3.
-
     """
-    # Ville Bergholm 2009-2010
+    # Ville Bergholm 2009-2014
 
     # TODO we could try to infer dim from the operators
     H = 0j
-    for spec in G:
+    for k,spec in enumerate(G):
         a = -1  # last subsystem taken care of
         term = 1
-        for j in spec:
-            if len(j) != 2:
-                raise ValueError('Malformed term spec {0}.'.format(k))
+        for j,op in enumerate(spec):
+            if len(op) != 2:
+                raise ValueError('Malformed local term {0} in spec {1}.'.format(j, k))
 
-            b = j[1]  # subsystem number
-            if (b <= a):
+            b = op[1]  # subsystem number
+            if b <= a:
                 raise ValueError('Spec {0} not in ascending order.'.format(k))
 
-            if j[0].shape[1] != dim[b]:
+            if op[0].shape[1] != dim[b]:
                 raise ValueError('The dimension of operator {0} in spec {1} does not match dim.'.format(j, k))
 
-            term = mkron(term, eye(prod(dim[a+1:b])), j[0])
+            term = mkron(term, eye(prod(dim[a+1:b])), op[0])
             a = b
 
         # final identity

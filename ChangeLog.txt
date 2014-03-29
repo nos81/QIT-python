@@ -73,6 +73,7 @@ b bugfix
               + hamiltonian.jaynes_cummings
               + hamiltonian.hubbard
               + hamiltonian.bose_hubbard
+              + hamiltonian.holstein
               * examples.nmr_sequences can also plot a user-given sequence.
               * renames:
                  plot.correlation_simplex_2q   =>   plot.correlation_simplex

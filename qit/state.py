@@ -1113,7 +1113,7 @@ class state(lmap):
 
 
     def entropy(self, sys=None, alpha=1):
-        ur"""Von Neumann or Renyi entropy of the state.
+        r"""Von Neumann or Renyi entropy of the state.
 
         Returns the Renyi entropy of order :math:`\alpha`,
         :math:`S_\alpha(\rho) = \frac{1}{1-\alpha} \log_2 \mathrm{Tr}(\rho^\alpha)`.

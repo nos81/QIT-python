@@ -17,6 +17,7 @@ Contents
    jaynes_cummings
    hubbard
    bose_hubbard
+   holstein
 """
 # Ville Bergholm 2014
 
@@ -36,7 +37,8 @@ __all__ = [
     'heisenberg',
     'jaynes_cummings',
     'hubbard',
-    'bose_hubbard']
+    'bose_hubbard',
+    'holstein']
 
 
 def _cdot(v, A):
@@ -48,7 +50,7 @@ def _cdot(v, A):
 
 
 def heisenberg(dim, C=None, J=(0,0,2), B=(0,0,1)):
-    r"""Heisenberg spin network Hamiltonian.
+    r"""Heisenberg spin network model.
 
     Returns the Hamiltonian H for the Heisenberg model, describing a network
     of n interacting spins in an external magnetic field.
@@ -129,7 +131,7 @@ def heisenberg(dim, C=None, J=(0,0,2), B=(0,0,1)):
 
 
 
-def jaynes_cummings(om_a, om_c,omega, m=10):
+def jaynes_cummings(om_a, om_c, omega, m=10):
     r"""Jaynes-Cummings model, a two-level atom in a single-mode cavity.
 
     Returns the Hamiltonian H and the dimension vector dim for an
@@ -171,7 +173,7 @@ def hubbard(C, U=1, mu=0):
 
     .. math::
 
-      H = -\sum_{\langle i,j \rangle, \sigma} f^\dagger_{i,\sigma} f_{j,\sigma}
+      H = -\sum_{\langle i,j \rangle, \sigma} c^\dagger_{i,\sigma} c_{j,\sigma}
         +\frac{U}{t} \sum_i n_{i,up} n_{i,down} -\frac{\mu}{t} \sum_i (n_{i,up}+n_{i,down})
     """
     # Ville Bergholm 2010-2014
@@ -249,6 +251,58 @@ def bose_hubbard(C, U=1, mu=0, m=10):
         temp.extend([[(b_dagger, i), (b, j)], [(b, i), (b_dagger, j)]])
 
     H -= op_list(temp, dim)
+    return H, dim
+
+
+
+def holstein(C, omega=1, g=1, m=10):
+    r"""Holstein model, electrons on a lattice coupled to phonons.
+
+    Returns the Hamiltonian H and the dimension vector dim for an implementation of the Holstein model.
+
+    The model consists of spinless electrons confined in a graph defined by the
+    symmetric connection matrix C (only upper triangle is used),
+    coupled to phonon modes represented by a harmonic oscillator at each site.
+    The dimensions of phonon Hilbert spaces (infinite in principle) are truncated to m.
+
+    The order of the subsystems is [e1, ..., en, p1, ..., pn].
+    The Hamiltonian has been normalized by the electron hopping constant t.
+
+    .. math::
+
+      H = -\sum_{\langle i,j \rangle} c_i^\dagger c_j  +\frac{\omega}{t} \sum_i b_i^\dagger b_i
+        -\frac{g \omega}{t} \sum_i (b_i + b_i^\dagger) c_i^\dagger c_i
+    """
+    # Ville Bergholm 2010-2014
+
+    n = len(C)
+    # Hilbert space: electrons first, then phonons
+    dim = np.r_[2**n, m * np.ones(n)]  # Jordan-Wigner clumps all fermion dims together
+
+    c = fermion_ladder(n)  # electron annihilation ops
+    b = boson_ladder(m)    # phonon annihilation
+    b_dagger = b.conj().transpose()  # phonon creation
+    q = b + b_dagger       # phonon position
+    nb = dot(b_dagger, b)  # phonon number operator
+
+    temp = [];
+    for k in range(n):
+        # phonon harmonic oscillators
+        temp.append([(omega * nb, 1+k)])
+        # electron-phonon interaction
+        temp.append([(-g * omega * dot(c[k].conj().transpose(), c[k]), 0), (q, 1+k)])
+    H = op_list(temp, dim)
+
+    # fermions hopping: loop over nonzero entries of C
+    # only use the upper triangle
+    C = np.triu(C)
+    T = 0j
+    for i,j in transpose(C.nonzero()):
+        T += dot(c[i].conj().transpose(), c[j]) +dot(c[j].conj().transpose(), c[i])
+    H += op_list([[(-T, 0)]], dim)
+
+    # actual dimensions
+    #dim = [2*ones(1, n), m*ones(1, n)]
     return H, dim
 
 

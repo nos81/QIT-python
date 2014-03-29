@@ -240,7 +240,7 @@ class lmap(object):
         """
         dd = []
         for d in self.dim[:]:
-          temp = filter(lambda(x): x > 1, d)
+          temp = filter(lambda x: x > 1, d)
           if len(temp) == 0:
               temp = (1,)
           dd.append(temp)
