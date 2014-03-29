@@ -130,6 +130,11 @@ __all__ = ['assert_o', 'copy_memoize',
 
 # internal utilities
 
+def _warn(s):
+    """Prints a warning."""
+    print('Warning: ' + s)
+
+
 def assert_o(actual, desired, tolerance):
     """Octave-style assert."""
     if abs(actual - desired) > tolerance:
@@ -1189,15 +1194,15 @@ def majorize(x, y):
     if len(x) != len(y):
         raise ValueError('The vectors must be of equal length.')
 
-    x = cumsum(sort(x)[::-1])
-    y = cumsum(sort(y)[::-1])
+    x = np.cumsum(sort(x)[::-1])
+    y = np.cumsum(sort(y)[::-1])
 
     if abs(x[-1] -y[-1]) <= tol:
         # exact majorization
         return all(x-y <= tol)
     else:
         # weak majorization could still be possible, but...
-        warn('Vectors have unequal sums.')
+        _warn('Vectors have unequal sums.')
         return False
 
 

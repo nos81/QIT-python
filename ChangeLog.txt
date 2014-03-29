@@ -79,3 +79,6 @@ b bugfix
               * renames:
                  plot.correlation_simplex_2q   =>   plot.correlation_simplex
               b utils.fermion_ladder simplified and fixed.
+              b utils.majorize fixed.
+              b state.check fixed.
+              b plot.adiabatic_evolution: indexing bug fixed.

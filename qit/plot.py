@@ -53,7 +53,7 @@ def adiabatic_evolution(t, st, H_func, n=4):
     lowest = []
     for j in range(n):
         #j = ind[j]
-        lowest.append(state(v[:, -j]))
+        lowest.append(state(v[:, -j-1]))
     # TODO with degenerate states these are more or less random linear combinations of the basis states... overlaps are not meaningful
 
     energies = zeros((m, H.shape[0]))

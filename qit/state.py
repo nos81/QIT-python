@@ -95,14 +95,10 @@ from scipy.integrate import ode
 from .base import Q_Bell, tol
 from .lmap import *
 from .utils import *
+from .utils import _warn
 
 __all__ = ['equal_dims', 'index_muls', 'state', 'fidelity', 'trace_dist']
 
-
-
-def _warn(s):
-    """Prints a warning."""
-    print('Warning: ' + s)
 
 
 def equal_dims(s, t):
@@ -272,15 +268,15 @@ class state(lmap):
         Makes sure it is normalized, and if an operator, Hermitian and semipositive.
         """
         ok = True
-        if abs(s.trace() - 1) > tol:
+        if abs(self.trace() - 1) > tol:
             _warn('State not properly normalized.')
             ok = False
 
-        if not is_ket(s):
-            if norm(s.data - s.data.conj().transpose()) > tol:
+        if not self.is_ket():
+            if norm(self.data - self.data.conj().transpose()) > tol:
                 _warn('State operator not Hermitian.')
                 ok = False
-            if min(eigvalsh(s.data)) < -tol:
+            if min(eigvalsh(self.data)) < -tol:
                 _warn('State operator not semipositive.')
                 ok = False
 
