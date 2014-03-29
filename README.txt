@@ -8,7 +8,7 @@ Introduction
 ============
 
 Quantum Information Toolkit (QIT) is a free, open source
-Python 2.6 package for various quantum information and computing
+Python 2.7 package for various quantum information and computing
 -related purposes, distributed under GPL.
 It is a sister project of the MATLAB Quantum Information Toolkit
 and has equivalent functionality. QIT requires the following

@@ -67,6 +67,7 @@ b bugfix
 0.10.0      in progress
               * Bump dependencies: NumPy 1.7.1, SciPy 0.11.0, matplotlib 1.2
               * Code cleanup, references updated.
+              * Use setuptools for packaging.
               + utils.comm
               + utils.acomm
               + hamiltonian.heisenberg
