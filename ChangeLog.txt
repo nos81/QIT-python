@@ -82,3 +82,6 @@ b bugfix
               b utils.majorize fixed.
               b state.check fixed.
               b plot.adiabatic_evolution: indexing bug fixed.
+
+0.11.0      in progress
+              * 

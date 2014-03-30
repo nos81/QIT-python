@@ -174,7 +174,7 @@ class state(lmap):
             lmap.__init__(self, s, dim)
             return
 
-        elif isinstance(s, basestring):
+        elif isinstance(s, str):
             # string
 
             if s[0].isalpha():
@@ -1262,7 +1262,7 @@ class state(lmap):
         Q = empty((N,))
         # Loop over all m-combinations of n subsystems, trace over everything except them.
         # reversed() fixes the order since we are actually looping over the complements.
-        for k, sys in enumerate(reversed(list(itertools.combinations(xrange(n), n-m)))):
+        for k, sys in enumerate(reversed(list(itertools.combinations(range(n), n-m)))):
             temp = self.ptrace(sys)  # trace over everything except S_k
             # NOTE: For pure states, tr(\rho_S^2) == tr(\rho_{\bar{S}}^2)
             temp = 1 - trace(np.linalg.matrix_power(temp.data, 2))

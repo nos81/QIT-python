@@ -44,9 +44,11 @@ setup(name             = 'qit',
         'Programming Language :: Python',
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7'
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.3',
+        'Programming Language :: Python :: 3.4',
         ],
       keywords = 'quantum information, quantum mechanics, toolkit',
       packages         = ['qit'],
-      #package_data     = {'qit': ['../doc/*.rst', '../doc/conf.py', '../doc/Makefile', '../doc/make.bat']},
       install_requires = ['numpy>=1.7.1', 'scipy>=0.11', 'matplotlib>=1.2']
       )

@@ -114,7 +114,7 @@ def adiabatic_qc_3sat(n=6, n_clauses=None, clauses=None, problem='3sat'):
         # generate clauses
         clauses = zeros((n_clauses, 3), int)
         for k in range(n_clauses):
-            bits = range(n)
+            bits = list(range(n))
             for j in range(3):
                 clauses[k, j] = bits.pop(npr.randint(len(bits))) + 1 # zero can't be negated, add one
         clauses = sort(clauses, 1)

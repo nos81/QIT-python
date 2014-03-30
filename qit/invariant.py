@@ -57,7 +57,7 @@ def LU(rho, k, perms):
 
     def tensor_pow(rho, n):
         """Returns $\rho^{\otimes n}$."""
-        rho = rho.to_op()
+        rho.to_op(inplace=True)
         ret = lmap(rho)
         for k in range(1, n):
             ret = tensor(ret, rho)
@@ -69,10 +69,11 @@ def LU(rho, k, perms):
         raise ValueError('Need one permutation per subsystem.')
 
     # convert () to identity permutation
+    id_perm = tuple(range(k))
     perms = list(perms)
     for j, p in enumerate(perms):
         if len(p) == 0:
-            perms[j] = range(k)
+            perms[j] = id_perm
 
     # splice k sequential copies of the entire system into k copies of each subsystem
     s = arange(n * k).reshape((k, n)).flatten()

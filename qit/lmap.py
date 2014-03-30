@@ -61,12 +61,12 @@ __all__ = ['numstr_to_array', 'array_to_numstr', 'lmap', 'tensor']
 
 def numstr_to_array(s):
     """Utility, converts a numeric string to the corresponding array."""
-    return np.array(map(lambda x: ord(x) - ord('0'), s))
+    return np.array([ord(x) -ord('0') for x in s])
 
 
 def array_to_numstr(s):
     """Utility, converts an integer array to the corresponding numeric string."""
-    return "".join(map(lambda x: chr(x + ord('0')), s))
+    return "".join([chr(x +ord('0')) for x in s])
 
 
 
@@ -239,8 +239,8 @@ class lmap(object):
         NOTE: changes the object itself!
         """
         dd = []
-        for d in self.dim[:]:
-          temp = filter(lambda x: x > 1, d)
+        for d in self.dim:
+          temp = tuple([x for x in d if x > 1])
           if len(temp) == 0:
               temp = (1,)
           dd.append(temp)
