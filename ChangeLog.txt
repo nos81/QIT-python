@@ -84,4 +84,4 @@ b bugfix
               b plot.adiabatic_evolution: indexing bug fixed.
 
 0.11.0      in progress
-              * 
+              * Code now supports both Python 2.7 and Python 3.

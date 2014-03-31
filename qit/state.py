@@ -154,6 +154,8 @@ class state(lmap):
           W,
           Bell1, Bell2, Bell3, Bell4 
         """
+        from six import string_types
+
         # we want a tuple for dim
         if isinstance(dim, collections.Iterable):
             dim = tuple(dim)
@@ -174,7 +176,7 @@ class state(lmap):
             lmap.__init__(self, s, dim)
             return
 
-        elif isinstance(s, str):
+        elif isinstance(s, string_types):
             # string
 
             if s[0].isalpha():
@@ -224,7 +226,8 @@ class state(lmap):
 
             dim = (dim, (1,))  # ket
 
-        elif isinstance(s, numbers.Number):
+        elif isinstance(s, (numbers.Number, np.number)):
+            # FIXME when numpy number hierarchy inherits the Python one
             # integer defining a standard basis ket
             if dim == None:
                 raise ValueError('Need system dimension.')
