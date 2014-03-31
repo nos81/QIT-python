@@ -108,11 +108,9 @@ def bb1(theta, phi=0, location=0.5):
     r"""Sequence for correcting pulse length errors.
 
     Returns the Broadband number 1 control sequence for correcting
-    proportional errors in pulse length (or amplitude) [Wimperis]_.
+    proportional errors in pulse length (or amplitude) :cite:`Wimperis`.
 
     The target rotation is :math:`\theta_\phi` in the NMR notation.
-
-    .. [Wimperis] S.Wimperis, "Broadband, Narrowband, and Passband Composite Pulses for Use in Advanced NMR Experiments", J. Magn. Reson. A 109, 221--231 (1994).
     """
     # Ville Bergholm 2009-2012
 
@@ -126,13 +124,11 @@ def corpse(theta, phi=0):
 
     Returns the CORPSE control sequence for correcting off-resonance
     errors, i.e. ones arising from a constant but unknown
-    :math:`\sigma_z` bias in the Hamiltonian [Cummins]_
+    :math:`\sigma_z` bias in the Hamiltonian :cite:`Cummins`
 
     The target rotation is :math:`\theta_\phi` in the NMR notation.
 
     CORPSE: Compensation for Off-Resonance with a Pulse SEquence
-
-    .. [Cummins] Cummins et al., "Tackling systematic errors in quantum logic gates with composite rotations", PRA 67, 042308 (2003).
     """
     # Ville Bergholm 2009
 
@@ -172,7 +168,7 @@ def scrofulous(theta, phi=0):
     r"""Sequence for correcting pulse length errors.
 
     Returns the SCROFULOUS control sequence for correcting errors
-    in pulse duration (or amplitude) [Cummins]_.
+    in pulse duration (or amplitude) :cite:`Cummins`.
 
     The target rotation is :math:`\theta_\phi` in the NMR notation.
 

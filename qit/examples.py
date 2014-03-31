@@ -17,6 +17,7 @@ Demos
 
    adiabatic_qc_3sat
    bb84
+   bernstein_vazirani
    grover_search
    markov_decoherence
    nmr_sequences
@@ -89,7 +90,7 @@ def adiabatic_qc_3sat(n=6, n_clauses=None, clauses=None, problem='3sat'):
     """Adiabatic quantum computing demo.
 
     This example solves random 3-SAT problems by simulating the
-    adiabatic quantum algorithm of [Farhi]_.
+    adiabatic quantum algorithm of :cite:`Farhi`.
 
     Note that this is incredibly inefficient because we first essentially
     solve the NP-complete problem classically using an exhaustive
@@ -181,9 +182,7 @@ def adiabatic_qc(H0, H1, s0, tmax=50):
     """Adiabatic quantum computing.
 
     This is a helper function for simulating the adiabatic quantum
-    algorithm of [Farhi]_ and plotting the results.
-
-    .. [Farhi] E.Farhi et al., "Quantum Computation by Adiabatic Evolution", arXiv.org:quant-ph/0001106.
+    algorithm of :cite:`Farhi` and plotting the results.
     """
     # Ville Bergholm 2009-2011
 
@@ -328,13 +327,10 @@ Eve's presence with the probability 1-(3/4)^k.""")
 def bernstein_vazirani(n=6, linear=True):
     """Bernstein-Vazirani algorithm demo.
 
-    Simulates the Bernstein-Vazirani algorithm [BV]_, which, given a black box oracle
+    Simulates the Bernstein-Vazirani algorithm :cite:`BV`, which, given a black box oracle
     implementing a linear Boolean function :math:`f_a(x) := a \cdot x`, returns the bit
     vector a (and thus identifies the function) with just a single oracle call.
-
     If the oracle function is not linear, the algorithm will fail.
-
-    .. [BV] E.Bernstein and U.Vazirani, Proceedings of the 25th Annual ACM Symposium on the Theory of Computing (ACM Press, New York, 1993), pp. 11-20.
     """
     # Ville Bergholm 2011-2012
 
@@ -408,10 +404,8 @@ def bernstein_vazirani(n=6, linear=True):
 def grover_search(n=8):
     """Grover search algorithm demo.
 
-    Simulate the Grover search algorithm [Grover]_ formulated using amplitude amplification
+    Simulate the Grover search algorithm :cite:`Grover` formulated using amplitude amplification
     in a system of n qubits.
-
-    .. [Grover] L.K. Grover, "Quantum Computers Can Search Rapidly by Using Almost Any Transformation", PRL 80, 4329 (1998). doi:10.1103/PhysRevLett.80.4329.   
     """
     # Ville Bergholm 2009-2010
 
@@ -517,7 +511,7 @@ def nmr_sequences(seqs=None, titles=None):
     Plots the fidelity of each control sequence as a function
     of both off-resonance error f and fractional pulse length error g.
 
-    Reproduces fidelity plots in [Cummins]_.
+    Reproduces fidelity plots in :cite:`Cummins`.
     """
     # Ville Bergholm 2006-2014
 
@@ -604,9 +598,7 @@ def phase_estimation(t, U, s, implicit=False):
 
        t \ge n + \left\lceil \log_2\left(2 +\frac{1}{2 \epsilon}\right) \right \rceil.
 
-    See [Cleve]_, [NC]_ chapter 5.2.
-
-    .. [Cleve] R.Cleve et al., "Quantum Algorithms Revisited", Proc. R. Soc. London A454, 339 (1998).
+    See :cite:`Cleve`, :cite:`NC` chapter 5.2.
     """
     # Ville Bergholm 2009-2010
 
@@ -849,9 +841,7 @@ def qubit_and_resonator(d_r=30):
     """Qubit coupled to a microwave resonator demo.
 
     Simulates a qubit coupled to a microwave resonator.
-    Reproduces plots from the experiment in [Hofheinz]_.
-
-    .. [Hofheinz] M.Hofheinz et al., "Synthesizing arbitrary quantum states in a superconducting resonator", Nature 459, 546-549 (2009), doi:10.1038/nature08005
+    Reproduces plots from the experiment in :cite:`Hofheinz`.
     """
     # Ville Bergholm 2010
 
@@ -1053,9 +1043,7 @@ def shor_factorization(N=9, cheat=False):
     instead of simulating the quantum part (implemented in :func:`find_order`)
     we use a more efficient classical algorithm for the order-finding).
 
-    See [Shor]_, [NC]_ chapter 5.3.
-
-    .. [Shor] P.W. Shor, "Algorithms For Quantum Computation: Discrete Logs and Factoring", Proc. 35th Symp. on the Foundations of Comp. Sci., 124 (1994).
+    See :cite:`Shor`, :cite:`NC` chapter 5.3.
     """
     # Ville Bergholm 2010-2011
 
@@ -1154,7 +1142,7 @@ def find_order(a, N, epsilon=0.25):
 
     Uses :func:`phase_estimation`.
 
-    See [Shor]_, [NC]_ chapter 5.3.
+    See :cite:`Shor`, :cite:`NC` chapter 5.3.
     """
     # number of bits needed to represent mod N arithmetic:
     m = int(ceil(log2(N)))

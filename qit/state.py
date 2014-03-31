@@ -72,9 +72,6 @@ Other state representations
 
    bloch_vector
    bloch_state
-
-
-.. [NC] M.A. Nielsen, I.L. Chuang, "Quantum Computation and Quantum Information" (2000).
 """
 # Ville Bergholm 2008-2012
 
@@ -1004,7 +1001,7 @@ class state(lmap):
         For state vectors this is equivalent to the overlap, :math:`F = |\langle a|b\rangle|`.
 
         Fidelity is symmetric in its arguments and bounded in the interval [0,1].
-        See [NC]_, chapter 9.2.2.
+        See :cite:`NC`, chapter 9.2.2.
         """
         # Ville Bergholm 2009-2010
 
@@ -1031,7 +1028,7 @@ class state(lmap):
         :math:`D(r, s) = \frac{1}{2} \mathrm{Tr}(\sqrt{A^\dagger A})`, where A = r-s.
 
         Equivalently :math:`D(r, s) = \frac{1}{2} \sum_k |\lambda_k|`, where :math:`\lambda_k`
-        are the eigenvalues of A (since A is Hermitian). See [NC]_, chapter 9.2.1.
+        are the eigenvalues of A (since A is Hermitian). See :cite:`NC`, chapter 9.2.1.
         """
         # Ville Bergholm 2009
 
@@ -1068,7 +1065,7 @@ class state(lmap):
 
         The state is then given by :math:`\sum_k \lambda_k |k\rangle_A \otimes |k\rangle_B`.
 
-        See [NC]_, chapter 2.5.
+        See :cite:`NC`, chapter 2.5.
         """
         # Ville Bergholm 2009-2010
 
@@ -1151,10 +1148,7 @@ class state(lmap):
         Returns the concurrence of the state s wrt. the partitioning
         given by the listing of subsystems in the vector sys.
 
-        See [Wootters]_, [Horodecki]_.
-
-        .. [Wootters] W.K. Wootters, "Entanglement of Formation of an Arbitrary State of Two Qubits", PRL 80, 2245 (1998).
-        .. [Horodecki] R.\ Horodecki, P. Horodecki, M. Horodecki, K. Horodecki, "Quantum entanglement", arXiv:quant-ph/0702225 (2007).
+        See :cite:`Wootters`, :cite:`Horodecki`.
         """
         # Ville Bergholm 2006-2010
 
@@ -1210,10 +1204,7 @@ class state(lmap):
         Returns the negativity of the state wrt. the partitioning
         given by the listing of subsystems in the vector sys.
 
-        See [Peres]_, [Horodecki1]_
-
-        .. [Peres] A.Peres, "Separability Criterion for Density Matrices", PRL 77, 1413 (1996).
-        .. [Horodecki1] M.Horodecki et al., "Separability of Mixed States: Necessary and Sufficient Conditions", Physics Letters A 223, 1-8 (1996).
+        See :cite:`Peres`, :cite:`Horodecki1`
         """
         # Ville Bergholm 2008-2014
 
@@ -1241,11 +1232,7 @@ class state(lmap):
 
         When m = 1 this is coincides with the Meyer-Wallach entanglement measure.
 
-        See [Love]_, [Scott]_, [MW]_.
-
-        .. [Love] P.J. Love et al., "A characterization of global entanglement", arXiv:quant-ph/0602143 (2006).
-        .. [Scott] A.J. Scott, "Multipartite entanglement, quantum-raise ValueError-correcting codes, and entangling power of quantum evolutions", PRA 69, 052330 (2004).
-        .. [MW] D.A. Meyer and N.R. Wallach, "Global entanglement in multiparticle systems", J. Math. Phys. 43, 4273 (2002).
+        See :cite:`Love`, :cite:`Scott`, :cite:`MW`.
         """
         # Jacob D. Biamonte 2008
         # Ville Bergholm 2008-2014
@@ -1281,7 +1268,7 @@ class state(lmap):
         using local operations and classical communication (LOCC).
         sys is a vector of subsystems defining the partition.
 
-        See [NC]_, chapter 12.5.1
+        See :cite:`NC`, chapter 12.5.1
         """
         # Ville Bergholm 2010
 

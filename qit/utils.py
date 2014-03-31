@@ -321,9 +321,7 @@ def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
     error   total truncation error estimate
     hump    :math:`\max_{s \in [0, t]}  \| \exp(s A) \|`
 
-    Uses the sparse algorithm from [EXPOKIT]_.
-
-    .. [EXPOKIT] Sidje, R.B., "EXPOKIT: A Software Package for Computing Matrix Exponentials", ACM Trans. Math. Softw. 24, 130 (1998).
+    Uses the sparse algorithm from :cite:`EXPOKIT`.
     """
     # Ville Bergholm 2009-2012
 
@@ -518,9 +516,7 @@ def rand_U(n):
     Returns a random unitary n*n matrix.
     The matrix is random with respect to the Haar measure.
 
-    Uses the algorithm in [Mezzadri]_.
-
-    .. [Mezzadri] F.Mezzadri, "How to generate random matrices from the classical compact groups", Notices of the AMS 54, 592 (2007). arXiv.org:math-ph/0609050
+    Uses the algorithm in :cite:`Mezzadri`.
     """
     # Ville Bergholm 2005-2014
 
@@ -818,7 +814,7 @@ def superop_fp(L, tol=None):
 # physical operators
 
 @copy_memoize
-def angular_momentum(n):
+def angular_momentum(d):
     r"""Angular momentum matrices.
 
     (Jx, Jy, Jz) = angular_momentum(d)
@@ -826,17 +822,20 @@ def angular_momentum(n):
     Returns a 3-tuple of angular momentum matrices :math:`\vec{J} / \hbar`
     for the d-dimensional subspace defined by the
     quantum number j == (d-1)/2.
-    """
-    # Ville Bergholm 2009-2010
 
-    if n < 1:
+    The angular momentum matrices fulfill the commutation relation
+    :math:`[J_x, J_y] = i J_z` and all its cyclic permutations.
+    """
+    # Ville Bergholm 2009-2014
+
+    if d < 1:
         raise ValueError('Dimension must be one or greater.')
 
-    j = (n - 1) / 2 # angular momentum quantum number, n == 2*j + 1
+    j = (d - 1) / 2 # angular momentum quantum number, d == 2*j + 1
     # raising operator in subspace J^2 = j*(j+1)
     m = j
-    Jplus = zeros((n, n))
-    for k in range(n-1):
+    Jplus = zeros((d, d))
+    for k in range(d-1):
         m -= 1
         Jplus[k, k+1] = sqrt(j*(j+1) -m*(m+1))
 
@@ -848,18 +847,21 @@ def angular_momentum(n):
 
 
 @copy_memoize
-def boson_ladder(n):
+def boson_ladder(d):
     r"""Bosonic ladder operators.
 
-    Returns the n-dimensional approximation of the bosonic
-    annihilation operator b for a single bosonic mode in the
-    number basis :math:`\{|0\rangle, |1\rangle, ..., |n-1\rangle\}`.
+    Returns the d-dimensional approximation of the bosonic
+    annihilation operator :math:`b` for a single bosonic mode in the
+    number basis :math:`\{|0\rangle, |1\rangle, ..., |d-1\rangle\}`.
 
     The corresponding creation operator is :math:`b^\dagger`.
+    The (infinite-dimensional) bosonic annihilation and creation operators fulfill the commutation relation
+    :math:`[b, b^\dagger] = I`. Due to the d-dimensional basis truncation,
+    this does not hold for the last dimension of the b matrices returned by this function.
     """
     # Ville Bergholm 2009-2010
 
-    return diag(sqrt(range(1, n)), 1)
+    return diag(sqrt(range(1, d)), 1)
 
 
 @copy_memoize

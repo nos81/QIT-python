@@ -20,11 +20,11 @@ Python libraries:
 
 For interactive use the `IPython <http://ipython.org/>`_ interactive shell is recommended.
 
-The latest version can be downloaded from our website,
+The latest version can be found on our website,
 
   http://qit.sourceforge.net/
 
-The toolkit is installed by simply unzipping it, or downloading it
+The toolkit is installed by downloading it from the Python Package Index, or
 directly from the Git repository. For an interactive session, start
 IPython with ::
 
@@ -63,19 +63,6 @@ or become a contributor yourself!
 
 
 
-Bibliography
-============
-
-Some of the source files have literature references relevant to the
-algorithms or concepts used. These references use the reStructuredText
-citation syntax: each reference is on its own line and starts with the
-characters ".. [". One can compile a list of all the references in the
-toolkit using the shell command ::
-
-  grep '\.\. \[' *.py
-
-
-
 Contributing
 ============
 
@@ -85,9 +72,9 @@ coding guidelines:
 
 * Fully document all the modules, classes and functions using docstrings
   (purpose, calling syntax, output, approximations used, assumptions made...).
-  The docstrings may contain reStructuredText markup for math,
-  citations etc.
-* Add relevant literature references using the reST syntax.
+  The docstrings may contain reStructuredText markup for math, citations etc.
+* Add relevant literature references to doc/refs.bib and cite them in the function
+  or module docstring using sphinxcontrib-bibtex syntax.
 * Instead of using multiple similar functions, use a single function
   performing multiple related tasks, see e.g. :func:`qit.state.state.measure`.
 * Raise an exception on invalid input.

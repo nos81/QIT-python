@@ -11,8 +11,8 @@ Contents:
 .. toctree::
    :maxdepth: 1
 
-   lmap
    utils
+   lmap
    state
    gate
    hamiltonian
@@ -21,10 +21,10 @@ Contents:
    markov
    seq
    examples
+   references
 
 .. include:: ../README.txt
    :start-line: 4
-
 
 
 Indices and tables
