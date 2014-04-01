@@ -1,2 +1,3 @@
 include *.txt
 recursive-include doc *.rst *.bib conf.py
+prune doc/_*
