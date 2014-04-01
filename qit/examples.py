@@ -41,7 +41,7 @@ General-purpose quantum algorithms
    phase_estimation
    find_order
 """
-# Ville Bergholm 2011-2012
+# Ville Bergholm 2011-2014
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
@@ -50,18 +50,20 @@ from operator import mod
 from copy import deepcopy
 
 import numpy as np
-from numpy import (asarray, array, diag, kron, prod, floor, ceil, sqrt, log2, exp, angle, arange, linspace, logical_not,
-                   sin, cos, arctan2, empty, zeros, ones, eye, sort, nonzero, pi, trace, dot, meshgrid, r_)
+from numpy import (asarray, array, diag, kron, prod, floor, ceil, sqrt, log2, exp, angle, arange, linspace,
+    logical_not, sin, cos, arctan2, empty, zeros, ones, eye, sort, nonzero, pi, trace, dot, meshgrid, r_)
 from numpy.linalg import eig, norm
 import numpy.random as npr
 from scipy.misc import factorial
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
+from mpl_toolkits.mplot3d import Axes3D   # FIXME makes buggy 3d plotting work for some reason
 
-from .base import *
-from .lmap import *
-from .utils import *
-from .state import *
+
+from .base import sx, sy, sz, p0, p1, tol
+from .lmap import lmap, tensor, numstr_to_array
+from .utils import gcd, lcm, qubits, R_y, rand_U, rand_SU, mkron, boson_ladder
+from .state import state, fidelity
 from . import gate, ho, plot
 
 
@@ -163,7 +165,7 @@ def adiabatic_qc_3sat(n=6, n_clauses=None, clauses=None, problem='3sat'):
     print(clauses)
 
     # build initial Hamiltonian
-    xb = 0.5 * (I - sx)
+    xb = 0.5 * (eye(2) -sx)
     H0 = 0
     for k in range(n):
         H0 += mkron(eye(2 ** k), xb, eye(2 ** (n-k-1)))
@@ -227,6 +229,7 @@ def bb84(n=50):
 
     """
     # Ville Bergholm 2009-2012
+    from .base import H
 
     print('\n\n=== BB84 protocol ===\n')
     print('Using {0} transmitted qubits, intercept-resend attack.\n'.format(n))
@@ -272,7 +275,7 @@ and randomly prepares the qubit in either the |0> or the |1> state in that basis
         if basis_E[k]:  q = q.u_propagate(H)
 
         # Eve measures in the basis she has chosen
-        p, res, q = q.measure(do = 'C')
+        _, res, q = q.measure(do = 'C')
         eavesdrop[k] = res
 
         # Eve tries to reverse the changes she made...
@@ -285,7 +288,7 @@ and randomly prepares the qubit in either the |0> or the |1> state in that basis
         if basis_B[k]:  q = q.u_propagate(H)
 
         # Bob measures in the basis he has chosen, and discards the qubit.
-        p, res = q.measure()
+        _, res = q.measure()
         received[k] = res
 
     #sum(xor(sent, eavesdrop))/n
@@ -325,7 +328,7 @@ Eve's presence with the probability 1-(3/4)^k.""")
 
 
 def bernstein_vazirani(n=6, linear=True):
-    """Bernstein-Vazirani algorithm demo.
+    r"""Bernstein-Vazirani algorithm demo.
 
     Simulates the Bernstein-Vazirani algorithm :cite:`BV`, which, given a black box oracle
     implementing a linear Boolean function :math:`f_a(x) := a \cdot x`, returns the bit
@@ -346,7 +349,7 @@ def bernstein_vazirani(n=6, linear=True):
         return (-1) ** f.reshape((-1, 1))
 
     def linear_func(a):
-        """Builds the linear Boolean function f(x) = a \cdot x as a truth table."""
+        r"""Builds the linear Boolean function f(x) = a \cdot x as a truth table."""
         dim = qubits(len(a))
         N = prod(dim)
         U = empty(N, dtype = int)
@@ -423,11 +426,11 @@ def grover_search(n=8):
 
     # black box oracle capable of recognizing the correct answer (given as the diagonal)
     # TODO an oracle that actually checks the solutions by computing (using ancillas?)
-    U_oracle = ones((N,1))
-    U_oracle[sol,0] = -1
+    U_oracle = ones((N, 1))
+    U_oracle[sol, 0] = -1
 
-    U_zeroflip = ones((N,1))
-    U_zeroflip[0,0] = -1
+    U_zeroflip = ones((N, 1))
+    U_zeroflip[0, 0] = -1
 
     s = state(0, qubits(n))
 
@@ -435,7 +438,7 @@ def grover_search(n=8):
     s = s.u_propagate(A)
 
     # Grover iteration
-    for k in range(reps):
+    for _ in range(reps):
         # oracle phase flip
         s.data = -U_oracle * s.data
 
@@ -521,7 +524,7 @@ def nmr_sequences(seqs=None, titles=None):
 
     if seqs == None:
         seqs = [seq.nmr([[pi, 0]]), seq.corpse(pi), seq.scrofulous(pi), seq.bb1(pi)]
-        titles = ['Plain $\pi$ pulse', 'CORPSE', 'SCROFULOUS', 'BB1']
+        titles = [r'Plain $\pi$ pulse', 'CORPSE', 'SCROFULOUS', 'BB1']
     elif titles == None:
         titles = ['User-given seq'] * len(seqs)
 
@@ -533,7 +536,7 @@ def nmr_sequences(seqs=None, titles=None):
 
     def helper(ax, s_error, title):
         """Apply the sequence on the state psi, plot the evolution."""
-        out, t = seq.propagate(psi, s_error, out_func = state.bloch_vector)
+        out, _ = seq.propagate(psi, s_error, out_func = state.bloch_vector)
         ax.set_title(title)
         plot.state_trajectory(out, ax = ax)
 
@@ -625,7 +628,7 @@ def phase_estimation(t, U, s, implicit=False):
 
     if implicit:
         # save memory and CPU: make an implicit measurement of the state reg, discard the results
-        dummy, res, reg = reg.measure(t, do = 'D')
+        _, _, reg = reg.measure(t, do = 'D')
         #print('Implicit measurement of state register: {0}\n', res)
     else:
         # more expensive computationally: trace over the state register
@@ -666,7 +669,7 @@ def phase_estimation_precision(t, U, u=None):
     plt.figure()
     plt.hold(True)
     plt.bar(x, p, width = w) # TODO align = 'center' ???
-    plt.xlabel('phase / $2\pi$')
+    plt.xlabel(r'phase / $2\pi$')
     plt.ylabel('probability')
     plt.title('Phase estimation')
     #axis([-1/(T*2), 1-1/(T*2), 0, 1])
@@ -702,7 +705,7 @@ def qft_circuit(dim=(2, 3, 3, 2)):
     print('Subsystem dimensions: {0}'.format(dim))
 
     def Rgate(d):
-        """R = \sum_{xy} exp(i*2*pi * x*y/prod(dim)) |xy><xy|"""
+        r"""R = \sum_{xy} exp(i*2*pi * x*y/prod(dim)) |xy><xy|"""
         temp = kron(arange(d[0]), arange(d[-1])) / prod(d)
         return gate.phase(2 * pi * temp, (d[0], d[-1]))
 
@@ -735,6 +738,7 @@ def quantum_channels(p=0.3):
 
     print('\n\n=== Quantum channels ===\n')
 
+    I = eye(2)
     E_bitflip      = [sqrt(1-p)*I, sqrt(p)*sx]
     E_phaseflip    = [sqrt(1-p)*I, sqrt(p)*sz]
     E_bitphaseflip = [sqrt(1-p)*I, sqrt(p)*sy]
@@ -755,7 +759,7 @@ def quantum_channels(p=0.3):
 
         for a in range(s[1]):
             for b in range(s[2]):
-                temp = state.bloch_state(r_[1, S[:,a,b]])
+                temp = state.bloch_state(r_[1, S[:, a, b]])
                 res[:, a, b] = temp.kraus_propagate(E).bloch_vector()[1:]  # skip the normalization
 
         plot.bloch_sphere(ax)
@@ -786,6 +790,7 @@ def quantum_walk(steps=7, n=11, p=0.05, n_coin=2):
     p == 0 corresponds to the "fully quantum" case.
     """
     # Ville Bergholm 2010-2011
+    from .base import H
 
     print('\n\n=== Quantum walk ===\n')
     # initial state: coin shows heads, walker in center node
@@ -843,14 +848,14 @@ def qubit_and_resonator(d_r=30):
     Simulates a qubit coupled to a microwave resonator.
     Reproduces plots from the experiment in :cite:`Hofheinz`.
     """
-    # Ville Bergholm 2010
+    # Ville Bergholm 2010-2014
 
     print('\n\n=== Qubit coupled to a single-mode microwave resonator ===\n')
     if d_r < 10:
         d_r = 10 # truncated resonator dim
 
-    omega0 = 1e9 # Energy scale/\hbar, Hz
-    T = 0.025 # K
+    #omega0 = 1e9 # Energy scale/\hbar, Hz
+    #T = 0.025 # K
 
     # omega_r = 2*pi* 6.570 # GHz, resonator angular frequency
     # qubit-resonator detuning Delta(t) = omega_q(t) -omega_r
@@ -861,11 +866,10 @@ def qubit_and_resonator(d_r=30):
     #  Omega << |Delta_off| < Omega_q << omega_r
 
     # decoherence times
-    T1_q = 650e-9 # s
-    T2_q = 150e-9 # s
-
-    T1_r = 3.5e-6 # s
-    T2_r = 2*T1_r # s
+    #T1_q = 650e-9 # s
+    #T2_q = 150e-9 # s
+    #T1_r = 3.5e-6 # s
+    #T2_r = 2*T1_r # s
 
     # TODO heat bath and couplings
     #bq = markov.bath('ohmic', omega0, T)
@@ -1165,7 +1169,7 @@ def find_order(a, N, epsilon=0.25):
     dummy, num = reg.measure()
 
     def find_denominator(x, y, max_den):
-        """
+        r"""
         Finds the denominator s for r/s \approx x/y such that s < max_den
         using the convergents of the continued fraction representation
 
@@ -1241,7 +1245,7 @@ def superdense_coding(d=2):
     reg = reg.u_propagate(U.ctranspose())
     print(reg)
 
-    p, b = reg.measure()
+    _, b = reg.measure()
     b = array(np.unravel_index(b, dim))
     print('\nand measures both qudits in the computational basis, obtaining the result  b = {0}.'.format(b))
 
@@ -1287,7 +1291,7 @@ def teleportation(d=2):
     reg = reg.u_propagate(tensor(U.ctranspose(), I))
     print(reg)
 
-    p, b, reg = reg.measure((0, 1), do = 'C')
+    _, b, reg = reg.measure((0, 1), do = 'C')
     b = array(np.unravel_index(b, dim))
     print('\nand measures her qudits, getting the result {0}.'.format(b))
     print('She then transmits the two d-its to Bob using a classical channel.')
@@ -1368,6 +1372,6 @@ def tour():
     qubit_and_resonator(20)
     pause()
 
-    U = qft_circuit((2,3,2))
+    qft_circuit((2, 3, 2))
 
     #quantum_walk()

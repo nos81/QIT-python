@@ -25,11 +25,8 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 
 import numpy as np
 from numpy import asarray, conj, transpose, dot
-from numpy.linalg import det, eigvals
-from scipy.linalg import norm
 
-from .base import *
-from .lmap import *
+from .base import sx, sz
 from .utils import angular_momentum, op_list, boson_ladder, fermion_ladder
 
 
@@ -49,7 +46,7 @@ def _cdot(v, A):
     return res
 
 
-def heisenberg(dim, C=None, J=(0,0,2), B=(0,0,1)):
+def heisenberg(dim, C=None, J=(0, 0, 2), B=(0, 0, 1)):
     r"""Heisenberg spin network model.
 
     Returns the Hamiltonian H for the Heisenberg model, describing a network
@@ -95,36 +92,36 @@ def heisenberg(dim, C=None, J=(0,0,2), B=(0,0,1)):
         if len(J) != 3:
             raise ValueError('J must be either a 3-tuple or a function.')
         J = asarray(J)
-        Jf = lambda a,b: C[a,b] * J
+        Jf = lambda i, j: C[i, j] * J
     else:
         Jf = J
 
     if isinstance(B, tuple):
         if len(B) != 3:
             raise ValueError('B must be either a 3-tuple or a function.')
-        Bf = lambda a: B
+        Bf = lambda i: B
     else:
         Bf = B
 
     # local magnetic field terms
     temp = []
-    for a in range(n):
-        A = angular_momentum(dim[a])  # spin ops
-        temp.append([(_cdot(Bf(a), A), a)])
+    for i in range(n):
+        A = angular_momentum(dim[i])  # spin ops
+        temp.append([(_cdot(Bf(i), A), i)])
     H = op_list(temp, dim)
 
     # spin-spin couplings: loop over nonzero entries of C
     # only use the upper triangle
     C = np.triu(C)
-    for a,b in transpose(C.nonzero()):
-        # spin ops for sites a and b
-        Sa = angular_momentum(dim[a])
-        Sb = angular_momentum(dim[b])
+    for i, j in transpose(C.nonzero()):
+        # spin ops for sites i and j
+        Si = angular_momentum(dim[i])
+        Sj = angular_momentum(dim[j])
         temp = []
         # coupling between sites a and b
-        c = Jf(a,b)
+        c = Jf(i, j)
         for k in range(3):
-            temp.append([(c[k] * Sa[k], a), (Sb[k], b)])
+            temp.append([(c[k] * Si[k], i), (Sj[k], j)])
         H += op_list(temp, dim)
 
     return H, dim
@@ -189,8 +186,8 @@ def hubbard(C, U=1, mu=0):
 
     for k in range(n):
         # number operators for this site
-        n1 = dot(f[k,0].conj().transpose(), f[k,0])
-        n2 = dot(f[k,1].conj().transpose(), f[k,1])
+        n1 = dot(f[k, 0].conj().transpose(), f[k, 0])
+        n2 = dot(f[k, 1].conj().transpose(), f[k, 1])
         # on-site interaction
         H += U * dot(n1, n2)
         # chemical potential
@@ -199,9 +196,9 @@ def hubbard(C, U=1, mu=0):
     # fermions hopping: loop over nonzero entries of C
     # only use the upper triangle
     C = np.triu(C)
-    for i,j in transpose(C.nonzero()):
+    for i, j in transpose(C.nonzero()):
         for s in range(2):
-            H -= dot(f[i,s].conj().transpose(), f[j,s]) +dot(f[j,s].conj().transpose(), f[i,s])
+            H -= dot(f[i, s].conj().transpose(), f[j, s]) +dot(f[j, s].conj().transpose(), f[i, s])
 
     return H, dim
 
@@ -247,7 +244,7 @@ def bose_hubbard(C, U=1, mu=0, m=10):
     # bosons hopping: loop over nonzero entries of C
     # only use the upper triangle
     C = np.triu(C)
-    for i,j in transpose(C.nonzero()):
+    for i, j in transpose(C.nonzero()):
         temp.extend([[(b_dagger, i), (b, j)], [(b, i), (b_dagger, j)]])
 
     H -= op_list(temp, dim)
@@ -285,7 +282,7 @@ def holstein(C, omega=1, g=1, m=10):
     q = b + b_dagger       # phonon position
     nb = dot(b_dagger, b)  # phonon number operator
 
-    temp = [];
+    temp = []
     for k in range(n):
         # phonon harmonic oscillators
         temp.append([(omega * nb, 1+k)])
@@ -297,7 +294,7 @@ def holstein(C, omega=1, g=1, m=10):
     # only use the upper triangle
     C = np.triu(C)
     T = 0j
-    for i,j in transpose(C.nonzero()):
+    for i, j in transpose(C.nonzero()):
         T += dot(c[i].conj().transpose(), c[j]) +dot(c[j].conj().transpose(), c[i])
     H += op_list([[(-T, 0)]], dim)
 

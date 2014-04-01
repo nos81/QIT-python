@@ -25,14 +25,15 @@ Contents
 from __future__ import division, absolute_import, print_function, unicode_literals
 
 import numpy as np
-from numpy import array, asarray, arange, empty, zeros, ones, sqrt, sin, cos, dot, sort, trace, kron, pi, r_, c_, linspace, meshgrid, roll, concatenate, angle
+from numpy import (array, asarray, arange, empty, zeros, ones, sqrt, sin, cos, dot, sort, trace, kron,
+    pi, r_, c_, linspace, meshgrid, roll, concatenate, angle)
 from numpy.linalg import det, eigvals
 from scipy.linalg import norm
 import matplotlib.pyplot as plt
-import mpl_toolkits.mplot3d
 
-from .base import *
-from .lmap import *
+from .base import sy, Q_Bell
+from .lmap import lmap, tensor
+
 
 # TODO these function names are terrible
 __all__ = ['canonical', 'makhlin', 'max_concurrence', 'plot_weyl_2q', 'plot_makhlin_2q', 'LU', 'test']
@@ -57,7 +58,7 @@ def LU(rho, k, perms):
         """Returns $\rho^{\otimes n}$."""
         rho.to_op(inplace=True)
         ret = lmap(rho)
-        for k in range(1, n):
+        for _ in range(1, n):
             ret = tensor(ret, rho)
         return ret
 
@@ -145,9 +146,9 @@ def makhlin(U):
         c *= pi
         g = empty(c.shape)
         
-        g[...,0] = (cos(c[...,0]) * cos(c[...,1]) * cos(c[...,2])) ** 2 - (sin(c[...,0]) * sin(c[...,1]) * sin(c[...,2])) ** 2
-        g[...,1] = 0.25 * sin(2 * c[...,0]) * sin(2 * c[...,1]) * sin(2 * c[...,2])
-        g[...,2] = 4 * g[...,0] - cos(2 * c[...,0]) * cos(2 * c[...,1]) * cos(2*c[...,2])
+        g[..., 0] = (cos(c[..., 0]) * cos(c[..., 1]) * cos(c[..., 2])) ** 2 -(sin(c[..., 0]) * sin(c[..., 1]) * sin(c[..., 2])) ** 2
+        g[..., 1] = 0.25 * sin(2 * c[..., 0]) * sin(2 * c[..., 1]) * sin(2 * c[..., 2])
+        g[..., 2] = 4 * g[..., 0] - cos(2 * c[..., 0]) * cos(2 * c[..., 1]) * cos(2*c[..., 2])
     else:
         # U(4) gate matrix    
         V = dot(Q_Bell.conj().transpose(), dot(U, Q_Bell))
@@ -212,7 +213,8 @@ def plot_makhlin_2q(sdiv=31, tdiv=31):
     ax = fig.add_subplot(111, projection='3d')
 
     # mesh, waterfall?
-    polyc = ax.plot_surface(G[:,:,0], G[:,:,1], G[:,:,2], rstride = 1, cstride = 1, cmap = cm.jet, norm = colors.Normalize(vmin=0, vmax=1, clip=True), alpha = 0.6)
+    polyc = ax.plot_surface(G[:, :, 0], G[:, :, 1], G[:, :, 2], rstride = 1, cstride = 1,
+        cmap = cm.jet, norm = colors.Normalize(vmin=0, vmax=1, clip=True), alpha = 0.6)
     polyc.set_array(C.ravel() ** 2)  # FIXME colors
     ax.axis('equal')
     #ax.axis([-1, 1, -0.5, 0.5, -3, 3])
@@ -231,7 +233,7 @@ def plot_makhlin_2q(sdiv=31, tdiv=31):
     ax.text(0.1, 0.26, 0, 'SWAP$^{1/2}$')
     ax.text(0, -0.26, 0, 'SWAP$^{-1/2}$')
 
-    cb = fig.colorbar(polyc, ax = ax)
+    fig.colorbar(polyc, ax = ax)
     plt.show()
     return ax
 
@@ -274,11 +276,12 @@ def test():
     """Test script for invariant methods."""
     from .utils import assert_o, rand_U
     from . import gate
+    from .base import sx, tol
 
     U = rand_U(4) # random two-qubit gate
     L = kron(rand_U(2), rand_U(2)) # random local 2-qubit gate
     cnot = gate.controlled(sx).data
-    swap = gate.swap(2,2).data
+    swap = gate.swap(2, 2).data
 
     # canonical invariants
     #assert_o(norm(canonical(L) -[0, 0, 0]), 0, tol) # only point in Berkeley chamber with translation degeneracy, (0,0,0) =^ (1,0,0)

@@ -31,16 +31,15 @@ Contents
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
-from copy import deepcopy
-
-from numpy import pi, prod, diag, eye, empty, zeros, trace, exp, sqrt, mod, isscalar, kron, array, ones, array_equal
+from numpy import pi, prod, empty, zeros, trace, exp, sqrt, mod, isscalar, kron, array, ones, array_equal
 import scipy.sparse as sparse
 
-from .lmap import *
+from .lmap import lmap, tensor
 from .utils import qubits, op_list, assert_o, copy_memoize, gcd
 
 
-__all__ = ['dist', 'id', 'mod_add', 'mod_inc', 'mod_mul', 'phase', 'qft', 'swap', 'walsh', 'controlled', 'single', 'two', 'test']
+__all__ = ['dist', 'id', 'mod_add', 'mod_inc', 'mod_mul', 'phase', 'qft', 'swap', 'walsh',
+           'controlled', 'single', 'two', 'test']
 
 # TODO reshape will cause problems for sparse matrices!
 # TODO utils.op_list too!
@@ -75,8 +74,9 @@ def id(dim):
     Returns the identity gate I for the specified system.
     dim is a tuple of subsystem dimensions.
     """
-    if isscalar(dim): dim = (dim,)  # scalar into a tuple
-    return lmap(sparse.identity(prod(dim)), (dim, dim))
+    if isscalar(dim):
+        dim = (dim,)  # scalar into a tuple
+    return lmap(sparse.eye(prod(dim)), (dim, dim))
 
 
 def mod_add(dim1, dim2, N=None):
@@ -137,7 +137,8 @@ def mod_inc(x, dim, N=None):
     """
     # Ville Bergholm 2010
 
-    if isscalar(dim): dim = (dim,)  # scalar into a tuple
+    if isscalar(dim):
+        dim = (dim,)  # scalar into a tuple
     d = prod(dim)
     if N == None:
         N = d
@@ -169,7 +170,8 @@ def mod_mul(x, dim, N=None):
     """
     # Ville Bergholm 2010-2011
 
-    if isscalar(dim): dim = (dim,)  # scalar into a tuple
+    if isscalar(dim):
+        dim = (dim,)  # scalar into a tuple
     d = prod(dim)
     if N == None:
         N = d
@@ -199,7 +201,8 @@ def phase(theta, dim=None):
     """
     # Ville Bergholm 2011
 
-    if isscalar(dim): dim = (dim,)  # scalar into a tuple
+    if isscalar(dim):
+        dim = (dim,)  # scalar into a tuple
     n = len(theta)
     if dim == None:
         dim = (n,)
@@ -207,7 +210,7 @@ def phase(theta, dim=None):
     if d != n:
         raise ValueError('Dimension mismatch.')
 
-    return lmap(sparse.spdiags(exp(1j * theta), 0, d, d, 'csr') , (dim, dim))
+    return lmap(sparse.diags(exp(1j * theta), 0) , (dim, dim))
 
 
 @copy_memoize
@@ -220,8 +223,8 @@ def qft(dim):
     """
     # Ville Bergholm 2004-2011
 
-    if isscalar(dim): dim = (dim,)  # scalar into a tuple
-    n = len(dim)
+    if isscalar(dim):
+        dim = (dim,)  # scalar into a tuple
     N = prod(dim)
     U = empty((N, N), complex)  # completely dense, so we don't have to initialize it with zeros
     for j in range(N):
@@ -231,7 +234,7 @@ def qft(dim):
 
 
 def swap(d1, d2):
-    """Swap gate.
+    r"""Swap gate.
 
     Returns the swap gate which swaps the order of two subsystems with dimensions [d1, d2].
 
@@ -261,7 +264,7 @@ def walsh(n):
     from .base import H
 
     U = 1
-    for k in range(n):
+    for _ in range(n):
         U = kron(U, H)
     dim = qubits(n)
     return lmap(U, (dim, dim))
@@ -288,7 +291,8 @@ def controlled(U, ctrl=(1,), dim=None):
     # Ville Bergholm 2009-2011
 
     # TODO generalization, uniformly controlled gates?
-    if isscalar(dim): dim = (dim,)  # scalar into a tuple
+    if isscalar(dim):
+        dim = (dim,)  # scalar into a tuple
     t = len(ctrl)
     if dim == None:
         dim = qubits(t) # qubits by default
@@ -322,9 +326,7 @@ def controlled(U, ctrl=(1,), dim=None):
 
     # controlled gates only make sense for square matrices U (we need an identity transformation for the 'no' cases!)
     U_dim = U.shape[0]
-    S = U_dim * T
-
-    out = sparse.spdiags(kron(no, ones(U_dim)), 0, S, S) + sparse.kron(sparse.spdiags(yes, 0, T, T), U)
+    out = sparse.diags(kron(no, ones(U_dim)), 0) +sparse.kron(sparse.diags(yes, 0), U)
     return lmap(out, (d1, d2))
 
 
@@ -385,8 +387,8 @@ def two(B, t, d_in):
         p = [0, 2, 1]
     else:
         p = [1, 2, 0]
-    U = tensor(B, lmap(sparse.identity(inbetween))).reorder((p, p), inplace = True)
-    U = tensor(lmap(sparse.identity(before)), U, lmap(sparse.identity(after)))
+    U = tensor(B, lmap(sparse.eye(inbetween))).reorder((p, p), inplace = True)
+    U = tensor(lmap(sparse.eye(before)), U, lmap(sparse.eye(after)))
 
     # restore dimensions
     d_out = d_in.copy()
@@ -419,4 +421,4 @@ def test():
     U = controlled(sz, (1, 0), dim)
     cnot = controlled(sx)
     U = single(sy, 0, dim)
-    U = two(cnot, (2,0), (2,3,2))
+    U = two(cnot, (2, 0), (2, 3, 2))

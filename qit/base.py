@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """Basic definitions."""
-# Ville Bergholm 2008-2011
+# Ville Bergholm 2008-2014
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
@@ -11,7 +11,7 @@ __all__ = ['I', 'sx', 'sy', 'sz', 'p0', 'p1', 'H',
 
 
 # Pauli matrices
-I  = eye(2);
+I  = eye(2)
 sx = array([[0, 1], [1, 0]])
 sy = array([[0, -1j], [1j, 0]])
 sz = array([[1, 0], [0, -1]])

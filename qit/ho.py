@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Author: Ville Bergholm 2011-2012
+# Author: Ville Bergholm 2011-2014
 r"""
 Harmonic oscillators (:mod:`qit.ho`)
 ====================================
@@ -38,10 +38,11 @@ from scipy.misc import factorial
 from scipy.linalg import expm, norm
 
 from .base import tol
-from .state import *
+from .state import state
 from .utils import boson_ladder, comm
 
-__all__ = ['coherent_state', 'displace', 'squeeze', 'position', 'momentum', 'position_state', 'momentum_state', 'husimi', 'wigner', 'test']
+__all__ = ['coherent_state', 'displace', 'squeeze', 'position', 'momentum',
+           'position_state', 'momentum_state', 'husimi', 'wigner', 'test']
 
 
 # default truncation limit for number states
@@ -328,8 +329,10 @@ def test():
     z = randc()
     S = squeeze(z)
 
-    Q = position(); P = momentum()
-    q = randn(); p = randn()
+    Q = position()
+    P = momentum()
+    q = randn()
+    p = randn()
     sq = position_state(q)
     sp = momentum_state(p)
 
@@ -337,7 +340,8 @@ def test():
     assert_o(sq.ev(Q), q, temp)  # Q, P eigenstates
     assert_o(sp.ev(P), p, temp)
 
-    temp = ones(default_n);  temp[-1] = -default_n+1 # truncation...
-    assert_o(norm(comm(Q,P) - 1j * diag(temp)), 0, tol) # [Q, P] = i
+    temp = ones(default_n)
+    temp[-1] = -default_n+1 # truncation...
+    assert_o(norm(comm(Q, P) - 1j * diag(temp)), 0, tol) # [Q, P] = i
 
     assert_o(norm(mat(P)**2 +mat(Q)**2 - 2 * a.H * a -diag(temp)), 0, tol)  # P^2 +Q^2 = 2a^\dagger * a + 1
