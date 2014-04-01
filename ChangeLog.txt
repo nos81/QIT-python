@@ -85,4 +85,6 @@ b bugfix
 
 0.11.0      in progress
               * Code now supports both Python 2.7 and Python 3.
+              b Pylinting.
               + Use sphinxcontrib-bibtex for the references.
+              b seq.scrofulous now uses the phi parameter.

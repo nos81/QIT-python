@@ -47,7 +47,6 @@ Non-member functions:
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
-import sys
 from copy import copy, deepcopy
 
 import numpy as np
@@ -240,10 +239,10 @@ class lmap(object):
         """
         dd = []
         for d in self.dim:
-          temp = tuple([x for x in d if x > 1])
-          if len(temp) == 0:
-              temp = (1,)
-          dd.append(temp)
+            temp = tuple([x for x in d if x > 1])
+            if len(temp) == 0:
+                temp = (1,)
+            dd.append(temp)
         self.dim = tuple(dd)
         return
 
@@ -425,7 +424,7 @@ class lmap(object):
         for k, this_perm in enumerate(perm):
             # avoid a subtle problem with the input syntax, (0, 1) must not be understood as swap!
             if this_perm != None and tuple(this_perm) == (0, 1):
-                this_perm = None;
+                this_perm = None
 
             # requested permutation for this index
             if this_perm == None:

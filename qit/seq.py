@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
+r"""
 Control sequences (:mod:`qit.seq`)
 ==================================
 
@@ -50,7 +50,7 @@ Contents
    seq2prop
    propagate
 """
-# Ville Bergholm 2011
+# Ville Bergholm 2011-2014
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
@@ -58,7 +58,7 @@ from numpy import array, sin, cos, arcsin, arccos, pi, asarray, eye, zeros, r_, 
 from scipy.linalg import expm
 from scipy.optimize import brentq
 
-from .base import *
+from .base import sx, sy, tol
 
 
 __all__ = ['nmr', 'bb1', 'corpse', 'cpmg', 'scrofulous', 'seq2prop', 'propagate', 'test']
@@ -174,14 +174,14 @@ def scrofulous(theta, phi=0):
 
     SCROFULOUS: Short Composite ROtation For Undoing Length Over- and UnderShoot
     """
-    # Ville Bergholm 2006-2012
+    # Ville Bergholm 2006-2014
 
     th1 = brentq(lambda t: (sin(t)/t -(2 / pi) * cos(theta / 2)), 0.1, 4.6)
     ph1 = arccos(-pi * cos(th1) / (2 * th1 * sin(theta / 2)))
     ph2 = ph1 - arccos(-pi / (2 * th1))
 
-    u1 = [[th1, ph1]]
-    u2 = [[pi,  ph2]]
+    u1 = [[th1, ph1 +phi]]
+    u2 = [[pi,  ph2 +phi]]
     return nmr(u1 + u2 + u1)
 
 
@@ -195,8 +195,8 @@ def seq2prop(s):
     """
     # Ville Bergholm 2009-2012
 
-    A = s['A'];
-    B = s['B'];
+    A = s['A']
+    B = s['B']
 
     n = len(s['tau'])
     P = eye(A.shape[0])
@@ -218,8 +218,8 @@ def propagate(s, seq, out_func=lambda x: x, base_dt=0.1):
     """
     # Ville Bergholm 2009-2014
 
-    A = seq['A'];
-    B = seq['B'];
+    A = seq['A']
+    B = seq['B']
 
     n = len(seq['tau'])
     t = [0]  # initial time
@@ -249,10 +249,10 @@ def propagate(s, seq, out_func=lambda x: x, base_dt=0.1):
 def test():
     """Test script for the control sequences module.
     """
-    # Ville Bergholm 2011
+    # Ville Bergholm 2011-2014
 
     from numpy.random import rand
-    from . import state
+    from .state import state
     from .utils import rand_positive, assert_o
 
     dim = 2

@@ -83,16 +83,19 @@ import types
 from copy import deepcopy
 
 import numpy as np
-from numpy import array, asarray, empty, diag, sort, prod, cumsum, cumprod, exp, sqrt, trace, dot, vdot, roll, zeros, ones, r_, kron, isscalar, nonzero, ix_, linspace, meshgrid
+from numpy import (array, asarray, empty, diag, sort, prod, cumsum, cumprod, exp, sqrt, trace,
+    dot, vdot, roll, zeros, ones, r_, kron, isscalar, nonzero, ix_, linspace, meshgrid)
 from numpy.random import rand, randn
 import scipy as sp
-from scipy.linalg import norm, eigh, eigvalsh
+from scipy.linalg import norm, eigh, eigvalsh, sqrtm, svd, svdvals, det
 from scipy.integrate import ode
 
-from .base import Q_Bell, tol
-from .lmap import *
-from .utils import *
-from .utils import _warn
+from .base import sy, Q_Bell, tol
+from .lmap import tensor as lmap_tensor
+from .lmap import numstr_to_array, array_to_numstr, lmap
+from .utils import (_warn, vec, inv_vec, qubits, expv, rand_U, rand_SU, rand_positive, mkron,
+    eighsort, spectral_decomposition, majorize, tensorbasis, assert_o)
+
 
 __all__ = ['equal_dims', 'index_muls', 'state', 'fidelity', 'trace_dist']
 
@@ -168,9 +171,8 @@ class state(lmap):
                 if s.dim[0] != s.dim[1]:
                     raise ValueError('State operator must be square.')
                 dim = (dim, dim)
-
             # call the lmap copy constructor
-            lmap.__init__(self, s, dim)
+            super(state, self).__init__(s, dim)
             return
 
         elif isinstance(s, string_types):
@@ -254,8 +256,7 @@ class state(lmap):
 
         # now s is an ndarray
         # call the lmap constructor
-        lmap.__init__(self, s, dim)
-
+        super(state, self).__init__(s, dim)
 
 
 # utility methods
@@ -420,6 +421,7 @@ class state(lmap):
         keep = s.invert_selection(sys)
 
         def tensorsum(a, b):
+            """Like tensor product, but with sum."""
             #c = log(kron(exp(a), exp(b))) # a perverted way of doing it, the exp overflows...
             c = []
             for k in a:
@@ -672,12 +674,15 @@ class state(lmap):
             # derivative functions for the solver TODO vectorization?
             # H, ket
             def pure_fun(t, y, F):
+                "Derivative of a pure state, Hamiltonian."
                 return -1j * dot(F(t), y)
             def pure_jac(t, y, F):
+                "Jacobian of a pure state, Hamiltonian."
                 return -1j * F(t)
 
             # H, state op
             def mixed_fun(t, y, F):
+                "Derivative of a mixed state, Hamiltonian."
                 H = -1j * F(t)
                 if y.ndim == 1:
                     rho = inv_vec(y, dim)  # into a matrix
@@ -692,12 +697,15 @@ class state(lmap):
 
             # L, state op, same as the H/ket ones, only without the -1j
             def liouvillian_fun(t, y, F):
+                "Derivative of a state, Liouvillian."
                 return dot(F(t), y)
             def liouvillian_jac(t, y, F):
+                "Jacobian of a state, Liouvillian."
                 return F(t)
 
             # A, state op
             def lindblad_fun(t, y, F):
+                "Derivative of a mixed state, Lindbladian."
                 X = F(t)  # X == [H, A_1, A_2, ..., A_n]
                 H = -1j * X[0] # -1j * Hamiltonian
                 Lind = X[1:]   # Lindblad ops
@@ -768,13 +776,13 @@ class state(lmap):
                     # FIXME imaginary time doesn't yet work
                     w, err, hump = expv(-1j * t, H, s.data)
                     for k in range(n):
-                        s.data = w[k,:]  # TODO state ops
+                        s.data = w[k, :]  # TODO state ops
                         out.append(out_func(s, H))
             elif gen == 'L':
                 # Krylov subspace method
                 w, err, hump = expv(t, H, vec(s.data))
                 for k in range(n):
-                    s.data = inv_vec(w[k,:])
+                    s.data = inv_vec(w[k, :])
                     out.append(out_func(s, H))
 
         if len(out) == 1:
@@ -796,10 +804,11 @@ class state(lmap):
         # TODO: If n > prod(dims(s))^2, there is a simpler equivalent
         # operation. Should the user be notified?
         def test_kraus(E):
+            "Check if E represents a physical quantum operation."
             temp = 0
             for k in E:
                 temp += dot(k.conj().transpose(), k)
-            if norm(temp.data - eye(temp.shape)) > tol:
+            if norm(temp.data - np.eye(temp.shape)) > tol:
                 _warn('Unphysical quantum operation.')
 
         if self.is_ket():
@@ -1017,8 +1026,8 @@ class state(lmap):
             if r.is_ket():
                 return sqrt(vdot(r.data, dot(self.data, r.data)).real)  # .real
             else:
-                temp = sp.linalg.sqrtm(self.data)
-                return trace(sp.linalg.sqrtm(dot(dot(temp, r.data), temp))).real  # .real
+                temp = sqrtm(self.data)
+                return trace(sqrtm(dot(dot(temp, r.data), temp))).real  # .real
 
 
     def trace_dist(self, r):
@@ -1100,9 +1109,9 @@ class state(lmap):
 
         # order the coefficients into a matrix, take an svd
         if not full:
-            return sp.linalg.svdvals(s.data.reshape(d1, d2))
+            return svdvals(s.data.reshape(d1, d2))
         else:
-            u, s, vh = sp.linalg.svd(s.data.reshape(d1, d2), full_matrices = False)
+            u, s, vh = svd(s.data.reshape(d1, d2), full_matrices = False)
             # note the definition of vh in svd
             return s, u, vh.transpose()
 
@@ -1150,8 +1159,8 @@ class state(lmap):
 
         See :cite:`Wootters`, :cite:`Horodecki`.
         """
-        # Ville Bergholm 2006-2010
-
+        # Ville Bergholm 2006-2014
+        # TODO rewrite, check
         if abs(self.trace() - 1) > tol:
             _warn('State not properly normalized.')
 
@@ -1166,10 +1175,9 @@ class state(lmap):
                 raise ValueError('Not a pure state.')
 
             # pure state
-            n = len(dim)
+            #n = len(dim)
             rho_A = self.ptrace(self.invert_selection(sys)) # trace over everything but sys
-            C = 2 * sqrt(det(rho_A.data).real) # = sqrt(2*(1-real(trace(temp*temp)))), .real
-            return
+            return 2 * sqrt(det(rho_A.data).real) # = sqrt(2*(1-real(trace(temp*temp)))), .real
 
         # concurrence between two qubits
         if self.subsystems() != 2 or any(dim != array([2, 2])):
@@ -1180,7 +1188,7 @@ class state(lmap):
         p = self.data
         if self.is_ket():
             # ket
-            C = abs(dot(dot(p.transpose(), X), p))
+            return abs(dot(dot(p.transpose(), X), p))
 
             # find the coefficients a of the state ket in the magic base
             # phi+-, psi+-,  = triplet,singlet
@@ -1191,11 +1199,11 @@ class state(lmap):
             # state operator
             temp = dot(p, X)  # X.conj() == X so this works
             temp = dot(temp, temp.conj())  # == p * X * conj(p) * X
-            if abs(purity(self) - 1) > tol:
+            if abs(self.purity() - 1) > tol:
                 L = sqrt(sort(np.linalg.eigvals(temp).real)[::-1]).real  # .real?
-                C = max(0, L[1] -L[2] -L[3] -L[4])
+                return max(0, L[1] -L[2] -L[3] -L[4])
             else:
-                C = sqrt(trace(temp).real) # same formula as for state vecs, .real?
+                return sqrt(trace(temp).real) # same formula as for state vecs, .real?
 
 
     def negativity(self, sys):
@@ -1209,7 +1217,7 @@ class state(lmap):
         # Ville Bergholm 2008-2014
 
         s = self.ptranspose(sys)  # partial transpose the state
-        x = sp.linalg.svdvals(s.data)  # singular values
+        x = svdvals(s.data)  # singular values
         return (sum(x) - 1) / 2
 
 
@@ -1219,9 +1227,9 @@ class state(lmap):
         Returns the logarithmic negativity of the state wrt. the partitioning
         given by the listing of subsystems in the vector sys.
         """
-        # Ville Bergholm 2008
+        # Ville Bergholm 2008-2014
 
-        return log2(2 * self.negativity(sys) + 1)
+        return np.log2(2 * self.negativity(sys) + 1)
 
 
     def scott(self, m):
@@ -1344,7 +1352,7 @@ class state(lmap):
 
             # add a colorbar
             cb = fig.colorbar(colormapper, ax = ax, ticks = linspace(-1, 1, 5))
-            cb.ax.set_yticklabels(['$-\pi$', '$-\pi/2$', '0', '$\pi/2$', '$\pi$'])
+            cb.ax.set_yticklabels([r'$-\pi$', r'$-\pi/2$', '0', r'$\pi/2$', r'$\pi$'])
 
             # the way it should work (using np.broadcast, ScalarMappable)
             #bars = ax.bar(range(N), s.prob(), color=c, cmap=cm.hsv, norm=whatever, align='center')
@@ -1378,7 +1386,7 @@ class state(lmap):
 
             # add a colorbar
             cb = fig.colorbar(pcol, ax = ax, ticks = linspace(-1, 1, 5))
-            cb.ax.set_yticklabels(['$-\pi$', '$-\pi/2$', '0', '$\pi/2$', '$\pi$'])
+            cb.ax.set_yticklabels([r'$-\pi$', r'$-\pi/2$', '0', r'$\pi/2$', r'$\pi$'])
 
             # the way it should work (using np.broadcast, ScalarMappable)
             #x, y = meshgrid(temp, temp)
@@ -1458,7 +1466,7 @@ class state(lmap):
                 temp.append(k.to_op())
             arg = temp
 
-        return state(tensor(*arg))  # lmap.tensor
+        return state(lmap_tensor(*arg))
 
 
     @staticmethod
@@ -1498,21 +1506,19 @@ class state(lmap):
     def test():
         """Test script for the state class.
         """
-        # Ville Bergholm 2008-2011
-
-        #for k in range(5):
+        # Ville Bergholm 2008-2014
 
         # test the state constructor
         s = state('101011')
-        s = state('2014', (3,2,3,5))
-        s = state(11, (3,5,2))
+        s = state('2014', (3, 2, 3, 5))
+        s = state(11, (3, 5, 2))
         s = state(rand(5))
-        s = state(rand(6), (3,2))
-        s = state(rand(3,3))
-        s = state(rand(4,4), (2,2))
+        s = state(rand(6), (3, 2))
+        s = state(rand(3, 3))
+        s = state(rand(4, 4), (2, 2))
         s = state('GHZ')
-        s = state('GHZ', (3,2,3))
-        s = state('W', (2,3,2))
+        s = state('GHZ', (3, 2, 3))
+        s = state('W', (2, 3, 2))
         s = state('Bell2')
 
         # mixed states
@@ -1539,7 +1545,8 @@ class state(lmap):
 
         # generalized Bloch vectors.
 
-        temp = sigma1.bloch_vector();  D = prod(sigma1.dims())
+        temp = sigma1.bloch_vector()
+        D = prod(sigma1.dims())
         assert_o((state.bloch_state(temp) -sigma1).norm(), 0, tol) # need to match
         assert_o(norm(temp.imag), 0, tol) # correlation tensor is real
         assert(norm(temp) -sqrt(D) <= tol)  # purity
@@ -1606,7 +1613,7 @@ class state(lmap):
         # decomposition is equal to the original matrix
         temp = 0
         for k in range(len(lambda1)):
-            temp += kron(lambda1[k]*u[:,k], v[:,k])
+            temp += kron(lambda1[k] * u[:, k], v[:, k])
         assert_o(norm(p1.data.ravel() - temp), 0, tol)
 
         # squared schmidt coefficients equal eigenvalues of partial trace
@@ -1636,11 +1643,11 @@ class state(lmap):
 
 # wrappers
 
-def fidelity(s,t):
+def fidelity(s, t):
     """Wrapper for state.fidelity."""
     return s.fidelity(t)
 
 
-def trace_dist(s,t):
+def trace_dist(s, t):
     """Wrapper for state.trace_dist."""
     return s.trace_dist(t)

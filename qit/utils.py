@@ -104,17 +104,18 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 from copy import deepcopy
 
 import numpy as np
-import scipy as sp
-from numpy import array, mat, dtype, empty, zeros, ones, eye, prod, sqrt, exp, tanh, dot, sort, diag, trace, kron, pi, r_, c_, inf, isscalar, floor, ceil, log, log10, vdot
-from numpy.random import rand, randn, randint
+from numpy import (array, mat, dtype, empty, zeros, ones, eye, prod, sqrt, exp,
+    dot, sort, diag, trace, kron, pi, r_, c_, inf, isscalar, floor, ceil, log, log10, vdot)
+from numpy.random import rand, randn
 from numpy.linalg import qr, det, eigh, eigvalsh
 from scipy.linalg import expm, norm, svd, svdvals
 
-from .base import *
+from .base import sx, sy, sz, tol
 
 __all__ = ['assert_o', 'copy_memoize',
            'gcd', 'lcm', 'majorize',
-           'comm', 'acomm', 'mkron', 'rank', 'orth', 'nullspace', 'nullspace_hermitian', 'projector', 'eighsort', 'expv',
+           'comm', 'acomm', 'mkron', 'projector', 'eighsort', 'expv',
+           'rank', 'orth', 'nullspace', 'nullspace_hermitian',
            'rand_hermitian', 'rand_U', 'rand_SU', 'rand_U1', 'rand_pu', 'rand_positive', 'rand_SL', 
            'vec', 'inv_vec', 'lmul', 'rmul', 'lrmul', 'superop_lindblad', 'superop_fp',
            'angular_momentum', 'boson_ladder', 'fermion_ladder',
@@ -169,7 +170,7 @@ def gcd(a, b):
     Uses the Euclidean algorithm.
     """
     while b:
-        a, b = b, a%b
+        a, b = b, a % b
     return a
 
 
@@ -506,7 +507,7 @@ def rand_hermitian(n):
     """
     # Ville Bergholm 2008-2009
 
-    H = (rand(n,n) - 0.5) +1j*(rand(n,n) - 0.5)
+    H = (rand(n, n) - 0.5) +1j*(rand(n, n) - 0.5)
     return H + H.conj().transpose() # make it Hermitian
 
 
@@ -522,7 +523,7 @@ def rand_U(n):
 
     # sample the Ginibre ensemble, p(Z(i,j)) == 1/pi * exp(-abs(Z(i,j))^2),
     # p(Z) == 1/pi^(n^2) * exp(-trace(Z'*Z))
-    Z = (randn(n,n) + 1j*randn(n,n)) / sqrt(2)
+    Z = (randn(n, n) + 1j*randn(n, n)) / sqrt(2)
 
     # QR factorization
     Q, R = qr(Z)
@@ -601,7 +602,7 @@ def rand_SL(n):
     """
     # Ville Bergholm 2011
 
-    S = randn(n,n) +1j*randn(n,n)
+    S = randn(n, n) +1j*randn(n, n)
     d = det(S) ** (1/n)
     return S/d
 
@@ -717,12 +718,12 @@ def superop_lindblad(A, H=None):
         iH = 1j * H
 
     L = zeros(array(sh) ** 2, complex)
-    acomm = zeros(sh, complex)
+    ac = zeros(sh, complex)
     for k in A:
-        acomm += 0.5 * dot(k.conj().transpose(), k)
+        ac += 0.5 * dot(k.conj().transpose(), k)
         L += lrmul(k, k.conj().transpose()) 
 
-    L += lmul(-acomm -iH) +rmul(-acomm +iH)
+    L += lmul(-ac -iH) +rmul(-ac +iH)
     return L
 
 
@@ -923,9 +924,9 @@ def R_nmr(theta, phi):
     Returns the one-qubit rotation by angle theta about the unit
     vector :math:`[\cos(\phi), \sin(\phi), 0]`, or :math:`\theta_\phi` in the NMR notation.
     """
-    # Ville Bergholm 2009
+    # Ville Bergholm 2009-2014
 
-    return expm(-1j * theta/2 * (cos(phi) * sx + sin(phi) * sy))
+    return expm(-1j * theta/2 * (np.cos(phi) * sx + np.sin(phi) * sy))
 
 
 def R_x(theta):
@@ -978,7 +979,7 @@ def spectral_decomposition(A):
     # combine projectors for degenerate eigenvalues
     a = [d[0]]
     P = [projector(v[:, 0])]
-    for k in range(1,len(d)):
+    for k in range(1, len(d)):
         temp = projector(v[:, k])
         if abs(d[k] - d[k-1]) > tol:
             # new eigenvalue, new projector
@@ -1013,18 +1014,18 @@ def gellmann(d):
     # diagonal
     ddd = zeros(d)
     ddd[0] = 1
-    x = 1 / sqrt(2);
+    x = 1 / sqrt(2)
     # iterate through the lower triangle
     n = 0
     for k in range(1, d):
         for j in range(0, k):
             # nondiagonal
-            G[n, k, j] = x;
-            G[n, j, k] = x;
+            G[n, k, j] = x
+            G[n, j, k] = x
             n += 1
 
-            G[n, k, j] =  1j * x;
-            G[n, j, k] = -1j * x;
+            G[n, k, j] =  1j * x
+            G[n, j, k] = -1j * x
             n += 1
         ddd[k] = -sum(ddd)
         G[n, :, :] = diag(ddd) / norm(ddd)
@@ -1037,7 +1038,7 @@ def gellmann(d):
 # TODO lazy evaluation/cache purging would be nice here to control memory usage
 tensorbasis_cache = {}
 def tensorbasis(n, d=None, get_locality=False):
-    """Hermitian tensor-product basis for End(H).
+    r"""Hermitian tensor-product basis for End(H).
 
     Returns a Hermitian basis for linear operators on the Hilbert space H
     which shares H's tensor product structure. The basis elements are tensor products
@@ -1109,7 +1110,7 @@ def tensorbasis(n, d=None, get_locality=False):
 # misc
 
 def op_list(G, dim):
-    """Operator consisting of k-local terms, given as a list.
+    r"""Operator consisting of k-local terms, given as a list.
 
     Returns the operator O defined by the connection list G.
     dim is a vector of subsystem dimensions for O.
@@ -1142,10 +1143,10 @@ def op_list(G, dim):
 
     # TODO we could try to infer dim from the operators
     H = 0j
-    for k,spec in enumerate(G):
+    for k, spec in enumerate(G):
         a = -1  # last subsystem taken care of
         term = 1
-        for j,op in enumerate(spec):
+        for j, op in enumerate(spec):
             if len(op) != 2:
                 raise ValueError('Malformed local term {0} in spec {1}.'.format(j, k))
 
@@ -1176,7 +1177,7 @@ def qubits(n):
 
 
 def majorize(x, y):
-    """Majorization partial order of real vectors.
+    r"""Majorization partial order of real vectors.
 
     Returns true iff the real vector x is majorized by the real vector y,
     denoted by :math:`x \preceq y`. This is equivalent to
@@ -1209,7 +1210,7 @@ def majorize(x, y):
 
 
 def mkron(*arg):
-    """This is how kron should work, dammit.
+    r"""This is how kron should work, dammit.
 
     Returns the tensor (Kronecker) product :math:`X = A \otimes B \otimes \ldots`
     """
@@ -1292,7 +1293,7 @@ def test():
 
     a = mat(boson_ladder(dim))
     temp = comm(a, a.H)
-    assert_o(norm(temp[:-1,:-1] - eye(dim-1)), 0, tol)  # [a, a'] == I  (truncated, so skip the last row/col!)
+    assert_o(norm(temp[:-1, :-1] - eye(dim-1)), 0, tol)  # [a, a'] == I  (truncated, so skip the last row/col!)
 
     f = fermion_ladder(3)
     # {f_j, f_k} = 0

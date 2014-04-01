@@ -37,17 +37,18 @@ Contents
    corr
    fit
 """
-# Ville Bergholm 2011
+# Ville Bergholm 2011-2014
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
-from numpy import array, sqrt, exp, sin, cos, arctan2, tanh, dot, argsort, pi, r_, linspace, logspace, searchsorted, inf, newaxis, isscalar, unravel_index
+from numpy import (array, sqrt, exp, sin, cos, arctan2, tanh, dot, argsort, pi,
+    r_, linspace, logspace, searchsorted, inf, newaxis, unravel_index)
 from scipy.linalg import norm
 from scipy.integrate import quad
 import scipy.constants as const
 
-from .base import *
-from .utils import *
+from .base import sx, sz, tol
+from .utils import lmul, rmul, lrmul, rand_hermitian, superop_lindblad, spectral_decomposition
 
 
 __all__ = ['bath', 'ops', 'lindblad_ops', 'test']
@@ -211,7 +212,7 @@ class bath(object):
         # clear lookup tables, since changing the cutoff requires recalc of S
         # start with a single point precomputed
         self.dH = array([-inf, 0, inf])
-        self.gs_table = array([[0, 0], [self.g0, self.s0], [0,0]])
+        self.gs_table = array([[0, 0], [self.g0, self.s0], [0, 0]])
 
 
 
@@ -248,6 +249,7 @@ class bath(object):
         d2 = abs(x - ee[1])
 
         def interpolate(ee, tt, x):
+            "Quick interpolation."
             # interp1 does way too many checks
             return tt[0] + ((x - ee[0]) / (ee[1] - ee[0])) * (tt[1] - tt[0])
 
@@ -313,7 +315,7 @@ class bath(object):
 
             iTd = 1 / T2 -0.5 / T1 # inverse pure dephasing time
             if iTd < 0:
-                error('Unphysical decoherence times!')
+                raise ValueError('Unphysical decoherence times!')
     
             # match bath couplings to T1, T2
             temp = self.scale * delta / 2
@@ -515,6 +517,7 @@ def test():
     """Test script for Born-Markov methods.
     """
     # Ville Bergholm 2009-2010
+    from .utils import assert_o
 
     dim = 6
 

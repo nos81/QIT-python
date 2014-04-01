@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """Plots."""
-# Ville Bergholm 2011-2012
+# Ville Bergholm 2011-2014
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
 import numpy as np
-from numpy import array, zeros, ones, sin, cos, tanh, dot, sort, pi, r_, c_, linspace, outer
+from numpy import array, zeros, ones, sin, cos, tanh, sort, pi, r_, c_, linspace, outer
 from numpy.linalg import eigvalsh
 import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
@@ -49,7 +49,7 @@ def adiabatic_evolution(t, st, H_func, n=4):
     # find the n lowest eigenstates of the final Hamiltonian
     #d, v = scipy.sparse.linalg.eigs(H, n, which = 'SR')
     #ind = d.argsort()  # increasing real part
-    d,v = eighsort(H)
+    d, v = eighsort(H)
     lowest = []
     for j in range(n):
         #j = ind[j]
@@ -65,7 +65,7 @@ def adiabatic_evolution(t, st, H_func, n=4):
         for j in range(n):
             overlaps[k, j] = lowest[j].fidelity(st[k]) ** 2 # squared overlap with lowest final states
 
-    plt.subplot(2,1,1)
+    plt.subplot(2, 1, 1)
     plt.plot(t/T, energies)
     plt.grid(True)
     plt.title('Energy spectrum')
@@ -74,7 +74,7 @@ def adiabatic_evolution(t, st, H_func, n=4):
     plt.axis([0, 1, np.min(energies), np.max(energies)])
 
 
-    plt.subplot(2,1,2)
+    plt.subplot(2, 1, 2)
     plt.plot(t/T, overlaps) #, 'LineWidth', 1.7)
     plt.grid(True)
     plt.title('Squared overlap of current state and final eigenstates')
@@ -155,7 +155,7 @@ def correlation_simplex(ax=None, labels='diagonal'):
     # tetrahedron
     # vertices and faces
     v = array([[-1, -1, -1], [-1, 1, 1], [1, -1, 1], [1, 1, -1]])
-    f = [[0,1,2], [0,2,3], [0,3,1], [3,2,1]]
+    f = [[0, 1, 2], [0, 2, 3], [0, 3, 1], [3, 2, 1]]
     polys = [v[k, :] for k in f]
     polyc = mplot3.art3d.Poly3DCollection(polys, color = 'g', alpha = 0.2)
     ax.add_collection(polyc)
@@ -165,7 +165,7 @@ def correlation_simplex(ax=None, labels='diagonal'):
 
     # mark vertices
     ax.scatter([0], [0], [0], c = 'r', marker = '.')  # center
-    ax.scatter(v[:,0], v[:,1], v[:,2], c = 'r', marker = '.')  # vertices
+    ax.scatter(v[:, 0], v[:, 1], v[:, 2], c = 'r', marker = '.')  # vertices
 
     # label axes and vertices
     if labels == 'diagonal':
@@ -312,6 +312,7 @@ def pcolor(W, a, b, clim=(0, 1)):
 
     # a and b are quad midpoint coordinates but pcolor wants quad vertices, so
     def to_quad(x):
+        "Quad midpoints to vertices."
         return (r_[x, x[-1]] + r_[x[0], x]) / 2
 
     plt.gcf().clf()  # clear the figure
