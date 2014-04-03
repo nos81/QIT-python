@@ -30,21 +30,3 @@ from .plot import *
 from . import gate, hamiltonian, ho, invariant, markov, seq, examples
 
 #print('Python Quantum Information Toolkit, version {0}.'.format(__version__))
-
-
-def test():
-    """Test script for the Quantum Information Toolkit.
-    """
-    # Ville Bergholm 2009-2011
-
-    #from . import utils, lmap, state, gate, ho, invariant, markov, seq
-
-    utils.test()
-    lmap.test()
-    state.test()
-    gate.test()
-    ho.test()
-    invariant.test()
-    markov.test()
-    seq.test()
-    print('All tests passed.')

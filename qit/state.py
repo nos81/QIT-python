@@ -134,7 +134,7 @@ class state(lmap):
 
     def __init__(self, s, dim=None):
         """Construct a state.
-        
+
         calling syntax            result
         ==============            ======
         state('00101')            standard basis ket |00101> in a five-qubit system
@@ -1076,9 +1076,9 @@ class state(lmap):
 
         See :cite:`NC`, chapter 2.5.
         """
-        # Ville Bergholm 2009-2010
+        # Ville Bergholm 2009-2014
 
-        dim = self.dims()
+        dim = array(self.dims())
         n = self.subsystems()
 
         if sys == None:
@@ -1500,144 +1500,6 @@ class state(lmap):
 
         C = 1/sqrt(d) # to match the usual Bloch vector normalization
         return state(C * rho, dim)
-
-
-    @staticmethod
-    def test():
-        """Test script for the state class.
-        """
-        # Ville Bergholm 2008-2014
-
-        # test the state constructor
-        s = state('101011')
-        s = state('2014', (3, 2, 3, 5))
-        s = state(11, (3, 5, 2))
-        s = state(rand(5))
-        s = state(rand(6), (3, 2))
-        s = state(rand(3, 3))
-        s = state(rand(4, 4), (2, 2))
-        s = state('GHZ')
-        s = state('GHZ', (3, 2, 3))
-        s = state('W', (2, 3, 2))
-        s = state('Bell2')
-
-        # mixed states
-        dim = [2, 2]
-        rho1 = state(rand_positive(prod(dim)), dim)
-        rho2 = state(rand_positive(prod(dim)), dim)
-        U_r = rand_U(prod(dim))
-
-        dim = [2, 5, 3]
-        sigma1 = state(rand_positive(prod(dim)), dim)
-        U_s = rand_U(prod(dim))
-
-        # pure states
-        dim = [2, 2]
-        p = state(0, dim)
-
-        p1 = p.u_propagate(rand_SU(prod(dim)))
-        p2 = p.u_propagate(rand_SU(prod(dim)))
-        U_p = rand_U(prod(dim))
-
-
-        # TODO concurrence, fix_phase, kraus_propagate, locc_convertible, lognegativity, measure,
-        # negativity,
-
-        # generalized Bloch vectors.
-
-        temp = sigma1.bloch_vector()
-        D = prod(sigma1.dims())
-        assert_o((state.bloch_state(temp) -sigma1).norm(), 0, tol) # need to match
-        assert_o(norm(temp.imag), 0, tol) # correlation tensor is real
-        assert(norm(temp) -sqrt(D) <= tol)  # purity
-        assert_o(temp.flat[0], 1, sqrt(D))  # normalization
-
-        # fidelity, trace_dist
-
-        assert_o(fidelity(rho1, rho2), fidelity(rho2, rho1), tol) # symmetric
-        assert_o(trace_dist(rho1, rho2), trace_dist(rho2, rho1), tol)
-
-        assert_o(fidelity(sigma1, sigma1), 1, tol) # normalized to unity
-        assert_o(trace_dist(sigma1, sigma1), 0, tol) # distance measure
-
-        # unaffected by unitary transformations
-        assert_o(fidelity(rho1, rho2), fidelity(rho1.u_propagate(U_r), rho2.u_propagate(U_r)), tol)
-        assert_o(trace_dist(rho1, rho2), trace_dist(rho1.u_propagate(U_r), rho2.u_propagate(U_r)), tol)
-
-        # for pure states they're equivalent
-        assert_o(trace_dist(p1, p2) ** 2 +fidelity(p1, p2) ** 2, 1, tol)
-        # for mixed states, these inequalities hold
-        assert(sqrt(1 - fidelity(rho1, rho2) ** 2) - trace_dist(rho1, rho2) >= -tol)
-        assert(1 - fidelity(rho1, rho2) - trace_dist(rho1, rho2) <= tol)
-        # for a pure and a mixed state we get this inequality
-        assert(1 - fidelity(rho1, p1) ** 2 -trace_dist(rho1, p1) <= tol)
-
-
-        # entropy
-
-        assert_o(p1.entropy(), 0, tol) # zero for pure states
-        assert(sigma1.entropy() >= -tol) # nonnegative
-
-        # unaffected by unitary transformations
-        assert_o(sigma1.u_propagate(U_s).entropy(), sigma1.entropy(), tol)
-
-
-        # ptrace, ptranspose
-
-        rho_A = rho1.ptrace([1])
-        # trace of partial trace equals total trace
-        assert_o(rho1.trace(), rho_A.trace(), tol)
-        # partial trace over all subsystems equals total trace
-        assert_o(rho1.trace(), rho1.ptrace(range(rho1.subsystems())).trace(), tol)
-
-        rho_X = sigma1.ptrace([0, 2, 3])
-        assert_o(sigma1.trace(), rho_X.trace(), tol)
-        assert_o(sigma1.trace(), sigma1.ptrace(range(sigma1.subsystems())).trace(), tol)
-
-        rho_pt_B = rho1.ptranspose([1])
-        # two ptransposes cancel
-        assert_o(trace_dist(rho1, rho_pt_B.ptranspose([1])), 0, tol)
-        # ptranspose preserves trace
-        assert_o(rho1.trace(), rho_pt_B.trace(), tol)
-
-
-        # schmidt
-        
-        lambda1, u, v = p1.schmidt([0], full = True)
-        lambda2 = p1.schmidt([1])
-        # squares of schmidt coefficients sum up to unity
-        assert_o(norm(lambda1), 1, tol)
-        # both subdivisions have identical schmidt coefficients
-        assert_o(norm(lambda1-lambda2), 0, tol)
-
-        # decomposition is equal to the original matrix
-        temp = 0
-        for k in range(len(lambda1)):
-            temp += kron(lambda1[k] * u[:, k], v[:, k])
-        assert_o(norm(p1.data.ravel() - temp), 0, tol)
-
-        # squared schmidt coefficients equal eigenvalues of partial trace
-        r = state(randn(30) + 1j*randn(30), [5, 6]).normalize()
-        #x = r.schmidt((0,)) ** 2  # FIXME crashes ipython!
-        temp = r.ptrace([1])
-        y, dummy = eighsort(temp.data)
-        #assert_o(norm(x-y), 0, tol)
-
-
-        # reorder
-
-        dim = [2, 5, 1]
-        A = rand(dim[0], dim[0])
-        B = rand(dim[1], dim[1])
-        C = rand(dim[2], dim[2])
-
-        T1 = state(mkron(A, B, C), dim)
-        T2 = T1.reorder([2, 0, 1])
-        assert_o(norm(mkron(C, A, B) - T2.data), 0, tol)
-        T2 = T1.reorder([1, 0, 2])
-        assert_o(norm(mkron(B, A, C) - T2.data), 0, tol)
-        T2 = T1.reorder([2, 1, 0])
-        assert_o(norm(mkron(C, B, A) - T2.data), 0, tol)
 
 
 
