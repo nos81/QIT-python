@@ -51,7 +51,7 @@ from .base import sx, sz, tol
 from .utils import lmul, rmul, lrmul, rand_hermitian, superop_lindblad, spectral_decomposition
 
 
-__all__ = ['bath', 'ops', 'lindblad_ops', 'test']
+__all__ = ['bath', 'ops', 'lindblad_ops', 'superop']
 
 
 class bath(object):
@@ -510,32 +510,3 @@ def superop(H, D, B):
             diss  += lrmul(g * A[k].conj().transpose(), A[k]) # here too
 
     return lmul(acomm -iH_LS) +rmul(acomm +iH_LS) +diss
-
-
-
-def test():
-    """Test script for Born-Markov methods.
-    """
-    # Ville Bergholm 2009-2010
-    from .utils import assert_o
-
-    dim = 6
-
-    H = rand_hermitian(dim)
-    D = [rand_hermitian(dim)/10, rand_hermitian(dim)/10]
-    B = [bath('ohmic', 1e9, 0.02), bath('ohmic', 1e9, 0.03)]
-
-    # jump operators
-    dH, X = ops(H, D)
-    assert_o(dH[0], 0, tol)
-    for n, A in enumerate(X):
-        temp = A[0] # dH[0] == 0
-        for k in range(1, len(dH)):
-            temp += A[k] +A[k].conj().transpose() # A(-omega) == A'(omega)
-        assert_o(norm(temp - D[n]), 0, tol) # Lindblad ops should sum to D
-
-    # equivalence of Lindblad operators and the Liouvillian superoperator
-    LL, H_LS = lindblad_ops(H, D, B)
-    S1 = superop_lindblad(LL, H + H_LS)
-    S2 = superop(H, D, B)
-    assert_o(norm(S1 - S2), 0, tol)

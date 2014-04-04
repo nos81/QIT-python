@@ -61,7 +61,7 @@ from scipy.optimize import brentq
 from .base import sx, sy, tol
 
 
-__all__ = ['nmr', 'bb1', 'corpse', 'cpmg', 'scrofulous', 'seq2prop', 'propagate', 'test']
+__all__ = ['nmr', 'bb1', 'corpse', 'cpmg', 'scrofulous', 'seq2prop', 'propagate']
 
 
 def nmr(a):
@@ -85,7 +85,7 @@ def nmr(a):
     """
     # Ville Bergholm 2006-2009
 
-    a = asarray(a)
+    a = asarray(a, dtype=float)
     theta = a[:, 0]
     phi   = a[:, 1]
 
@@ -243,24 +243,3 @@ def propagate(s, seq, out_func=lambda x: x, base_dt=0.1):
         temp = t[-1]
         t.extend(list(linspace(temp+dt, temp+T, n_steps)))
     return out, t
-
-
-
-def test():
-    """Test script for the control sequences module.
-    """
-    # Ville Bergholm 2011-2014
-
-    from numpy.random import rand
-    from .state import state
-    from .utils import rand_positive, assert_o
-
-    dim = 2
-    s = state(rand_positive(dim))
-    seq = scrofulous(pi*rand(), 2*pi*rand())
-
-    # equivalent propagations
-    s1 = s.u_propagate(seq2prop(seq))
-    out, t = propagate(s, seq)
-    s2 = out[-1]
-    assert_o((s1-s2).norm(), 0, tol)

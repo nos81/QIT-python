@@ -301,12 +301,3 @@ def holstein(C, omega=1, g=1, m=10):
     # actual dimensions
     #dim = [2*ones(1, n), m*ones(1, n)]
     return H, dim
-
-
-
-def test():
-    """Test script for Hamiltonian methods."""
-    from .utils import assert_o
-
-    # TODO tests
-    #assert_o(norm(), 0, tol)
