@@ -42,7 +42,7 @@ from .state import state
 from .utils import boson_ladder, comm
 
 __all__ = ['coherent_state', 'displace', 'squeeze', 'position', 'momentum',
-           'position_state', 'momentum_state', 'husimi', 'wigner', 'test']
+           'position_state', 'momentum_state', 'husimi', 'wigner']
 
 
 # default truncation limit for number states
@@ -305,43 +305,3 @@ def wigner(s, alpha=None, res=(20, 20), lim=(-2, 2, -2, 2)):
     if return_ab:
         W = (W, a, b)
     return W
-
-
-
-def test():
-    """Testing script for the harmonic oscillator module."""
-    from numpy.random import randn
-    from .utils import assert_o
-
-    def randc():
-        """Random complex number."""
-        return randn() + 1j*randn()
-
-    a = mat(boson_ladder(default_n))
-
-    alpha = randc()
-    s = coherent_state(alpha)
-    s0 = state(0, default_n)
-    D = displace(alpha)
-    
-    assert_o((s - s0.u_propagate(D)).norm(), 0, tol)  # displacement
-
-    z = randc()
-    S = squeeze(z)
-
-    Q = position()
-    P = momentum()
-    q = randn()
-    p = randn()
-    sq = position_state(q)
-    sp = momentum_state(p)
-
-    temp = 1e-1 # the truncation accuracy is not amazing here
-    assert_o(sq.ev(Q), q, temp)  # Q, P eigenstates
-    assert_o(sp.ev(P), p, temp)
-
-    temp = ones(default_n)
-    temp[-1] = -default_n+1 # truncation...
-    assert_o(norm(comm(Q, P) - 1j * diag(temp)), 0, tol) # [Q, P] = i
-
-    assert_o(norm(mat(P)**2 +mat(Q)**2 - 2 * a.H * a -diag(temp)), 0, tol)  # P^2 +Q^2 = 2a^\dagger * a + 1
