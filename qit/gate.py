@@ -19,14 +19,14 @@ Contents
    id
    phase
    qft
+   swap
+   walsh
    mod_inc
    mod_mul
-   swap
    mod_add
    controlled
    single
    two
-   walsh
 """
 
 from __future__ import division, absolute_import, print_function, unicode_literals
@@ -38,14 +38,20 @@ from .lmap import lmap, tensor
 from .utils import qubits, op_list, assert_o, copy_memoize, gcd
 
 
-__all__ = ['dist', 'id', 'mod_add', 'mod_inc', 'mod_mul', 'phase', 'qft', 'swap', 'walsh',
-           'controlled', 'single', 'two', 'test']
+__all__ = ['dist', 'id', 'phase', 'qft', 'swap', 'walsh',
+           'mod_add', 'mod_inc', 'mod_mul', 
+           'controlled', 'single', 'two']
 
 # TODO reshape will cause problems for sparse matrices!
 # TODO utils.op_list too!
 # TODO which one is faster in element assignment -style init, dok or lil?
 # TODO make input interface consistent, do we want arrays or lmaps?
 
+def eye(D):
+    """FIXME Temp. wrapper, unnecessary after when we update to scipy 0.12
+    Then we can just do   from scipy.sparse import eye
+    """
+    return sparse.eye(D, D) 
 
 
 def dist(A, B):
@@ -76,7 +82,7 @@ def id(dim):
     """
     if isscalar(dim):
         dim = (dim,)  # scalar into a tuple
-    return lmap(sparse.eye(prod(dim)), (dim, dim))
+    return lmap(eye(prod(dim)), (dim, dim))
 
 
 def mod_add(dim1, dim2, N=None):
@@ -387,38 +393,10 @@ def two(B, t, d_in):
         p = [0, 2, 1]
     else:
         p = [1, 2, 0]
-    U = tensor(B, lmap(sparse.eye(inbetween))).reorder((p, p), inplace = True)
-    U = tensor(lmap(sparse.eye(before)), U, lmap(sparse.eye(after)))
+    U = tensor(B, lmap(eye(inbetween))).reorder((p, p), inplace = True)
+    U = tensor(lmap(eye(before)), U, lmap(eye(after)))
 
     # restore dimensions
     d_out = d_in.copy()
     d_out[t] = B.dim[0]
     return lmap(U, (d_out, d_in))
-
-
-def test():
-    """Test script for gates.
-    """
-    # Ville Bergholm 2010
-
-    from numpy.random import randn
-    from .base import sx, sy, sz, tol
-
-    dim = (2, 4)
-
-    I = id(dim)
-    U = swap(*dim)
-    assert_o((U.ctranspose() * U - I).norm(), 0, tol)  # swap' * swap = I
-
-    # TODO test the output
-    U = mod_add(2, 4, 3)
-    U = mod_inc(3, dim, 5)
-    V = mod_mul(2, dim, 5)
-    dist(U, V)
-    U = phase(randn(prod(dim)), dim)
-    U = qft(dim)
-    U = walsh(3)
-    U = controlled(sz, (1, 0), dim)
-    cnot = controlled(sx)
-    U = single(sy, 0, dim)
-    U = two(cnot, (2, 0), (2, 3, 2))

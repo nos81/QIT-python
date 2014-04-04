@@ -9,6 +9,7 @@ from numpy.linalg import norm
 # HACK to import the module in this source distribution, not the installed one!
 import sys, os
 sys.path.insert(0, os.path.abspath('.'))
+
 from qit import version
 from qit.base  import tol
 from qit.lmap  import lmap, tensor

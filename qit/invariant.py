@@ -36,7 +36,7 @@ from .lmap import lmap, tensor
 
 
 # TODO these function names are terrible
-__all__ = ['canonical', 'makhlin', 'max_concurrence', 'plot_weyl_2q', 'plot_makhlin_2q', 'LU', 'test']
+__all__ = ['canonical', 'makhlin', 'max_concurrence', 'plot_weyl_2q', 'plot_makhlin_2q', 'LU']
 
 
 def LU(rho, k, perms):
@@ -269,31 +269,3 @@ def plot_weyl_2q(ax=None):
     ax.text(0.20, 0.25, 0, 'SWAP$^{1/2}$')
     ax.text(0.75, 0.25, 0, 'SWAP$^{-1/2}$')
     return ax
-
-
-
-def test():
-    """Test script for invariant methods."""
-    from .utils import assert_o, rand_U
-    from . import gate
-    from .base import sx, tol
-
-    U = rand_U(4) # random two-qubit gate
-    L = kron(rand_U(2), rand_U(2)) # random local 2-qubit gate
-    cnot = gate.controlled(sx).data
-    swap = gate.swap(2, 2).data
-
-    # canonical invariants
-    #assert_o(norm(canonical(L) -[0, 0, 0]), 0, tol) # only point in Berkeley chamber with translation degeneracy, (0,0,0) =^ (1,0,0)
-    assert_o(norm(canonical(cnot) -[0.5, 0, 0]), 0, tol)
-    assert_o(norm(canonical(swap) -[0.5, 0.5, 0.5]), 0, tol)
-
-    # Makhlin invariants
-    c = canonical(U)
-    g1 = makhlin(c)
-    g2 = makhlin(U)
-    assert_o(norm(g1-g2), 0, tol)
-
-    # maximum concurrence
-    assert_o(max_concurrence(L), 0, tol)
-    assert_o(max_concurrence(cnot), 1, tol)
