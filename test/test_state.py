@@ -10,9 +10,11 @@ from numpy.linalg import norm
 # HACK to import the module in this source distribution, not the installed one!
 import sys, os
 sys.path.insert(0, os.path.abspath('.'))
-import qit
+from qit import version
+from qit.base  import tol
+from qit.lmap  import lmap
 from qit.state import state
-from qit.utils import rand_positive, rand_U, tol, mkron
+from qit.utils import rand_positive, rand_U, mkron
 
 
 class StateConstructorTest(unittest.TestCase):
@@ -20,7 +22,7 @@ class StateConstructorTest(unittest.TestCase):
         "Test state.__init__"
 
         # copy constructor
-        temp = qit.lmap(randn(4, 4), ((4,), (4,)))
+        temp = lmap(randn(4, 4), ((4,), (4,)))
         s = state(temp, (2, 2))
         # strings
         s = state('10011')
@@ -38,7 +40,7 @@ class StateConstructorTest(unittest.TestCase):
         s = state(rand(3, 3))
         s = state(rand(4, 4), (2, 2))
         # bad inputs
-        temp = qit.lmap(randn(2, 3), ((2,), (3,)))
+        temp = lmap(randn(2, 3), ((2,), (3,)))
         self.assertRaises(ValueError, state, temp)          # nonsquare lmap
         self.assertRaises(ValueError, state, 'rubbish')     # unknown state name
         self.assertRaises(ValueError, state, 0)             # missing dimension
@@ -203,5 +205,5 @@ class StateBinaryFuncTest(unittest.TestCase):
 
 if __name__ == '__main__':
     #print(sys.path)
-    print('Testing QIT version ' + qit.version())
+    print('Testing QIT version ' + version())
     unittest.main()

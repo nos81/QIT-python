@@ -463,45 +463,6 @@ class lmap(object):
         return s
 
 
-    @staticmethod
-    def test():
-        """Test script for the lmap module.
-        """
-        # Ville Bergholm 2009-2011
-        from numpy.testing import assert_almost_equal
-        from numpy.random import rand, randn
-
-        decimal = -int(np.log10(tol))
-
-        # reordering subsystems
-        idim = (2, 5, 3)
-        odim = (4, 3, 2)
-        A = lmap(rand(odim[0], idim[0]))
-        B = lmap(rand(odim[1], idim[1]))
-        C = lmap(rand(odim[2], idim[2]))
-        T1 = tensor(A, B, C)
-
-        p = (2, 0, 1)
-        T2 = T1.reorder((p, p))
-        assert_almost_equal((tensor(C, A, B) - T2).norm(), 0, decimal)
-
-        p = (1, 0, 2)
-        T2 = T1.reorder((p, p))
-        assert_almost_equal((tensor(B, A, C) - T2).norm(), 0, decimal)
-
-        p = (2, 1, 0)
-        T2 = T1.reorder((p, p))
-        assert_almost_equal((tensor(C, B, A) - T2).norm(), 0, decimal)
-
-        ignore = """
-        a = lmap(randn(2,4) +1j*randn(2,4), (None, (2,2)))
-        b = lmap(randn(2,2) +1j*randn(2,2))
-        c = lmap(randn(2))
-
-        print(repr(b * c))
-        print(repr(tensor(a, b)))
-        """
-
 
 def tensor(*arg):
     """Tensor product of lmaps."""
