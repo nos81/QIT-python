@@ -83,12 +83,12 @@ b bugfix
               b state.check fixed.
               b plot.adiabatic_evolution: indexing bug fixed.
 
-0.11.0      in progress
+0.11.0      2014-04-09
               * Code now supports both Python 2.7 and Python 3.
               * Tests moved into the test subdirectory, rewritten using unittest.
-	        The tests can be run either individually or all together using
-		  python -m unittest discover -s test
-              * Use specific reST syntax for parameters where needed.
+                The tests can be run either individually or all together using
+                  python -m unittest discover -s test
+              * Use specific reST syntax for documenting parameters where needed.
               + Use sphinxcontrib-bibtex for the references.
               b seq.scrofulous now uses the phi parameter.
               b Lots of pylinting.

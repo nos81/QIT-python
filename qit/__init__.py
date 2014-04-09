@@ -10,7 +10,7 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 
 
 # toolkit version number
-__version__ = '0.11.0a'
+__version__ = '0.11.0'
 
 def version():
     """Returns the QIT version number (as a string)."""
