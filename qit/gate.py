@@ -289,7 +289,7 @@ def controlled(U, ctrl=(1,), dim=None):
     dim is the dimensions vector for the control qudits. If not given, all controls
     are assumed to be qubits.
 
-    Examples:
+    Examples::
 
       controlled(NOT, [1]) gives the standard CNOT gate.
       controlled(NOT, [1, 1]) gives the Toffoli gate.

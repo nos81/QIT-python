@@ -1272,7 +1272,7 @@ class state(lmap):
     def locc_convertible(self, t, sys):
         """LOCC convertibility of states.
 
-        For bipartite pure states s and t, returns true if s can be converted to t
+        For bipartite pure states s and t, returns True if s can be converted to t
         using local operations and classical communication (LOCC).
         sys is a vector of subsystems defining the partition.
 
@@ -1426,9 +1426,9 @@ class state(lmap):
 
            self.purity() <= 1   implies   norm(A, 'fro')  <= sqrt(D)
 
-           self.trace()   = 1   implies   A[0, 0, ..., 0] == sqrt(D)   
+           self.trace()   = 1   implies   A[0, 0, ..., 0] == 1
 
-        E.g. for a qubit system norm(A, 'fro') <= 2.
+        E.g. for a single-qubit system norm(A, 'fro') <= sqrt(2).
         """
         # Ville Bergholm 2009-2011
 

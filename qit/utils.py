@@ -650,12 +650,13 @@ def inv_vec(v, dim=None):
 def lmul(L, q=None):
     r"""Superoperator equivalent for multiplying from the left.
 
-    .. math::
+    :param array L: matrix, shape (m, p)
+    :param int q: The shape of :math:`\rho` is (p, q). If q is not given, :math:`\rho` is assumed square.
 
-       L \rho = \text{inv\_vec}(\text{lmul}(L) \text{vec}(\rho))
+    Returns the superoperator that implements left multiplication
+    of a vectorized matrix :math:`\rho` by the matrix L.
 
-    Dimensions: L is [m, p], :math:`\rho` is [p, q].
-    If q is not given :math:`\rho` is assumed square.
+    .. math:: L \rho = \text{inv\_vec}(\text{lmul}(L) \text{vec}(\rho))
     """
     # Ville Bergholm 2009
 
@@ -667,12 +668,13 @@ def lmul(L, q=None):
 def rmul(R, p=None):
     r"""Superoperator equivalent for multiplying from the right.
 
-    .. math::
+    :param array R: matrix, shape (q, r)
+    :param int p: The shape of :math:`\rho` is (p, q). If p is not given, :math:`\rho` is assumed square.
 
-       \rho R = \text{inv\_vec}(\text{rmul}(R) \text{vec}(\rho))
+    Returns the superoperator that implements right multiplication
+    of a vectorized matrix :math:`\rho` by the matrix R.
 
-    Dimensions: :math:`\rho` is [p, q], R is [q, r].
-    If p is not given :math:`\rho` is assumed square.
+    .. math:: \rho R = \text{inv\_vec}(\text{rmul}(R) \text{vec}(\rho))
     """
     # Ville Bergholm 2009
 
@@ -684,9 +686,14 @@ def rmul(R, p=None):
 def lrmul(L, R):
     r"""Superoperator equivalent for multiplying both from left and right.
 
-    .. math::
+    :param array L: matrix, shape (m, p)
+    :param array R: matrix, shape (q, r)
 
-       L \rho R = \text{inv\_vec}(\text{lrmul}(L, R) \text{vec}(\rho))
+    Returns the superoperator that implements left multiplication
+    by the matrix L and right multiplication by the matrix R
+    of a vectorized matrix :math:`\rho`.
+
+    .. math:: L \rho R = \text{inv\_vec}(\text{lrmul}(L, R) \text{vec}(\rho))
     """
     # Ville Bergholm 2009-2011
 
@@ -817,11 +824,11 @@ def superop_fp(L, tol=None):
 def angular_momentum(d):
     r"""Angular momentum matrices.
 
-    (Jx, Jy, Jz) = angular_momentum(d)
+    :param int d: dimension, the corresponding angular momentum quantum number is j = (d-1)/2
+    :returns: 3-tuple of angular momentum matrices (Jx, Jy, Jz)
 
-    Returns a 3-tuple of angular momentum matrices :math:`\vec{J} / \hbar`
-    for the d-dimensional subspace defined by the
-    quantum number j == (d-1)/2.
+    Returns the dimensionless angular momentum matrices :math:`\vec{J} / \hbar`
+    for the d-dimensional subspace.
 
     The angular momentum matrices fulfill the commutation relation
     :math:`[J_x, J_y] = i J_z` and all its cyclic permutations.
@@ -850,6 +857,9 @@ def angular_momentum(d):
 def boson_ladder(d):
     r"""Bosonic ladder operators.
 
+    :param int d: truncation dimension
+    :returns: bosonic annihilation operator :math:`b`
+
     Returns the d-dimensional approximation of the bosonic
     annihilation operator :math:`b` for a single bosonic mode in the
     number basis :math:`\{|0\rangle, |1\rangle, ..., |d-1\rangle\}`.
@@ -868,7 +878,10 @@ def boson_ladder(d):
 def fermion_ladder(n):
     r"""Fermionic ladder operators.
 
-    Returns a vector of fermionic annihilation operators for a
+    :param int n: number of fermionic modes
+    :returns: array of fermionic annihilation operators :math:`f_k`
+
+    Returns the fermionic annihilation operators for a
     system of n fermionic modes in the second quantization.
 
     The annihilation operators are built using the Jordan-Wigner
@@ -1111,18 +1124,18 @@ def tensorbasis(n, d=None, get_locality=False):
 def op_list(G, dim):
     r"""Operator consisting of k-local terms, given as a list.
 
-    Returns the operator O defined by the connection list G.
-    dim is a vector of subsystem dimensions for O.
+    :param list G: list of k-local operator terms
+    :param vector dim: vector of subsystem dimensions
+    :returns: operator O defined by the connection list
+
     G is a list of arrays, :math:`G = [c_1, c_2, ..., c_n]`,
     where each array :math:`c_i` corresponds to a term in O.
 
     An array that has 2 columns and k rows, :math:`c_i` = [(A1, s1), (A2, s2), ... , (Ak, sk)],
-    where Aj are operators and sj subsystem indices, corresponds to the
+    where Aj are arrays and sj subsystem indices, corresponds to the
     k-local term given by the tensor product
 
-    .. math::
-
-       A1_{s1} * A2_{s2} * ... * Ak_{sk}.
+    .. math:: A_1^{(s_1)} A_2^{(s_2)} \cdots A_k^{(s_k)}.
 
     The dimensions of all operators acting on subsystem sj must match dim[sj].
 
@@ -1178,13 +1191,16 @@ def qubits(n):
 def majorize(x, y):
     r"""Majorization partial order of real vectors.
 
-    Returns true iff the real vector x is majorized by the real vector y,
-    denoted by :math:`x \preceq y`. This is equivalent to
+    :param vector x, y: real vectors, dimension d
+    :returns: True iff :math:`x \preceq y`
+
+    Returns True iff x is majorized by y, denoted by :math:`x \preceq y`. This is equivalent to
+
     .. math::
 
-       \sum_{k=1}^n x^{\downarrow}_k \le \sum_{k=1}^n y^{\downarrow}_k` \quad \text{for all} \quad n \in \{1, 2, \ldots, d\},
+       \sum_{k=1}^n x^{\downarrow}_k \le \sum_{k=1}^n y^{\downarrow}_k \quad \text{for all} \quad n \in \{1, 2, \ldots, d\},
 
-    where d is the dimension of the vectors x and y, and :math:`x^{\downarrow}` is the vector x with the elements sorted in nonincreasing order.
+    where :math:`x^{\downarrow}` is the vector x with the elements sorted in nonincreasing order.
 
     :math:`x \preceq y` if and only if x is in the convex hull of all the coordinate permutations of y.
     """

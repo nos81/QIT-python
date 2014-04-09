@@ -88,6 +88,7 @@ b bugfix
               * Tests moved into the test subdirectory, rewritten using unittest.
 	        The tests can be run either individually or all together using
 		  python -m unittest discover -s test
+              * Use specific reST syntax for parameters where needed.
               + Use sphinxcontrib-bibtex for the references.
               b seq.scrofulous now uses the phi parameter.
               b Lots of pylinting.
