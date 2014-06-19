@@ -1010,6 +1010,7 @@ class state(lmap):
         For state vectors this is equivalent to the overlap, :math:`F = |\langle a|b\rangle|`.
 
         Fidelity is symmetric in its arguments and bounded in the interval [0,1].
+        TODO Uhlmann's theorem, Bures metric, monotonicity under TP maps
         See :cite:`NC`, chapter 9.2.2.
         """
         # Ville Bergholm 2009-2010
@@ -1038,6 +1039,8 @@ class state(lmap):
 
         Equivalently :math:`D(r, s) = \frac{1}{2} \sum_k |\lambda_k|`, where :math:`\lambda_k`
         are the eigenvalues of A (since A is Hermitian). See :cite:`NC`, chapter 9.2.1.
+
+        TODO stuff in NC
         """
         # Ville Bergholm 2009
 
