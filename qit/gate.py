@@ -27,6 +27,8 @@ Contents
    controlled
    single
    two
+   copydot
+   plusdot
 """
 
 from __future__ import division, absolute_import, print_function, unicode_literals
@@ -40,7 +42,8 @@ from .utils import qubits, op_list, assert_o, copy_memoize, gcd
 
 __all__ = ['dist', 'id', 'phase', 'qft', 'swap', 'walsh',
            'mod_add', 'mod_inc', 'mod_mul', 
-           'controlled', 'single', 'two']
+           'controlled', 'single', 'two',
+           'copydot', 'plusdot']
 
 # TODO reshape will cause problems for sparse matrices!
 # TODO utils.op_list too!
@@ -400,3 +403,41 @@ def two(B, t, d_in):
     d_out = d_in.copy()
     d_out[t] = B.dim[0]
     return lmap(U, (d_out, d_in))
+
+
+def copydot(n_in, n_out, d=2):
+    """Copy dot.
+
+    Returns the lmap corresponding to the copy dot with n_in input
+    legs, n_out output legs, and subsystem dimension d.
+
+    See :cite:`BB2011`
+    """
+    # Ville Bergholm 2014
+
+    d_in  = d**n_in
+    d_out = d**n_out
+    C = sparse.dok_matrix((d_out, d_in))
+    # compute the strides by summing up 1+d+d^2+...+d^(n-1)
+    stride_in  = (d_in -1) / (d-1)
+    stride_out = (d_out-1) / (d-1)
+    # loop over the sum
+    for k in range(d):
+        C[k*stride_out, k*stride_in] = 1
+    return lmap(C, ((d,)*n_out, (d,)*n_in))
+
+
+def plusdot(n_in, n_out, d=2):
+    """Plus dot.
+
+    Returns the lmap corresponding to the plus dot with n_in input
+    legs, n_out output legs, and subsystem dimension d.
+
+    See :cite:`BB2011`
+    """
+    # Ville Bergholm 2014
+    # TODO this implementation has small numerical errors from qft, we
+    # could do better
+    U = copydot(n_in, n_out, d)
+    Q = qft(d)
+    return Q.tensorpow(n_out) * U * Q.tensorpow(n_in)

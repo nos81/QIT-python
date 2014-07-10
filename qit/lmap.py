@@ -33,6 +33,7 @@ Linear algebra
    ctranspose
    trace
    norm
+   tensorpow
    reorder
 
 
@@ -390,6 +391,20 @@ class lmap(object):
     def norm(self):
         """Matrix norm of the lmap."""
         return np.linalg.norm(self.data)
+
+
+    def tensorpow(self, n):
+        """Tensor power of the lmap.
+
+        Returns :math:`U^{\otimes n}`.
+        """
+        dout = self.dim[0] * n
+        din  = self.dim[1] * n
+        data = 1
+        for _ in range(n):
+            # kronecker product of the data
+            data = np.kron(data, self.data)
+        return lmap(data, (dout, din))
 
 
 # subsystem ordering

@@ -92,3 +92,8 @@ b bugfix
               + Use sphinxcontrib-bibtex for the references.
               b seq.scrofulous now uses the phi parameter.
               b Lots of pylinting.
+
+0.12.0      in progress
+              + lmap.tensorpow
+              + gate.copydot
+              + gate.plusdot
