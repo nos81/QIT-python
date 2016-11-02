@@ -95,6 +95,7 @@ b bugfix
 
 0.12.0      in progress
               + lmap.tensorpow
+              + lmap.real, lmap.imag
               + gate.copydot
               + gate.plusdot
               * seq: sign convention changed

@@ -262,6 +262,20 @@ class lmap(object):
 
 # linear algebra
 
+    def real(self):
+        """Real part."""
+        s = copy(self)
+        s.data = self.data.real
+        return s
+
+
+    def imag(self):
+        """Imaginary part."""
+        s = copy(self)
+        s.data = self.data.imag
+        return s
+
+
     def conj(self):
         """Complex conjugate."""
         s = copy(self)  # preserves the type, important for subclasses
@@ -398,6 +412,8 @@ class lmap(object):
 
         Returns :math:`U^{\otimes n}`.
         """
+        if n < 1:
+            raise ValueError('Only positive integer tensor powers are allowed.')
         dout = self.dim[0] * n
         din  = self.dim[1] * n
         data = 1
