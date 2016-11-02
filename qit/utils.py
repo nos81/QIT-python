@@ -1057,6 +1057,10 @@ def tensorbasis(n, d=None, get_locality=False):
     of Gell-Mann matrices (which in the case of qubits are equal to Pauli matrices).
     The basis elements are normalized such that :math:`\mathrm{Tr}(b_i^\dagger b_j) = \delta_{ij}`.
 
+    The second output variable is an integer array denoting the locality
+    of each basis element, i.e. the number of non-identity matrices
+    in the tensor product.
+
     Input is either two scalars, n and d, in which case the system consists of n qu(d)its, :math:`H = C_d^{\otimes n}`,
     or the vector dim, which contains the dimensions of the individual subsystems:
     :math:`H = C_{dim[0]} \otimes ... \otimes C_{dim[n-1]}`.
@@ -1064,7 +1068,7 @@ def tensorbasis(n, d=None, get_locality=False):
     In addition to expanding Hermitian operators on H, this basis can be multiplied by
     the imaginary unit to obtain the antihermitian generators of U(prod(dim)).
     """
-    # Ville Bergholm 2005-2011
+    # Ville Bergholm 2005-2016
 
     if d == None:
         # dim vector
@@ -1088,7 +1092,7 @@ def tensorbasis(n, d=None, get_locality=False):
     n_all = prod(n_elements) # number of all tensor basis elements, incl. identity
 
     B = []
-    locality = zeros(n_all, dtype = bool)  # logical array, is the corresponding basis element local?
+    locality = zeros(n_all, dtype=int)  # number of non-identity terms in the corresponding basis element
     # create the tensor basis
     for k in range(n_all):  # loop over all basis elements
         inds = np.unravel_index(k, n_elements)
@@ -1108,7 +1112,7 @@ def tensorbasis(n, d=None, get_locality=False):
             temp = kron(temp, L)  # tensor in another matrix
 
         B.append(temp)
-        locality[k] = (nonid < 2) # at least two non-identities => nonlocal element
+        locality[k] = nonid  # at least two non-identities => nonlocal element
 
     # store into cache
     tensorbasis_cache[dim] = deepcopy((B, locality))
