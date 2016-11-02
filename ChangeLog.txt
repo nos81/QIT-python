@@ -97,3 +97,4 @@ b bugfix
               + lmap.tensorpow
               + gate.copydot
               + gate.plusdot
+              * seq: sign convention changed

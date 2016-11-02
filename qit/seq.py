@@ -8,7 +8,7 @@ Piecewise constant control sequences for quantum systems.
 Each control sequence is a dictionary with the following keys:
 
 =======  ===============================================================================================
-A        Drift generator (typically :math:`i/\hbar` times a Hamiltonian and a time unit of your choice).
+A        Drift generator (typically :math:`-1j/\hbar` times a Hamiltonian and a time unit of your choice).
 B        List of control generators. c := len(B).
 tau      Vector of durations of the time slices. m := len(tau).
 control  Array, shape (m, c). control[i,j] is the value of control field j during time slice i.
@@ -24,10 +24,7 @@ and the corresponding propagator is
 
 .. math::
 
-   P_j = \exp(-\tau_j G_j).
-
-
-NOTE the unusual sign convention.
+   P_j = \exp(\tau_j G_j).
 
 
 .. currentmodule:: qit.seq
@@ -45,7 +42,7 @@ Contents
    seq2prop
    propagate
 """
-# Ville Bergholm 2011-2014
+# Ville Bergholm 2011-2016
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
@@ -78,7 +75,7 @@ def nmr(a):
        R_{\vec{a}}(\theta) = \exp(-i \vec{a} \cdot \vec{\sigma} \theta/2) = \exp(-i H t) \quad \Leftarrow \quad
        H = \vec{a} \cdot \vec{\sigma}/2, \quad t = \theta.
     """
-    # Ville Bergholm 2006-2009
+    # Ville Bergholm 2006-2016
 
     a = asarray(a, dtype=float)
     theta = a[:, 0]
@@ -90,9 +87,8 @@ def nmr(a):
     phi[rows] = phi[rows] + pi
 
     # construct the sequence TODO make it a class?
-    # NOTE the strange sign convention in A and B
     s = {'A': zeros((2, 2)),
-         'B': [0.5j * sx, 0.5j * sy],
+         'B': [-0.5j * sx, -0.5j * sy],
          'tau': theta,
          'control': c_[cos(phi), sin(phi)]
          }
@@ -169,14 +165,14 @@ def scrofulous(theta, phi=0):
 
     SCROFULOUS: Short Composite ROtation For Undoing Length Over- and UnderShoot
     """
-    # Ville Bergholm 2006-2014
+    # Ville Bergholm 2006-2016
 
     th1 = brentq(lambda t: (sin(t)/t -(2 / pi) * cos(theta / 2)), 0.1, 4.6)
-    ph1 = arccos(-pi * cos(th1) / (2 * th1 * sin(theta / 2)))
+    ph1 = arccos(-pi * cos(th1) / (2 * th1 * sin(theta / 2))) +phi
     ph2 = ph1 - arccos(-pi / (2 * th1))
 
-    u1 = [[th1, ph1 +phi]]
-    u2 = [[pi,  ph2 +phi]]
+    u1 = [[th1, ph1]]
+    u2 = [[pi,  ph2]]
     return nmr(u1 + u2 + u1)
 
 
@@ -186,9 +182,9 @@ def seq2prop(s):
     Returns the propagator matrix corresponding to the
     action of the control sequence s.
 
-    Governing equation: :math:`\dot(X)(t) = -(A +\sum_k u_k(t) B_k) X(t) = -G(t) X(t)`.
+    Governing equation: :math:`\dot(X)(t) = (A +\sum_k u_k(t) B_k) X(t) = G(t) X(t)`.
     """
-    # Ville Bergholm 2009-2012
+    # Ville Bergholm 2009-2016
 
     A = s['A']
     B = s['B']
@@ -200,7 +196,7 @@ def seq2prop(s):
         for k, b in enumerate(B):
             G = G + s['control'][j, k] * b
 
-        temp = expm(-s['tau'][j] * G)  # NOTE the sign convention here
+        temp = expm(s['tau'][j] * G)
         P = dot(temp, P)
 
     return P
@@ -211,7 +207,7 @@ def propagate(s, seq, out_func=lambda x: x, base_dt=0.1):
     
     If no output function is given, we use an identity map.
     """
-    # Ville Bergholm 2009-2014
+    # Ville Bergholm 2009-2016
 
     A = seq['A']
     B = seq['B']
@@ -230,7 +226,7 @@ def propagate(s, seq, out_func=lambda x: x, base_dt=0.1):
         n_steps = max(int(ceil(T / base_dt)), 1)
         dt = T / n_steps
 
-        P = expm(-G * dt)  # NOTE TODO the sign convention here
+        P = expm(G * dt)
         for k in range(n_steps):
             s = s.u_propagate(P)
             out.append(out_func(s))
