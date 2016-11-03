@@ -52,42 +52,30 @@ def LU(rho, k, perms):
 
     Uses the algorithm in :cite:`BBL2012`.
     """
-    # Ville Bergholm 2011-2012
-
-    def tensor_pow(rho, n):
-        """Returns $\rho^{\otimes n}$."""
-        rho.to_op(inplace=True)
-        ret = lmap(rho)
-        for _ in range(1, n):
-            ret = tensor(ret, rho)
-        return ret
-
+    # Ville Bergholm 2011-2016
 
     n = len(perms)
     if n != rho.subsystems():
         raise ValueError('Need one permutation per subsystem.')
 
     # convert () to identity permutation
-    id_perm = tuple(range(k))
+    id_perm = arange(k)
     perms = list(perms)
+
+    # idea: tensor k copies of rho together, then permute all the copies of the i:th subsystem using perms[i] on one side.
+    # cols of r correspond to subsystems, rows to copies. the initial order is
+    r = arange(n * k).reshape((k, n))
     for j, p in enumerate(perms):
         if len(p) == 0:
-            perms[j] = id_perm
-
-    # splice k sequential copies of the entire system into k copies of each subsystem
-    s = arange(n * k).reshape((k, n)).flatten()
-
-    # permute the k copies of each subsystem
-    temp = kron(k * arange(n), ones(k, int))
-    p = asarray(perms).flatten() + temp
-
-    # Permutations: a*b = a(b), x = y * z^{-1}  <=>  x * z = x(z) = y.
-    s_inv = empty(s.shape, int)
-    s_inv[s] = arange(n*k)
-    total = s_inv[p[s]] # total = s^{-1} * p * s
+            p = id_perm
+        elif len(p) != k:
+            raise ValueError('Permutation #{0} does not have {1} elements.'.format(j, k))
+        r[:,j] = r[asarray(p),j]  # apply the jth permutation
+    r = r.flatten()
 
     # TODO this could be done much more efficiently
-    return tensor_pow(rho, k).reorder((total, None)).trace()
+    temp = lmap(rho.to_op().tensorpow(k))
+    return temp.reorder((r, None)).trace()
 
 
 

@@ -414,13 +414,14 @@ class lmap(object):
         """
         if n < 1:
             raise ValueError('Only positive integer tensor powers are allowed.')
-        dout = self.dim[0] * n
-        din  = self.dim[1] * n
-        data = 1
-        for _ in range(n):
+        s = deepcopy(self)
+        # repeat the input and output dim vectors n times
+        s.dim = (self.dim[0] * n, self.dim[1] * n)
+        for _ in range(n-1):
             # kronecker product of the data
-            data = np.kron(data, self.data)
-        return lmap(data, (dout, din))
+            s.data = np.kron(s.data, self.data)
+        s.remove_singletons()
+        return s
 
 
 # subsystem ordering

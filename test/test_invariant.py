@@ -12,9 +12,10 @@ sys.path.insert(0, os.path.abspath('.'))
 
 from qit import version
 from qit.base import sx, tol
-from qit.utils import rand_U
+from qit.utils import rand_U, rand_positive
 import qit.gate as gate
 from qit.invariant import *
+from qit.state import state
 
 
 class InvTest(unittest.TestCase):
@@ -44,6 +45,17 @@ class InvTest(unittest.TestCase):
 
         #plot_weyl_2q()
         #plot_makhlin_2q(25, 25)
+
+        # Local unitary invariants of states
+        rho = state(rand_positive(4), (2,2))
+        self.assertAlmostEqual(LU(rho, 2, [(), ()]), 1, delta=tol)  # trace of the state
+        # invariance under LU maps
+        perms = [(), (1,0)]
+        self.assertAlmostEqual(LU(rho, 2, perms), LU(rho.u_propagate(L), 2, perms), delta=tol)
+
+        # invariance under LU maps
+        perms = [(), (1,2,0)]
+        self.assertAlmostEqual(LU(rho, 3, perms), LU(rho.u_propagate(L), 3, perms), delta=tol)
 
 
 if __name__ == '__main__':
