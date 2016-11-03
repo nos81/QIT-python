@@ -46,6 +46,7 @@ Random matrices
    rand_U1
    rand_pu
    rand_positive
+   rand_GL
    rand_SL
 
 
@@ -115,7 +116,7 @@ __all__ = ['assert_o', 'copy_memoize',
            'gcd', 'lcm', 'majorize',
            'comm', 'acomm', 'mkron', 'projector', 'eighsort', 'expv',
            'rank', 'orth', 'nullspace', 'nullspace_hermitian',
-           'rand_hermitian', 'rand_U', 'rand_SU', 'rand_U1', 'rand_pu', 'rand_positive', 'rand_SL', 
+           'rand_hermitian', 'rand_U', 'rand_SU', 'rand_U1', 'rand_pu', 'rand_positive', 'rand_GL', 'rand_SL',
            'vec', 'inv_vec', 'lmul', 'rmul', 'lrmul', 'superop_lindblad', 'superop_fp',
            'angular_momentum', 'boson_ladder', 'fermion_ladder',
            'R_nmr', 'R_x', 'R_y', 'R_z',
@@ -255,7 +256,7 @@ def nullspace_hermitian(A, tol=None):
     d = int(sqrt(D))  # since A is a superop
 
     # Hermitian basis.
-    # reshape uses row-major order, so technically we would need transpose each matrix,
+    # reshape uses row-major order, so technically we would need to transpose each matrix,
     # but since they're Hermitian and orthonormal either way it doesn't really matter.
     V = gellmann(d).reshape((D-1, D))
     # Add identity
@@ -593,10 +594,24 @@ def rand_positive(n):
     # An alternative would be to use an inverse purification, but this would be expensive.
 
 
+def rand_GL(n):
+    """Random GL(n, C) matrix.
+
+    Returns a random complex general linear n*n matrix.
+    NOTE: The randomness is not defined in any deeply meaningful sense.
+    The :math:`\det S \neq 0` condition is for now fulfilled only statistically,
+    i.e. you almost never obtain a non-invertible matrix.
+    """
+    # Ville Bergholm 2016
+
+    A = randn(n, n) +1j*randn(n, n)
+    return A
+
+
 def rand_SL(n):
     """Random SL(n, C) matrix.
 
-    Returns a random special linear n*n matrix.
+    Returns a random complex special linear n*n matrix.
     NOTE: The randomness is not defined in any deeply meaningful sense.
     """
     # Ville Bergholm 2011

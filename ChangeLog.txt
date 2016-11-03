@@ -95,8 +95,10 @@ b bugfix
 
 0.12.0      in progress
               + lmap.tensorpow
-              + lmap.real, lmap.imag
+              + lmap.real
+              + lmap.imag
               + gate.copydot
               + gate.plusdot
+              + utils.rand_GL
               * utils.tensorbasis also returns the integer locality of each element.
               * seq: sign convention changed
