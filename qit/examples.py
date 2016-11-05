@@ -702,7 +702,7 @@ def qft_circuit(dim=(2, 3, 3, 2)):
        = \frac{1}{\sqrt{d}} \sum_{k_i} |k_n,\ldots, k_2, k_1\rangle \exp\left(i 2 \pi \left(\sum_{r=1}^n k_r 0.x_r x_{r+1}\ldots x_n\right)\right)
        = \frac{1}{\sqrt{d}} \sum_{k_i} |k_n,\ldots, k_2, k_1\rangle \exp\left(i 2 \pi 0.x_1 x_2 \ldots x_n \left(\sum_{r=1}^n d_1 d_2 \cdots d_{r-1} k_r \right)\right).
     """
-    # Ville Bergholm 2010-2011
+    # Ville Bergholm 2010-2016
 
     print('\n\n=== Quantum Fourier transform using a quadratic circuit ===\n')
     print('Subsystem dimensions: {0}'.format(dim))
@@ -712,6 +712,7 @@ def qft_circuit(dim=(2, 3, 3, 2)):
         temp = kron(arange(d[0]), arange(d[-1])) / prod(d)
         return gate.phase(2 * pi * temp, (d[0], d[-1]))
 
+    dim = tuple(dim)
     n = len(dim)
     U = gate.id(dim)
 
@@ -724,7 +725,7 @@ def qft_circuit(dim=(2, 3, 3, 2)):
 
     for k in range(n // 2):
         temp = gate.swap(dim[k], dim[n-1-k])
-        U = gate.two(temp, (k, n-1-k), dim) * U
+        U = gate.two(temp, (k, n-1-k), U.dim[0]) * U
 
     err = norm(U.data - gate.qft(dim).data)
     print('Error: {0}'.format(err))
