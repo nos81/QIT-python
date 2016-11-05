@@ -228,29 +228,29 @@ def bb84(n=50):
     Simulate the protocol with n qubits transferred.
 
     """
-    # Ville Bergholm 2009-2012
+    # Ville Bergholm 2009-2016
     from .base import H
 
     print('\n\n=== BB84 protocol ===\n')
     print('Using {0} transmitted qubits, intercept-resend attack.\n'.format(n))
 
     # Alice generates two random bit vectors
-    sent    = npr.rand(n) > 0.5
+    bits_A  = npr.rand(n) > 0.5
     basis_A = npr.rand(n) > 0.5
 
     # Bob generates one random bit vector
     basis_B = npr.rand(n) > 0.5
-    received = zeros(n, bool)
+    bits_B  = zeros(n, bool)
 
     # Eve hasn't yet decided her basis
     basis_E = zeros(n, bool)
-    eavesdrop = zeros(n, bool)
+    bits_E  = zeros(n, bool)
 
     print("""Alice transmits a sequence of qubits to Bob using a quantum channel.
 For every qubit, she randomly chooses a basis (computational or diagonal)
 and randomly prepares the qubit in either the |0> or the |1> state in that basis.""")
     print("\nbasis_A = {0}\nbits_A  = {1}".format(asarray(basis_A, dtype=int),
-                                                  asarray(sent, dtype=int)))
+                                                  asarray(bits_A, dtype=int)))
 
     temp = state('0')
     for k in range(n):
@@ -258,7 +258,7 @@ and randomly prepares the qubit in either the |0> or the |1> state in that basis
         q = temp
 
         # Should Alice flip the qubit?
-        if sent[k]:  q = q.u_propagate(sx)
+        if bits_A[k]:  q = q.u_propagate(sx)
 
         # Should Alice apply a Hadamard?
         if basis_A[k]:  q = q.u_propagate(H)
@@ -276,7 +276,7 @@ and randomly prepares the qubit in either the |0> or the |1> state in that basis
 
         # Eve measures in the basis she has chosen
         _, res, q = q.measure(do = 'C')
-        eavesdrop[k] = res
+        bits_E[k] = res
 
         # Eve tries to reverse the changes she made...
         if basis_E[k]:  q = q.u_propagate(H)
@@ -289,41 +289,44 @@ and randomly prepares the qubit in either the |0> or the |1> state in that basis
 
         # Bob measures in the basis he has chosen, and discards the qubit.
         _, res = q.measure()
-        received[k] = res
+        bits_B[k] = res
 
-    #sum(xor(sent, eavesdrop))/n
-    #sum(xor(sent, received))/n
+    #sum(xor(bits_A, bits_E))/n
+    #sum(xor(bits_A, bits_B))/n
 
     print("""\nHowever, there's an eavesdropper, Eve, on the line. She intercepts the qubits,
 randomly measures them in either basis (thus destroying the originals!), and then sends
 a new batch of qubits corresponding to her measurements and basis choices to Bob.
-Since Eve on the average can choose the right basis only 50% of the time,
+Since Eve on the average can choose the right basis only 1/2 of the time,
 about 1/4 of her bits differ from Alice's.""")
     print("\nbasis_E = {0}\nbits_E  = {1}".format(asarray(basis_E, dtype=int),
-                                                  asarray(eavesdrop, dtype=int)))
+                                                  asarray(bits_E, dtype=int)))
+    print('\nMismatch frequency between Alice and Eve: {0}'.format(np.sum(np.logical_xor(bits_A, bits_E)) / n))
 
-    print("\nWhen Bob receives the qubits, he randomly measures them in either basis.")
+    print("""\nWhen Bob receives the qubits, he randomly measures them in either basis.
+Due to Eve's eavesdropping, Bob's bits differ from Alice's 3/8 of the time.""")
     print("\nbasis_B = {0}\nbits_B  = {1}".format(asarray(basis_B, dtype=int),
-                                                  asarray(received, dtype=int)))
+                                                  asarray(bits_B, dtype=int)))
+    print('\nMismatch frequency between Alice and Bob: {0}'.format(np.sum(np.logical_xor(bits_A, bits_B)) / n))
 
     print("""\nNow Bob announces on a public classical channel that he has received all the qubits.
 Alice and Bob then reveal the bases they used. Whenever the bases happen to match,
-(about 50% of the time on the average), they both add their corresponding bit to
-their personal key. The two keys should be identical unless there's been an eavesdropper.""")
+(about 1/2 of the time on the average), they both add their corresponding bit to
+their personal key. The two keys should be identical unless there's been an eavesdropper.
+However, because of Eve each key bit has a 1/4 probability of being wrong.\n""")
 
     match = np.logical_not(np.logical_xor(basis_A, basis_B))
-    key_A = sent[match]
-    key_B = received[match]
+    key_A = bits_A[match]
+    key_B = bits_B[match]
     m = len(key_A)
-    print('\nmatch = {0}\nkey_A = {1}\nkey_B = {2}'.format(asarray(match, dtype=int),
-                                                           asarray(key_A, dtype=int),
-                                                           asarray(key_B, dtype=int)))
-    print('\nMismatch frequency between Alice and Bob: {0}'.format(np.sum(np.logical_xor(key_A, key_B)) / m))
+    print('{0} basis matches.\nkey_A = {1}\nkey_B = {2}'.format(np.sum(match),
+                                                                asarray(key_A, dtype=int),
+                                                                asarray(key_B, dtype=int)))
+    print("\nMismatch frequency between Alice's and Bob's keys: {0}".format(np.sum(np.logical_xor(key_A, key_B)) / m))
 
     print("""\nAlice and Bob then sacrifice k bits of their shared key to compare them.
 If a nonmatching bit is found, the reason is either an eavesdropper or a noisy channel.
-Since the probability for each eavesdropped bit to be wrong is 1/4, they will detect
-Eve's presence with the probability 1-(3/4)^k.""")
+With a noiseless channel Alice and Bob will detect Eve's presence with the probability 1-(3/4)^k.""")
 
 
 

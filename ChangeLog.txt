@@ -103,3 +103,4 @@ b bugfix
               * utils.tensorbasis also returns the integer locality of each element.
               * seq: sign convention changed
               b invariant.LU fixed.
+              * examples.bb84 prints more info.
