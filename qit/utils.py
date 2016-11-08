@@ -26,6 +26,7 @@ Matrix functions
    comm
    acomm
    mkron
+   tensorsum
    rank
    orth
    nullspace
@@ -114,14 +115,15 @@ from .base import sx, sy, sz, tol
 
 __all__ = ['assert_o', 'copy_memoize',
            'gcd', 'lcm', 'majorize',
-           'comm', 'acomm', 'mkron', 'projector', 'eighsort', 'expv',
+           'comm', 'acomm', 'mkron', 'tensorsum',
+           'projector', 'eighsort', 'expv',
            'rank', 'orth', 'nullspace', 'nullspace_hermitian',
            'rand_hermitian', 'rand_U', 'rand_SU', 'rand_U1', 'rand_pu', 'rand_positive', 'rand_GL', 'rand_SL',
            'vec', 'inv_vec', 'lmul', 'rmul', 'lrmul', 'superop_lindblad', 'superop_fp',
            'angular_momentum', 'boson_ladder', 'fermion_ladder',
-           'R_nmr', 'R_x', 'R_y', 'R_z',
            'spectral_decomposition',
            'gellmann', 'tensorbasis',
+           'R_nmr', 'R_x', 'R_y', 'R_z',
            'op_list',
            'qubits']
 
@@ -1254,3 +1256,31 @@ def mkron(*arg):
     for A in arg:
         X = kron(X, A)
     return X
+
+
+def tensorsum(*arg):
+    r"""Like kron but adding instead of multiplying.
+    """
+    # Ville Bergholm 2016
+
+    #c = log(kron(exp(a), exp(b))) # a perverted way of doing it, the exp overflows...
+    A = np.asarray(arg[0])
+    for B in arg[1:]:
+        B = np.asarray(B)
+        # number of dims must match, pad the shorter dim vector with singletons from the left
+        nda = A.ndim
+        ndb = B.ndim
+        a = A.shape
+        b = B.shape
+        if ndb > nda:
+            a = (1,)*(ndb-nda) + a
+            nd = ndb
+        else:
+            b = (1,)*(nda-ndb) + b
+            nd = nda
+        # outer sum
+        A = np.add.outer(A,B).reshape(a + b)
+        # collapse the extra dimensions
+        for _ in range(nd):
+            A = np.concatenate(A, axis=nd-1)
+    return A

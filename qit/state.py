@@ -93,7 +93,7 @@ from scipy.integrate import ode
 from .base import sy, Q_Bell, tol
 from .lmap import tensor as lmap_tensor
 from .lmap import numstr_to_array, array_to_numstr, lmap
-from .utils import (_warn, vec, inv_vec, qubits, expv, rand_U, rand_SU, rand_positive, mkron,
+from .utils import (_warn, vec, inv_vec, qubits, expv, rand_U, rand_SU, rand_positive, mkron, tensorsum,
     eighsort, spectral_decomposition, majorize, tensorbasis, assert_o)
 
 
@@ -419,14 +419,6 @@ class state(lmap):
         n = s.subsystems()
         sys = s.clean_selection(sys)
         keep = s.invert_selection(sys)
-
-        def tensorsum(a, b):
-            """Like tensor product, but with sum."""
-            #c = log(kron(exp(a), exp(b))) # a perverted way of doing it, the exp overflows...
-            c = []
-            for k in a:
-                c.extend(k + b)
-            return array(c)
 
         # big-endian (C) data ordering
         # we trace over the subsystems in order, starting from the first one
