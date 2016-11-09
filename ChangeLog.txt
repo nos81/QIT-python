@@ -102,7 +102,10 @@ b bugfix
               + utils.tensorsum
               + utils.rand_GL
               * utils.tensorbasis also returns the integer locality of each element.
-              * seq: sign convention changed
+              * seq: sign convention changed, converted into a class.
+              + seq.knill
+              + seq.dd
+              - seq.cpmg
               b invariant.LU fixed.
               * examples.bb84 prints more info.
               b examples.qft_circuit now also works on all nonpalindromic dim vectors.

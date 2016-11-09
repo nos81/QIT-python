@@ -3,28 +3,7 @@ r"""
 Control sequences (:mod:`qit.seq`)
 ==================================
 
-
-Piecewise constant control sequences for quantum systems.
-Each control sequence is a dictionary with the following keys:
-
-=======  ===============================================================================================
-A        Drift generator (typically :math:`-1j/\hbar` times a Hamiltonian and a time unit of your choice).
-B        List of control generators. c := len(B).
-tau      Vector of durations of the time slices. m := len(tau).
-control  Array, shape (m, c). control[i,j] is the value of control field j during time slice i.
-=======  ===============================================================================================
-
-The total generator for the time slice j is thus given by
-
-.. math::
-
-   G_j = A +\sum_k \text{control}_{jk} B_k,
-
-and the corresponding propagator is
-
-.. math::
-
-   P_j = \exp(\tau_j G_j).
+.. currentmodule:: qit.seq.seq
 
 
 .. currentmodule:: qit.seq
@@ -38,22 +17,80 @@ Contents
    corpse
    bb1
    scrofulous
-   cpmg
-   seq2prop
+   knill
+   dd
    propagate
 """
-# Ville Bergholm 2011-2016
+# Ville Bergholm 2009-2016
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
-from numpy import array, sin, cos, arcsin, arccos, pi, asarray, eye, zeros, r_, c_, dot, nonzero, ceil, linspace
+from numpy import array, arange, sin, cos, arcsin, arccos, pi, asarray, eye, zeros, r_, c_, dot, nonzero, ceil, linspace
 from scipy.linalg import expm
 from scipy.optimize import brentq
 
 from .base import sx, sy, tol
 
 
-__all__ = ['nmr', 'bb1', 'corpse', 'cpmg', 'scrofulous', 'seq2prop', 'propagate']
+__all__ = ['seq', 'nmr', 'bb1', 'corpse', 'scrofulous', 'knill', 'dd', 'propagate']
+
+
+class seq(object):
+    r"""
+    Piecewise constant control sequences for quantum systems.
+
+    Variables:
+    =======  ===============================================================================================
+    A        Drift generator (typically :math:`-1j/\hbar` times a Hamiltonian and a time unit of your choice).
+    B        List of control generators. c := len(B).
+    tau      Vector of durations of the time slices. m := len(tau).
+    control  Array, shape (m, c). control[i,j] is the value of control field j during time slice i.
+    =======  ===============================================================================================
+
+    The total generator for the time slice j is thus given by
+
+    .. math::
+
+    G_j = A +\sum_k \text{control}_{jk} B_k,
+
+    and the corresponding propagator is
+
+    .. math::
+
+    P_j = \exp(\tau_j G_j).
+    """
+    def __init__(self, tau=[], control=zeros((0,2))):
+        # construct the sequence
+        self.A = zeros((2, 2))
+        self.B = [-0.5j * sx, -0.5j * sy]
+        self.tau = asarray(tau)
+        self.control = asarray(control)
+
+    def __repr__(self):
+        # prettyprint the object
+        out = 'Control sequence\n'
+        out += 'tau: ' + self.tau.__repr__() +'\n'
+        out += 'control: ' + self.control.__repr__()
+        return out
+
+    def to_prop(self):
+        r"""Propagator corresponding to the control sequence.
+
+        Returns the propagator matrix corresponding to the
+        action of the control sequence.
+
+        Governing equation: :math:`\dot(X)(t) = (A +\sum_k u_k(t) B_k) X(t) = G(t) X(t)`.
+        """
+        n = len(self.tau)
+        P = eye(self.A.shape[0])
+        for j in range(n):
+            G = asarray(self.A, dtype=complex)
+            for k, b in enumerate(self.B):
+                G += self.control[j, k] * b
+
+            temp = expm(self.tau[j] * G)
+            P = dot(temp, P)
+        return P
 
 
 def nmr(a):
@@ -85,14 +122,7 @@ def nmr(a):
     rows = nonzero(theta < 0)[0]
     theta[rows] = -theta[rows]
     phi[rows] = phi[rows] + pi
-
-    # construct the sequence TODO make it a class?
-    s = {'A': zeros((2, 2)),
-         'B': [-0.5j * sx, -0.5j * sy],
-         'tau': theta,
-         'control': c_[cos(phi), sin(phi)]
-         }
-    return s 
+    return seq(theta, c_[cos(phi), sin(phi)])
 
 
 def bb1(theta, phi=0, location=0.5):
@@ -115,7 +145,7 @@ def corpse(theta, phi=0):
 
     Returns the CORPSE control sequence for correcting off-resonance
     errors, i.e. ones arising from a constant but unknown
-    :math:`\sigma_z` bias in the Hamiltonian :cite:`Cummins`
+    :math:`\sigma_z` bias in the Hamiltonian :cite:`Cummins`.
 
     The target rotation is :math:`\theta_\phi` in the NMR notation.
 
@@ -132,27 +162,6 @@ def corpse(theta, phi=0):
     th2 = 2*pi*n[1] -2*temp
     th3 = 2*pi*n[2] +theta/2 -temp
     return nmr([[th1, phi], [th2, phi+pi], [th3, phi]])
-
-
-def cpmg(t, n):
-    r"""Carr-Purcell-Meiboom-Gill sequence.
-
-    Returns the Carr-Purcell-Meiboom-Gill sequence of n repeats with waiting time t.
-    The purpose of the CPMG sequence is to facilitate a T_2 measurement
-    under a nonuniform z drift, it is not meant to be a full memory protocol.
-    The target operation for this sequence is identity.
-    """
-    # Ville Bergholm 2007-2012
-
-    s = nmr([[pi/2, pi/2]]) # initial y rotation
-
-    # step: wait, pi x rotation, wait
-    step_tau  = array([t, pi, t])
-    step_ctrl = array([[0, 0], [1, 0], [0, 0]])
-    for k in range(n):
-        s['tau'] = r_[s['tau'], step_tau]
-        s['control'] = r_[s['control'], step_ctrl]
-    return s
 
 
 def scrofulous(theta, phi=0):
@@ -176,30 +185,81 @@ def scrofulous(theta, phi=0):
     return nmr(u1 + u2 + u1)
 
 
-def seq2prop(s):
-    r"""Propagator corresponding to a control sequence.
+def knill(phi=0):
+    r"""Sequence for robust pi pulses.
 
-    Returns the propagator matrix corresponding to the
-    action of the control sequence s.
+    The target rotation in the NMR notation is \pi_\phi followed by Z_{-\pi/3}.
+    In an experimental setting the Z rotation can often be absorbed by a
+    reference frame change that does not affect the measurement results :cite:`RHC2010`.
 
-    Governing equation: :math:`\dot(X)(t) = (A +\sum_k u_k(t) B_k) X(t) = G(t) X(t)`.
+    The Knill pulse is quite robust against off-resonance errors, and somewhat
+    robust against pulse strenght errors.
     """
-    # Ville Bergholm 2009-2016
+    # Ville Bergholm 2015-2016
 
-    A = s['A']
-    B = s['B']
+    th = pi
+    return nmr([[th, pi/6+phi], [th, phi], [th, pi/2+phi], [th, phi], [th, pi/6+phi]])
 
-    n = len(s['tau'])
-    P = eye(A.shape[0])
-    for j in range(n):
-        G = A
-        for k, b in enumerate(B):
-            G = G + s['control'][j, k] * b
 
-        temp = expm(s['tau'][j] * G)
-        P = dot(temp, P)
+def dd(name, t, n=1):
+    r"""Dynamical decoupling and refocusing sequences.
 
-    return P
+    name    name of the sequence: hahn, cpmg, uhrig, xy4
+    t       total waiting time
+    n       order (if applicable)
+
+    The target operation for these sequences is identity.
+    See e.g. :cite:`Uhrig2007`.
+    """
+    # Ville Bergholm 2007-2016
+
+    # Multiplying the pi pulse strength by factor s is equivalent to A -> A/s, t -> t*s.
+    # which sequence?
+    if name == 'wait':
+        # Do nothing, just wait.
+        tau = [1]
+        phase = []
+    elif name == 'hahn':
+        # Basic Hahn spin echo
+        tau = [0.5, 0.5]
+        phase = [0]
+    elif name == 'cpmg':
+        # Carr-Purcell-Meiboom-Gill
+        # The purpose of the CPMG sequence is to facilitate a T_2 measurement
+        # under a nonuniform z drift, it is not meant to be a full memory protocol.
+        tau = [0.25, 0.5, 0.25]
+        phase = [0, 0]
+    elif name == 'uhrig':
+        # Uhrig's family of sequences
+        # n=1: Hahn echo
+        # n=2: CPMG
+        delta = arange(n+2)
+        delta = sin(pi * delta/(2*(n+1))) ** 2
+        tau   = delta[1:]-delta[:n+1]  # wait durations
+        phase = zeros(n)
+    elif name == 'xy4':
+        # uncentered version
+        tau = np.ones(4) / 4
+        phase = [0, pi/2, 0, pi/2]
+    else:
+        raise ValueError('Unknown sequence.')
+
+    # initialize the sequence struct
+    s = seq()
+    # waits and pi pulses with given phases
+    ind = 1
+    for k, p in enumerate(phase):
+        # wait
+        s.tau = r_[s.tau, t * tau[k]]
+        s.control = r_[s.control, zeros((1,2))]
+        # pi pulse
+        s.tau = r_[s.tau, pi]
+        s.control = r_[s.control, array([[cos(p), sin(p)]])]
+    if len(tau) > len(phase):
+        # final wait
+        s.tau = r_[s.tau, t * tau[-1]]
+        s.control = r_[s.control, zeros((1,2))]
+    return s
 
 
 def propagate(s, seq, out_func=lambda x: x, base_dt=0.1):
@@ -209,20 +269,17 @@ def propagate(s, seq, out_func=lambda x: x, base_dt=0.1):
     """
     # Ville Bergholm 2009-2016
 
-    A = seq['A']
-    B = seq['B']
-
-    n = len(seq['tau'])
+    n = len(seq.tau)
     t = [0]  # initial time
     out = [out_func(s)]  # initial state
 
     # loop over the sequence
     for j in range(n):
-        G = A
-        for k, b in enumerate(B):
-            G = G + seq['control'][j, k] * b
+        G = asarray(seq.A, dtype=complex)
+        for k, b in enumerate(seq.B):
+            G += seq.control[j, k] * b
 
-        T = seq['tau'][j]  # pulse duration
+        T = seq.tau[j]  # pulse duration
         n_steps = max(int(ceil(T / base_dt)), 1)
         dt = T / n_steps
 
