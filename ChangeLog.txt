@@ -97,6 +97,7 @@ b bugfix
               + lmap.tensorpow
               + lmap.real
               + lmap.imag
+              b lmap.__init__ and lmap.__repr__ now handle also sparse matrices.
               + gate.copydot
               + gate.plusdot
               + utils.tensorsum

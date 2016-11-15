@@ -51,7 +51,7 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 from copy import copy, deepcopy
 
 import numpy as np
-import scipy.sparse as ssp
+import scipy.sparse as sparse
 
 from .base import tol
 
@@ -118,13 +118,12 @@ class lmap(object):
             self.data = deepcopy(s.data)
             defdim = s.dim  # copy the dimensions too, unless redefined
         else:
-            if ssp.isspmatrix(s):
-                # TODO FIXME handle sparse matrices properly
+            if sparse.isspmatrix(s):
                 # TODO lmap constructor, mul/add, tensor funcs must be able to handle both dense and sparse arrays.
-                s = s.todense()
-
-            # valid array initializer
-            self.data = np.asarray(s) # NOTE that if s is an ndarray it is not copied here
+                self.data = s
+            else:
+                # valid array initializer
+                self.data = np.asarray(s) # NOTE that if s is an ndarray it is not copied here
 
             # into a 2d array
             if self.data.ndim == 0:
@@ -151,7 +150,7 @@ class lmap(object):
 
         self.dim = []
         for k in range(len(dim)):
-            if dim[k] == None:
+            if dim[k] == None or len(dim[k]) == 0:
                 # not specified, use default
                 self.dim.append(defdim[k])
             else:
@@ -165,6 +164,28 @@ class lmap(object):
 
     def __repr__(self):
         """Display the lmap in a neat format."""
+        def format_scalar(x):
+            "Print a complex scalar."
+            if abs(x.imag) < tol:
+                # just the real part
+                out = ' {0:+.4g}'.format(x.real)
+            elif abs(x.real) < tol:
+                # just the imaginary part
+                out = ' {0:+.4g}j'.format(x.imag)
+            else:
+                # both
+                out = ' +({0:.4g}{1:+.4g}j)'.format(x.real, x.imag) #' +' + str(x)
+            return out
+
+        def format_ket(ind, dim, is_ket):
+            "Print a ket or bra symbol."
+            temp = array_to_numstr(np.unravel_index(ind, dim))
+            if is_ket:
+                out = ' |' + temp + '>'
+            else:
+                out = ' <' + temp + '|'
+            return out
+
         out = ''
         # is it a vector? (a map with a singleton domain or codomain dimension)
         sh = self.data.shape
@@ -179,38 +200,36 @@ class lmap(object):
                 dim = self.dim[1]
                 is_ket = False
 
-            # loop over all vector elements
             printed = 0
-            d = np.prod(dim)
-            for ind in range(d):
-                # TODO with sparse arrays we could do better
-                # sanity check, do not display lmaps with hundreds of terms
-                if ind >= 128 or printed >= 20:
-                    out += ' ...'
-                    break
-
-                temp = self.data.flat[ind]
-                # make sure there is something to print
-                if abs(temp) < tol:
-                    continue
-
-                printed += 1
-                if abs(temp.imag) < tol:
-                    # just the real part
-                    out += ' {0:+.4g}'.format(temp.real)
-                elif abs(temp.real) < tol:
-                    # just the imaginary part
-                    out += ' {0:+.4g}j'.format(temp.imag)
-                else:
-                    # both
-                    out += ' +({0:.4g}{1:+.4g}j)'.format(temp.real, temp.imag) #' +' + str(temp)
-
-                # ket or bra symbol
-                temp = array_to_numstr(np.unravel_index(ind, dim))
+            if sparse.isspmatrix(self.data):
+                # with sparse arrays we loop over nonzero elements only
+                temp = self.data.tocoo()
                 if is_ket:
-                    out += ' |' + temp + '>'
+                    inds = temp.row
                 else:
-                    out += ' <' + temp + '|'
+                    inds = temp.col
+                for ind, x in zip(inds, temp.data):
+                    printed += 1
+                    out += format_scalar(x)
+                    out += format_ket(ind, dim, is_ket)
+                    # sanity check, do not display lmaps with hundreds of terms
+                    if printed >= 20:
+                        out += ' ...'
+                        break
+            else:
+                # loop over all vector elements
+                for ind in range(np.prod(dim)):
+                    x = self.data.flat[ind]
+                    # make sure there is something to print
+                    if abs(x) < tol:
+                        continue
+                    printed += 1
+                    out += format_scalar(x)
+                    out += format_ket(ind, dim, is_ket)
+                    # sanity check
+                    if printed >= 20 or ind >= 128:
+                        out += ' ...'
+                        break
         else:
             # matrix
             out = self.data.__repr__()
