@@ -110,3 +110,4 @@ b bugfix
               b invariant.LU fixed.
               * examples.bb84 prints more info.
               b examples.qft_circuit now also works on all nonpalindromic dim vectors.
+              * more unit tests

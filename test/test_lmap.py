@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 "Unit tests for qit.lmap"
-# Ville Bergholm 2009-2014
+# Ville Bergholm 2009-2016
 
 import unittest
 from numpy.random import rand, randn
@@ -13,12 +13,7 @@ sys.path.insert(0, os.path.abspath('.'))
 from qit import version
 from qit.base  import tol
 from qit.lmap  import lmap, tensor
-from qit.utils import mkron
-
-
-def randn_complex(*arg):
-    "Returns an array of random complex numbers, normally distributed."
-    return randn(*arg) +1j*randn(*arg)
+from qit.utils import mkron, rand_GL
 
 
 class LmapConstructorTest(unittest.TestCase):
@@ -34,7 +29,7 @@ class LmapConstructorTest(unittest.TestCase):
         s = lmap(randn(4, 5), ((2, 2), None))    # input dims inferred
         s = lmap(randn(3, 6), (None, (3, 2)))    # output dims inferred
         s = lmap(randn(6, 6), ((2, 3), (3, 2)))  # all dims given
-        temp = lmap(randn_complex(4, 4))         # both dims inferred
+        temp = lmap(rand_GL(4))                  # both dims inferred
 
         # copy constructor
         s = lmap(temp, ((1, 4), (2, 2))) # dims reinterpreted
@@ -48,28 +43,31 @@ class LmapConstructorTest(unittest.TestCase):
 
 class LmapMethodTest(unittest.TestCase):
     def setUp(self):
-        pass
+        # generate some random lmaps
+        self.idim = (2, 5, 3)
+        self.odim = (4, 3, 2)
+        self.L = []
+        for i,o in zip(self.idim, self.odim):
+            self.L.append(lmap(rand(o, i)))
+
 
     def test_methods(self):
-        ### reorder, tensor
-        idim = (2, 5, 3)
-        odim = (4, 3, 2)
-        # generate random local maps
-        parts = []
-        for k in range(len(idim)):
-            parts.append(lmap(rand(odim[k], idim[k])))
-        T1 = tensor(*tuple(parts))
+        ### reorder, tensor product
+        # build a rank-1 tensor out of the "local" lmaps
+        T1 = tensor(*tuple(self.L))
         # permute them
         perms = [(2, 0, 1), (1, 0, 2), (2, 1, 0)]
         for p in perms:
             T2 = T1.reorder((p, p))
-            tup = (parts[i] for i in p)
+            tup = (self.L[i] for i in p)
             self.assertAlmostEqual((tensor(*tup) -T2).norm(), 0, delta=tol)
 
-        ignore = """
-        print(repr(b * c))
-        print(repr(tensor(a, b)))
-        """
+        ### tensorpow
+        n = 3
+        for A in self.L:
+            # tensorpow and tensor product must give the same result
+            tup = n * (A,)
+            self.assertAlmostEqual((A.tensorpow(n) -tensor(*tup)).norm(), 0, delta=tol)
 
 
 

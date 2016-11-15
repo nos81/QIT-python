@@ -597,10 +597,11 @@ def rand_positive(n):
 
 
 def rand_GL(n):
-    """Random GL(n, C) matrix.
+    r"""Random GL(n, C) matrix.
 
-    Returns a random complex general linear n*n matrix.
-    NOTE: The randomness is not defined in any deeply meaningful sense.
+    Returns a random complex general linear n*n matrix, with
+    normally distributed elements.
+
     The :math:`\det S \neq 0` condition is for now fulfilled only statistically,
     i.e. you almost never obtain a non-invertible matrix.
     """
