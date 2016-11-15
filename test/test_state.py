@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 "Unit tests for qit.state"
-# Ville Bergholm 2008-2014
+# Ville Bergholm 2008-2016
+
+from __future__ import division, absolute_import, print_function, unicode_literals
 
 import unittest
-from numpy import prod, sqrt, log2, kron
+from numpy import array, prod, sqrt, log2, kron
 from numpy.random import rand, randn
 from numpy.linalg import norm
 
@@ -46,10 +48,22 @@ class StateConstructorTest(unittest.TestCase):
         self.assertRaises(ValueError, state, 'rubbish')     # unknown state name
         self.assertRaises(ValueError, state, 0)             # missing dimension
         self.assertRaises(ValueError, state, 2, 2)          # ket number too high
-        self.assertRaises(ValueError, state, [])            # bad array dimesion (0)
-        self.assertRaises(ValueError, state, rand(2, 2, 2)) # bad array dimesion (3)
+        self.assertRaises(ValueError, state, [])            # bad array dimension (0)
+        self.assertRaises(ValueError, state, rand(2, 2, 2)) # bad array dimension (3)
         self.assertRaises(ValueError, state, randn(3, 4))   # nonsquare array
 
+    def test_named_states(self):
+        ps = array([0, 0.1, 1])
+        dims = array([2, 3, 4])
+        for d in dims:
+            for p in ps:
+                s = state.werner(p, d)
+                t = state.isotropic((2*p-1)/d, d)
+                #s.check()
+                #t.check()
+                #self.assertAlmostEqual(s.trace(), 1, delta=tol)
+                #self.assertAlmostEqual(t.trace(), 1, delta=tol)
+                self.assertAlmostEqual((s -t.ptranspose(0)).norm(), 0, delta=tol)
 
 
 class StateMethodTest(unittest.TestCase):
@@ -68,7 +82,7 @@ class StateMethodTest(unittest.TestCase):
         # negativity,
 
         D = prod(self.dim)
-        bipartitions = [[0], [0, 2]]
+        bipartitions = [0, [0, 2]]
 
         ### generalized Bloch vectors.
 

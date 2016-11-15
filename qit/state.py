@@ -72,8 +72,17 @@ Other state representations
 
    bloch_vector
    bloch_state
+
+
+Named states
+------------
+
+.. autosummary::
+
+   werner
+   isotropic
 """
-# Ville Bergholm 2008-2012
+# Ville Bergholm 2008-2016
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
@@ -87,6 +96,7 @@ from numpy import (array, asarray, empty, diag, sort, prod, cumsum, cumprod, exp
     dot, vdot, roll, zeros, ones, r_, kron, isscalar, nonzero, ix_, linspace, meshgrid)
 from numpy.random import rand, randn
 import scipy as sp
+import scipy.sparse as sparse
 from scipy.linalg import norm, eigh, eigvalsh, sqrtm, svd, svdvals, det
 from scipy.integrate import ode
 
@@ -95,7 +105,7 @@ from .lmap import tensor as lmap_tensor
 from .lmap import numstr_to_array, array_to_numstr, lmap
 from .utils import (_warn, vec, inv_vec, qubits, expv, rand_U, rand_SU, rand_positive, mkron, tensorsum,
     eighsort, spectral_decomposition, majorize, tensorbasis, assert_o)
-
+from .gate import id, swap, copydot
 
 __all__ = ['equal_dims', 'index_muls', 'state', 'fidelity', 'trace_dist']
 
@@ -139,7 +149,7 @@ class state(lmap):
         ==============            ======
         state('00101')            standard basis ket |00101> in a five-qubit system
         state('02', (2, 3))       standard basis ket |02> in a qubit+qutrit system
-        state(k, (2, 3))          linearized standard basis ket |k> in a qubit+qutrit system, k must be an integer scalar
+        state(k, (2, 3))          linearized standard basis ket |k> in a qubit+qutrit system, k must be a nonnegative integer
         state(rand(4))            ket, infer dim[0] == (4,)
         state(rand(4), (2, 2))    ket, two qubits
         state(rand(4,4))          state operator, infer dim[0] == (4,)
@@ -258,7 +268,6 @@ class state(lmap):
         # call the lmap constructor
         super(state, self).__init__(s, dim)
 
-
 # utility methods
 # TODO design issue: for valid states, lots of these funcs should return reals (marked with a commented-out .real). should we just drop the imaginary part? what about if the state is invalid, how will the user know? what about numerical errors?
 # TODO same thing except with normalization, should we assume states are normalized?
@@ -297,8 +306,11 @@ class state(lmap):
 
     def clean_selection(self, sys):
         """Make a subsystem set unique and sorted, return it as an array.
-        TODO valid too?"""
-        return array(list(set(range(self.subsystems())).intersection(sys)), int)
+        """
+        if not isinstance(sys, collections.Iterable) and isscalar(sys):
+            sys = [sys]
+        temp = set(range(self.subsystems())).intersection(sys)
+        return array(list(temp), int)
 
 
     def invert_selection(self, sys):
@@ -378,8 +390,8 @@ class state(lmap):
     def to_op(self, inplace=False):
         """Convert state representation into a state operator.
 
-        Returns q, a copy of the state for which the internal representation 
-        (q.data) is guaranteed to be a state operator.
+        Returns a copy of the state for which the internal representation
+        (self.data) is guaranteed to be a state operator.
         """
         # Ville Bergholm 2009-2010
         # slight inefficiency when self.is_ket() and inplace==False: the ket data is copied for no reason
@@ -394,7 +406,7 @@ class state(lmap):
     def trace(self):
         """Trace of the state operator.
 
-        Returns the trace of the state operator of quantum state s.
+        Returns the trace of the state operator of the quantum state.
         For a pure state this is equal to the squared norm of the state vector.
         """
         # Ville Bergholm 2008-2012
@@ -459,7 +471,12 @@ class state(lmap):
         Returns the partial transpose of the state
         wrt. the subsystems listed in the vector sys.
         """
-        # Ville Bergholm 2008-2011
+        # Ville Bergholm 2008-2016
+        if sparse.isspmatrix(self.data):
+            self.data = self.data.toarray()
+            #self.data = self.data.tolil()
+            # TODO FIXME: this conversion is required as long as some scipy sparse matrix classes have not implemented the reshape method.
+            # They would also need to support an arbitrary number of dimensions...
 
         # TODO what about kets? can we do better?
         s = self.to_op(inplace)
@@ -1496,6 +1513,80 @@ class state(lmap):
         C = 1/sqrt(d) # to match the usual Bloch vector normalization
         return state(C * rho, dim)
 
+
+# named states
+    @staticmethod
+    def werner(p, d=2):
+        r"""Werner states.
+
+        For every :math:`d \ge 2`, Werner states :cite:`Werner` are a linear family of
+        bipartite :math:`d \times d`  dimensional quantum states that are
+        invariant under all local unitary rotations of the form
+        :math:`U \otimes U`, where :math:`U \in SU(d)`.
+
+        Every Werner state is a linear combination of the identity and
+        SWAP operators. Alternatively, they can be understood as convex
+        combinations of the appropriately scaled symmetric and
+        antisymmetric projectors
+        :math:`P_\text{sym} = \frac{1}{2}(I+\text{SWAP})` and
+        :math:`P_\text{asym} = \frac{1}{2}(I-\text{SWAP})`:
+
+        .. math::
+
+          \rho_\text{Werner} = p \frac{2 P_\text{sym}}{d(d+1)} +(1-p) \frac{2 P_\text{asym}}{d(d-1)}.
+
+        :math:`p \in [0,1]` is the weight of the symmetric part of the state.
+        The state is entangled iff p < 1/2, and pure only when d = 2
+        and p = 0, at which point it becomes the 2-qubit singlet state.
+
+        For every d, the Werner family of states includes the fully
+        depolarized state :math:`\frac{I}{d^2}`, obtained with :math:`p = \frac{d+1}{2d}`.
+
+        The Werner states are partial-transpose dual to :func:`isotropic states<isotropic>`
+        with the parameter :math:`p' = \frac{2p-1}{d}`.
+        """
+        # Ville Bergholm 2014-2016
+        dim = (d, d)
+        S = swap(d, d)
+        I = id(dim)
+        #temp = 1 -2*p
+        #alpha = (d*temp +1) / (temp +d)
+        #rho = (I -alpha*S) / (d * (d -alpha))
+        rho = p * (I+S)/(d*(d+1)) +(1-p) * (I-S)/(d*(d-1))
+        return state(rho)
+
+
+    @staticmethod
+    def isotropic(p, d=2):
+        r"""Isotropic states.
+
+        For every :math:`d \ge 2`, isotropic states :cite:`Werner` are a linear family of
+        bipartite :math:`d \times d` dimensional quantum states that are
+        invariant under all local unitary rotations of the form
+        :math:`U \otimes U^*`, where :math:`U \in SU(d)`.
+
+        Every isotropic state is a linear combination of the identity operator
+        and the projector to the maximally entangled state :math:`|\cup\rangle = \sum_{k=0}^{d-1} |k, k\rangle`:
+
+        .. math::
+
+          \rho_\text{Iso} = \frac{p}{d}|\cup\rangle\langle\cup| +\frac{1-p}{d^2-1} (I-\frac{1}{d}|\cup\rangle\langle\cup|).
+
+        :math:`p \in [0,1]` is the weight of the cup state projector in the mixture.
+        The state is entangled iff p > 1/d, and pure and fully entangled iff p = 1.
+
+        For every d, the isotropic family of states includes the fully
+        depolarized state :math:`\frac{I}{d^2}`, obtained with :math:`p = \frac{1}{d^2}`.
+
+        Isotropic states are partial-transpose dual to :func:`Werner states<werner>`.
+        """
+        # Ville Bergholm 2014-2016
+        cup = copydot(0, 2, d)
+        cup_proj = cup * cup.ctranspose() / d
+        I = id([d, d])
+
+        rho = p * cup_proj +(1-p) * (I -cup_proj) / (d**2 -1)
+        return state(rho)
 
 
 # wrappers
