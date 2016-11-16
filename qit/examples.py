@@ -29,6 +29,7 @@ Demos
    shor_factorization
    superdense_coding
    teleportation
+   werner_states
    tour
 
 
@@ -41,7 +42,7 @@ General-purpose quantum algorithms
    phase_estimation
    find_order
 """
-# Ville Bergholm 2011-2014
+# Ville Bergholm 2011-2016
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
@@ -1321,11 +1322,53 @@ def teleportation(d=2):
 
 
 
+def werner_states(d=2):
+    """Werner and isotropic states demo.
+
+    Plots some properties of d-dimensional family of Werner states and their
+    dual isotropic states as a function of the parameter p.
+    """
+    # Ville Bergholm 2014-2016
+
+    print('\n\n=== Werner and isotropic states ===\n\n')
+
+    # cover both Werner ([0,1]) and the dual isotropic states
+    pp = linspace(0, (d+1)/2, 200)
+    res = empty((len(pp), 3))
+    for k, p in enumerate(pp):
+        w = state.werner(p, d)
+        # corresponding isotropic state
+        iso = w.ptranspose(1)
+        res[k,:] = [w.purity(), w.lognegativity(1), iso.lognegativity(1)]
+        #res2[k] = iso.purity()
+
+    plt.figure()
+    leg = ['Werner/isotropic purity', 'Werner lognegativity', 'Isotropic lognegativity',
+           'maximally mixed state', 'maximally entangled generalized Bell state']
+    plt.plot(pp, res)
+    plt.hold(True)
+    # fully depolarized state
+    p_mix = (d+1)/(2*d)
+    plt.plot(p_mix, 0, 'ko')
+    # generalized Bell state
+    p_bell = (d+1)/2
+    plt.plot(p_bell, 0, 'rs')
+    if d == 2:
+        # singlet state
+        p_singlet = 0
+        plt.plot(p_singlet, 0, 'bs')
+        leg.append('singlet state')
+
+    plt.title('Werner and isotropic states in d = {0}'.format(d))
+    plt.xlabel('Werner state parameter p')
+    plt.legend(leg)
+    plt.grid(True)
+
+
+
 def tour():
     """Guided tour to the quantum information toolkit.
-
     """
-    # Ville Bergholm 2009-2014
 
     print('This is the guided tour for the Quantum Information Toolkit.')
     print("It should be run in the interactive mode, 'ipython --pylab'.")
@@ -1377,5 +1420,9 @@ def tour():
     pause()
 
     qft_circuit((2, 3, 2))
+    pause()
+
+    werner_states(2)
+    werner_states(3)
 
     #quantum_walk()

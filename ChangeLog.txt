@@ -112,6 +112,7 @@ b bugfix
               + seq.dd
               - seq.cpmg (merged into seq.dd)
               b invariant.LU fixed.
+              + examples.werner_states
               * examples.bb84 prints more info.
               b examples.qft_circuit now also works on all nonpalindromic dim vectors.
               * more unit tests
