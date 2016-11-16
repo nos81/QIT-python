@@ -10,30 +10,44 @@ The data type is float unless complex entries are actually needed.
 .. currentmodule:: qit.gate
 
 
-Contents
---------
+Utilities
+---------
 
 .. autosummary::
 
+   single
+   two
+   controlled
    dist
+
+Basic gates
+-----------
+
+.. autosummary::
+
    id
    phase
    qft
-   swap
    walsh
    mod_inc
    mod_mul
    mod_add
-   controlled
-   single
-   two
+   swap
+
+Linear maps
+-----------
+
+.. autosummary::
+
    copydot
    plusdot
+   epsilon
 """
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
-from numpy import pi, prod, empty, zeros, trace, exp, sqrt, mod, isscalar, kron, array, ones, array_equal
+import itertools
+from numpy import pi, prod, empty, zeros, trace, exp, sqrt, mod, isscalar, kron, array, ones, array_equal, sum, unravel_index, ravel_multi_index
 import scipy.sparse as sparse
 
 from .lmap import lmap, tensor
@@ -43,7 +57,7 @@ from .utils import qubits, op_list, assert_o, copy_memoize, gcd
 __all__ = ['dist', 'id', 'phase', 'qft', 'swap', 'walsh',
            'mod_add', 'mod_inc', 'mod_mul', 
            'controlled', 'single', 'two',
-           'copydot', 'plusdot']
+           'copydot', 'plusdot', 'epsilon']
 
 # TODO reshape will cause problems for sparse matrices!
 # TODO utils.op_list too!
@@ -407,7 +421,7 @@ def copydot(n_in, n_out, d=2):
 
     See :cite:`BB2011`
     """
-    # Ville Bergholm 2014
+    # Ville Bergholm 2014-2016
 
     d_in  = d**n_in
     d_out = d**n_out
@@ -429,9 +443,47 @@ def plusdot(n_in, n_out, d=2):
 
     See :cite:`BB2011`
     """
-    # Ville Bergholm 2014
-    # TODO this implementation has small numerical errors from qft, we
-    # could do better
+    # Ville Bergholm 2014-2016
+
+    # TODO this implementation has small numerical errors from qft, we can do better
     U = copydot(n_in, n_out, d)
     Q = qft(d)
     return Q.tensorpow(n_out) * U * Q.tensorpow(n_in)
+
+
+def epsilon(n):
+    """Epsilon tensor.
+
+    Returns the fully antisymmetric Levi-Civita symbol in n dimensions,
+    a tensor with n n-dimensional subsystems.
+    """
+    # Ville Bergholm 2016
+    def signum(p):
+        """Returns the parity of the permutation p by counting cycle lengths."""
+        n = len(p)
+        seen = zeros(n, dtype=bool)
+        sgn = 1;
+        k = 0
+        while k < n:
+            if not seen[k]:
+                # a new cycle starts
+                cl = 0
+                while not seen[k]:
+                    cl += 1
+                    seen[k] = True
+                    k = p[k]
+                # even cycle: invert parity
+                if cl % 2 == 0:
+                    sgn = -sgn
+            k += 1
+        return sgn
+
+    D = n ** n
+    dim = n * (n,)
+    U = sparse.dok_matrix((D, 1))
+    # loop through all permutations of n indices
+    p = itertools.permutations(range(n))
+    for k in p:
+        ind = ravel_multi_index(k, dim)
+        U[ind,0] = signum(k)
+    return lmap(U, (dim, (1,)))

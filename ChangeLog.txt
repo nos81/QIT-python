@@ -103,6 +103,7 @@ b bugfix
               + state.isotropic
               + gate.copydot
               + gate.plusdot
+              + gate.epsilon
               + utils.tensorsum
               + utils.rand_GL
               * utils.tensorbasis also returns the integer locality of each element.
