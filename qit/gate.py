@@ -50,12 +50,6 @@ __all__ = ['dist', 'id', 'phase', 'qft', 'swap', 'walsh',
 # TODO which one is faster in element assignment -style init, dok or lil?
 # TODO make input interface consistent, do we want arrays or lmaps?
 
-def eye(D):
-    """FIXME Temp. wrapper, unnecessary after when we update to scipy 0.12
-    Then we can just do   from scipy.sparse import eye
-    """
-    return sparse.eye(D, D) 
-
 
 def dist(A, B):
     r"""Distance between two unitary lmaps.
@@ -85,7 +79,7 @@ def id(dim):
     """
     if isscalar(dim):
         dim = (dim,)  # scalar into a tuple
-    return lmap(eye(prod(dim)), (dim, dim))
+    return lmap(sparse.eye(prod(dim)), (dim, dim))
 
 
 def mod_add(dim1, dim2, N=None):
@@ -396,8 +390,8 @@ def two(B, t, d_in):
         p = [0, 2, 1]
     else:
         p = [1, 2, 0]
-    U = tensor(B, lmap(eye(inbetween))).reorder((p, p), inplace = True)
-    U = tensor(lmap(eye(before)), U, lmap(eye(after)))
+    U = tensor(B, lmap(sparse.eye(inbetween))).reorder((p, p), inplace = True)
+    U = tensor(lmap(sparse.eye(before)), U, lmap(sparse.eye(after)))
 
     # restore dimensions
     d_out = d_in.copy()

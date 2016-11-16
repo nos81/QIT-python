@@ -94,6 +94,7 @@ b bugfix
               b Lots of pylinting.
 
 0.12.0      in progress
+              * Bump dependencies: NumPy 1.7.1, SciPy 0.12.0, matplotlib 1.2
               + lmap.tensorpow
               + lmap.real
               + lmap.imag
@@ -108,7 +109,7 @@ b bugfix
               * seq: sign convention changed, converted into a class.
               + seq.knill
               + seq.dd
-              - seq.cpmg
+              - seq.cpmg (merged into seq.dd)
               b invariant.LU fixed.
               * examples.bb84 prints more info.
               b examples.qft_circuit now also works on all nonpalindromic dim vectors.

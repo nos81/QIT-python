@@ -14,7 +14,7 @@ and has equivalent functionality. QIT requires the following
 Python libraries:
 
 * `NumPy <http://numpy.org/>`_  1.7.1
-* `SciPy <http://scipy.org/>`_  0.11.0
+* `SciPy <http://scipy.org/>`_  0.12.0
 * `matplotlib <http://matplotlib.org/>`_  1.2
 
 For interactive use the `IPython <http://ipython.org/>`_ interactive shell is recommended.
@@ -84,6 +84,6 @@ coding guidelines:
 Authors
 =======
 
-* Ville Bergholm          2008-2014
+* Ville Bergholm          2008-2016
 * Jacob D. Biamonte       2008-2009
 * James D. Whitfield      2009-2010
