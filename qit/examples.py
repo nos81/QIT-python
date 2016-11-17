@@ -520,23 +520,35 @@ def nmr_sequences(seqs=None, titles=None):
 
     Reproduces fidelity plots in :cite:`Cummins`.
     """
-    # Ville Bergholm 2006-2014
+    # Ville Bergholm 2006-2016
 
     from . import seq
 
     print('\n\n=== NMR control sequences for correcting systematic errors ===\n')
 
     if seqs == None:
-        seqs = [seq.nmr([[pi, 0]]), seq.corpse(pi), seq.scrofulous(pi), seq.bb1(pi)]
-        titles = [r'Plain $\pi$ pulse', 'CORPSE', 'SCROFULOUS', 'BB1']
+        seqs = [seq.nmr([[pi, 0]]), seq.corpse(pi), seq.scrofulous(pi), seq.bb1(pi), seq.knill()]
+        titles = [r'Plain $\pi$ pulse', 'CORPSE', 'SCROFULOUS', 'BB1', 'Knill']
     elif titles == None:
         titles = ['User-given seq'] * len(seqs)
 
+    # Pulse length/timing errors also affect the drift term, pulse strength errors don't.
+    strength_error = True
+    if strength_error:
+        error_type = 'pulse strength error'
+    else:
+        error_type = 'pulse length error'
+
+    # off-resonance Hamiltonian (constant \sigma_z drift term) times -1i
+    offres_A = -0.5j * sz
+
     psi = state('0') # initial state
     f = arange(-1, 1, 0.05)
-    g = arange(-1, 1, 0.08)
+    g = arange(-1, 1, 0.05)
     nf = len(f)
     ng = len(g)
+
+    fid = empty((ng, nf, len(seqs)))
 
     def helper(ax, s_error, title):
         """Apply the sequence on the state psi, plot the evolution."""
@@ -544,48 +556,72 @@ def nmr_sequences(seqs=None, titles=None):
         ax.set_title(title)
         plot.state_trajectory(out, ax = ax)
 
-
-    for tt, ss in zip(titles, seqs):
+    for k, ss in enumerate(seqs):
+        tt = titles[k]
         fig = plt.figure()
         gs = GridSpec(2, 2)
-        U = seq.seq2prop(ss) # target propagator
+        U = ss.to_prop()  # target propagator
+        psi_target = [psi.u_propagate(U).bloch_vector()]  # target state
 
         # The two systematic error types we are interested here can be
         # incorporated into the control sequence.
         #==================================================
         s_error = deepcopy(ss)
-        s_error['A'] = ss['A'] + 0.1 * 0.5j * sz  # off-resonance error (constant \sigma_z drift term)
+        s_error.A = ss.A +0.1 * offres_A  # off-resonance error (constant \sigma_z drift term)
         ax = fig.add_subplot(gs[0, 0], projection = '3d')
         helper(ax, s_error, tt + ' evolution, off-resonance error')
+        #plot.state_trajectory(psi_target, reset=False, marker='')
 
         #==================================================
         s_error = deepcopy(ss)
-        s_error['tau'] = ss['tau'] * 1.1  # proportional pulse length error
+        if strength_error:
+            s_error.control = ss.control * 1.1  # pulse strength error
+        else:
+            s_error.tau = ss.tau * 1.1  # pulse length error
         ax = fig.add_subplot(gs[1, 0], projection = '3d')
-        helper(ax, s_error, tt + ' evolution, pulse length error')
+        helper(ax, s_error, tt + ' evolution, ' + error_type)
 
         #==================================================
         s_error = deepcopy(ss)
-        fid = empty((ng, nf))
 
         def u_fidelity(a, b):
             """fidelity of two unitary rotations, [0,1]"""
             return 0.5 * abs(trace(dot(a.conj().transpose(), b)))
 
         for u in range(nf):
-            s_error['A'] = ss['A'] + f[u] * 0.5j * sz  # off-resonance error
+            s_error.A = ss.A + f[u] * offres_A  # off-resonance error
             for v in range(ng):
-                s_error['tau'] = ss['tau'] * (1 + g[v])  # proportional pulse length error
-                fid[v, u] = u_fidelity(U, seq.seq2prop(s_error))
+                temp = 1 + g[v]
+                if strength_error:
+                    s_error.control = ss.control * temp  # pulse strength error
+                else:
+                    s_error.tau = ss.tau * temp  # pulse length error
+                fid[v, u, k] = u_fidelity(U, s_error.to_prop())
 
         ax = fig.add_subplot(gs[:, 1])
         X, Y = meshgrid(f, g)
-        ax.contour(X, Y, 1-fid)
+        ax.contour(X, Y, 1-fid[:,:,k])
         #ax.surf(X, Y, 1-fid)
         ax.set_xlabel('Off-resonance error')
         ax.set_ylabel('Pulse length error')
         ax.set_title(tt + ' fidelity')
         plt.show()
+
+    plt.figure()
+    plt.plot(f, fid[(ng+1)/2, :, :])
+    plt.xlabel('Off-resonance error')
+    plt.ylabel('fidelity')
+    plt.legend(titles)
+    plt.grid(True)
+    plt.axis([-1,1,0,1])
+
+    plt.figure()
+    plt.plot(g, fid[:, (nf+1)/2, :])
+    plt.xlabel(error_type)
+    plt.ylabel('fidelity')
+    plt.legend(titles)
+    plt.grid(True)
+    plt.axis([-1,1,0,1])
 
 
 

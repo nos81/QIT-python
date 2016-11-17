@@ -114,5 +114,6 @@ b bugfix
               b invariant.LU fixed.
               + examples.werner_states
               * examples.bb84 prints more info.
+              * examples.nmr_sequences updated, now also does pulse strength errors.
               b examples.qft_circuit now also works on all nonpalindromic dim vectors.
               * more unit tests

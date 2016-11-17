@@ -25,6 +25,8 @@ Contents
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
+from copy import deepcopy
+
 from numpy import array, arange, sin, cos, arcsin, arccos, pi, asarray, eye, zeros, r_, c_, dot, nonzero, ceil, linspace
 from scipy.linalg import expm
 from scipy.optimize import brentq
@@ -61,7 +63,7 @@ class seq(object):
     """
     def __init__(self, tau=[], control=zeros((0,2))):
         # construct the sequence
-        self.A = zeros((2, 2))
+        self.A = zeros((2, 2), dtype=complex)
         self.B = [-0.5j * sx, -0.5j * sy]
         self.tau = asarray(tau)
         self.control = asarray(control)
@@ -82,9 +84,9 @@ class seq(object):
         Governing equation: :math:`\dot(X)(t) = (A +\sum_k u_k(t) B_k) X(t) = G(t) X(t)`.
         """
         n = len(self.tau)
-        P = eye(self.A.shape[0])
+        P = eye(self.A.shape[0], dtype=complex)
         for j in range(n):
-            G = asarray(self.A, dtype=complex)
+            G = deepcopy(asarray(self.A, dtype=complex))
             for k, b in enumerate(self.B):
                 G += self.control[j, k] * b
 
@@ -275,7 +277,7 @@ def propagate(s, seq, out_func=lambda x: x, base_dt=0.1):
 
     # loop over the sequence
     for j in range(n):
-        G = asarray(seq.A, dtype=complex)
+        G = deepcopy(asarray(seq.A, dtype=complex))
         for k, b in enumerate(seq.B):
             G += seq.control[j, k] * b
 
