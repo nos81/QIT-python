@@ -1132,13 +1132,15 @@ class state(lmap):
     def entropy(self, sys=None, alpha=1):
         r"""Von Neumann or Renyi entropy of the state.
 
-        Returns the Renyi entropy of order :math:`\alpha`,
-        :math:`S_\alpha(\rho) = \frac{1}{1-\alpha} \log_2 \mathrm{Tr}(\rho^\alpha)`.
+        :param vector sys: None, or a vector of subsystem indices denoting a system partition.
+        :param float alpha: Renyi entropy order, >= 0.
+
+        :returns: The Renyi entropy of order :math:`\alpha`, :math:`S_\alpha(\rho) = \frac{1}{1-\alpha} \log_2 \mathrm{Tr}(\rho^\alpha)`.
         
         When :math:`\alpha = 1`, this coincides with the von Neumann entropy
         :math:`S(\rho) = -\mathrm{Tr}(\rho \log_2(\rho))`.
 
-        If sys == None, returns the entropy of the state.
+        If sys is None, returns the entropy of the state.
         If sys is a vector of subsystem indices, returns the
         entropy of entanglement of the state wrt. the partitioning
         defined by sys. Entropy of entanglement is only defined for pure states.
@@ -1519,6 +1521,9 @@ class state(lmap):
     def werner(p, d=2):
         r"""Werner states.
 
+        :param float p: symmetric part weight, :math:`p \in [0,1]`
+        :param int   d: dimension
+
         For every :math:`d \ge 2`, Werner states :cite:`Werner` are a linear family of
         bipartite :math:`d \times d`  dimensional quantum states that are
         invariant under all local unitary rotations of the form
@@ -1535,7 +1540,7 @@ class state(lmap):
 
           \rho_\text{Werner} = p \frac{2 P_\text{sym}}{d(d+1)} +(1-p) \frac{2 P_\text{asym}}{d(d-1)}.
 
-        :math:`p \in [0,1]` is the weight of the symmetric part of the state.
+        p is the weight of the symmetric part of the state.
         The state is entangled iff p < 1/2, and pure only when d = 2
         and p = 0, at which point it becomes the 2-qubit singlet state.
 
@@ -1560,6 +1565,9 @@ class state(lmap):
     def isotropic(p, d=2):
         r"""Isotropic states.
 
+        :param float p: maximally entangled part weight, :math:`p \in [0,1]`
+        :param int   d: dimension
+
         For every :math:`d \ge 2`, isotropic states :cite:`Werner` are a linear family of
         bipartite :math:`d \times d` dimensional quantum states that are
         invariant under all local unitary rotations of the form
@@ -1572,7 +1580,7 @@ class state(lmap):
 
           \rho_\text{Iso} = \frac{p}{d}|\cup\rangle\langle\cup| +\frac{1-p}{d^2-1} (I-\frac{1}{d}|\cup\rangle\langle\cup|).
 
-        :math:`p \in [0,1]` is the weight of the cup state projector in the mixture.
+        p is the weight of the cup state projectorin the mixture.
         The state is entangled iff p > 1/d, and pure and fully entangled iff p = 1.
 
         For every d, the isotropic family of states includes the fully

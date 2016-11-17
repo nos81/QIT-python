@@ -3,8 +3,8 @@
 # Ville Bergholm 2009-2014
 
 import unittest
-from numpy import mat, array, dot, eye, trace
-from numpy.random import rand, randn
+from numpy import mat, array, dot, eye, trace, kron
+from numpy.random import randn
 from numpy.linalg import norm, det, eigvalsh
 from scipy.linalg import expm
 
@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.abspath('.'))
 from qit import version
 from qit.base  import tol
 from qit.utils import *
+from qit.gate  import copydot
 
 
 def randn_complex(*arg):
@@ -93,6 +94,8 @@ class UtilsTest(unittest.TestCase):
         self.assertAlmostEqual(norm(temp.imag), 0, delta=tol) # real eigenvalues
         self.assertAlmostEqual(norm(temp - abs(temp)), 0, delta=tol) # nonnegative eigenvalues
 
+        A = rand_SL(dim)
+        self.assertAlmostEqual(det(A), 1, delta=tol) # det 1
 
         ### superoperators
         L = mat(rand_U(dim))
@@ -103,6 +106,13 @@ class UtilsTest(unittest.TestCase):
         self.assertAlmostEqual(norm(L*rho -inv_vec(dot(lmul(L), v))), 0, delta=tol)
         self.assertAlmostEqual(norm(rho*R -inv_vec(dot(rmul(R), v))), 0, delta=tol)
 
+        # superop propagators and Choi matrices are equivalent ways of propagating a state
+        A = [randn_complex(dim, dim), randn_complex(dim, dim)]
+        L = expm(superop_lindblad(A))
+        C = superop_to_choi(L)
+        wire = kron(copydot(0, 2, dim).data.A, eye(dim))
+        temp = dot(dot(wire.conj().T, kron(rho, C)), wire)
+        self.assertAlmostEqual(norm(temp -inv_vec(dot(L, v))), 0, delta=tol)
 
         ### physical operators
         J = angular_momentum(dim)

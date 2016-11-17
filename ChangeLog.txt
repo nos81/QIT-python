@@ -106,6 +106,7 @@ b bugfix
               + gate.epsilon
               + utils.tensorsum
               + utils.rand_GL
+              + utils.superop_to_choi
               * utils.tensorbasis also returns the integer locality of each element.
               * seq: sign convention changed, converted into a class.
               + seq.knill

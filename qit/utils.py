@@ -63,6 +63,7 @@ Superoperators
    lrmul
    superop_lindblad   
    superop_fp
+   superop_to_choi
 
 Physics
 -------
@@ -119,7 +120,7 @@ __all__ = ['assert_o', 'copy_memoize',
            'projector', 'eighsort', 'expv',
            'rank', 'orth', 'nullspace', 'nullspace_hermitian',
            'rand_hermitian', 'rand_U', 'rand_SU', 'rand_U1', 'rand_pu', 'rand_positive', 'rand_GL', 'rand_SL',
-           'vec', 'inv_vec', 'lmul', 'rmul', 'lrmul', 'superop_lindblad', 'superop_fp',
+           'vec', 'inv_vec', 'lmul', 'rmul', 'lrmul', 'superop_lindblad', 'superop_fp', 'superop_to_choi',
            'angular_momentum', 'boson_ladder', 'fermion_ladder',
            'spectral_decomposition',
            'gellmann', 'tensorbasis',
@@ -307,22 +308,21 @@ def acomm(A, B):
 def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
     r"""Multiply a vector by an exponentiated matrix.
 
+    :param vector   t:  vector of nondecreasing time instances >= 0
+    :param array    A:  n*n matrix (usually sparse) (as an (n,n)-shaped ndarray)
+    :param vector   v:  n-dimensional vector (as an (n,)-shaped ndarray)
+    :param float  tol:  tolerance
+    :param int      m:  Krylov subspace dimension, <= n
+    :param string iteration:  'arnoldi' or 'lanczos'. Lanczos is faster but requires a Hermitian A.
+
+    :returns tuple (W, error, hump):
+      * W:             result array, :math:`W[i,:] \approx \exp(t[i] A) v`
+      * error (float): total truncation error estimate
+      * hump (float):  :math:`\max_{s \in [0, t]}  \| \exp(s A) \|`
+
     Approximates :math:`exp(t A) v` using a Krylov subspace technique.
     Efficient for large sparse matrices.
     The basis for the Krylov subspace is constructed using either Arnoldi or Lanczos iteration.
-
-    Input:
-    t           vector of nondecreasing time instances >= 0
-    A           n*n matrix (usually sparse) (as an (n,n)-shaped ndarray)
-    v           n-dimensional vector (as an (n,)-shaped ndarray)
-    tol         tolerance
-    m           Krylov subspace dimension, <= n
-    iteration   'arnoldi' or 'lanczos'. Lanczos is faster but requires a Hermitian A.
-
-    Output:
-    W       result matrix, :math:`W[i,:] \approx \exp(t[i] A) v`
-    error   total truncation error estimate
-    hump    :math:`\max_{s \in [0, t]}  \| \exp(s A) \|`
 
     Uses the sparse algorithm from :cite:`EXPOKIT`.
     """
@@ -619,7 +619,7 @@ def rand_SL(n):
     """
     # Ville Bergholm 2011
 
-    S = randn(n, n) +1j*randn(n, n)
+    S = rand_GL(n)
     d = det(S) ** (1/n)
     return S/d
 
@@ -833,6 +833,29 @@ def superop_fp(L, tol=None):
     # should show transient polynomial behavior
 
     return A, spectrum
+
+
+def superop_to_choi(L):
+    r"""Convert a Liouvillian superoperator to a Choi matrix.
+
+    Given a Liouvillian superoperator L operating on vectorized state
+    operators, :math:`L: A \otimes A \to B \otimes B`, returns the
+    corresponding Choi matrix :math:`C: A \otimes B \to A \otimes B`.
+    """
+    # Ville Bergholm 2015-2016
+
+    # input and output Hilbert space dimensions
+    dim = sqrt(L.shape)
+    A = dim[1]
+    B = dim[0]
+    D = A*B
+
+    # reshape uses little-endian ordering, whereas we use big-endian
+    temp = L.reshape((B, B, A, A))
+    # swap the more significant output and less significant input indices
+    temp = temp.transpose((3, 1, 2, 0))
+    # back to a flat matrix
+    return temp.reshape((D, D))
 
 
 
@@ -1249,7 +1272,10 @@ def majorize(x, y):
 def mkron(*arg):
     r"""This is how kron should work, dammit.
 
-    Returns the tensor (Kronecker) product :math:`X = A \otimes B \otimes \ldots`
+    :param array A,B,C,...: arbitrary numpy arrays
+    :returns: :math:`A \otimes B \otimes C \otimes \ldots`
+
+    Returns the tensor (Kronecker) product of any number of arrays.
     """
     # Ville Bergholm 2009
 
