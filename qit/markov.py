@@ -37,12 +37,12 @@ Contents
    corr
    fit
 """
-# Ville Bergholm 2011-2014
+# Ville Bergholm 2011-2016
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
 from numpy import (array, sqrt, exp, sin, cos, arctan2, tanh, dot, argsort, pi,
-    r_, linspace, logspace, searchsorted, inf, newaxis, unravel_index)
+    r_, linspace, logspace, searchsorted, inf, newaxis, unravel_index, zeros)
 from scipy.linalg import norm
 from scipy.integrate import quad
 import scipy.constants as const
@@ -218,9 +218,9 @@ class bath(object):
 
     def corr(self, x):
         r"""Bath spectral correlation tensor.
-        ::
 
-          g, s = corr(x)
+        :param float x: Relative angular frequency
+        :returns tuple (g,s): Real and imaginary parts of the spectral correlation tensor
 
         Returns the bath spectral correlation tensor :math:`\Gamma` evaluated at :math:`\omega_0 x`:
 
@@ -297,14 +297,14 @@ class bath(object):
 
     def fit(self, delta, T1, T2):
         r"""Qubit-bath coupling that reproduces given decoherence times.
-        ::
 
-          H, D = fit(delta, T1, T2)
+        :param float delta:  Energy splitting for the qubit (in units of :math:`\hbar \omega_0`)
+        :param float T1, T2: Decoherence times T1 and T2 (in units of :math:`1/\omega_0`)
+        :returns tuple (H, D):
 
         Returns the qubit Hamiltonian H and the qubit-bath coupling operator D
-        that reproduce the decoherence times T1 and T2 (in units of :math:`1/\omega_0`)
+        that reproduce the decoherence times T1 and T2
         for a single-qubit system coupled to the bath.
-        delta is the energy splitting for the qubit (in units of :math:`\hbar \omega_0`).
 
         The bath object is not modified.
         """
@@ -341,20 +341,18 @@ class bath(object):
 
 def ops(H, D):
     r"""Jump operators for a Born-Markov master equation.
-    ::
 
-      dH, A = ops(H, D)
+    :param array H: System Hamiltonian
+    :param array D: Hermitian interaction operator
+    :returns tuple (dH, A):
 
-    Builds the jump operators for a Hamiltonian operator H and
-    a (Hermitian) interaction operator D.
-
-    Returns (dH, A), where dH is a list of the sorted unique nonnegative differences between
+    dH is a list of the sorted unique nonnegative differences between
     eigenvalues of H, and A is a sequence of the corresponding jump operators:
     :math:`A_k(dH_i) = A[k][i]`.
 
     Since :math:`A_k(-dH) = A_k^\dagger(dH)`, only the nonnegative dH:s and corresponding A:s are returned.
     """
-    # Ville Bergholm 2009-2011
+    # Ville Bergholm 2009-2016
 
     E, P = spectral_decomposition(H)
     m = len(E) # unique eigenvalues
@@ -367,32 +365,46 @@ def ops(H, D):
     s = m * (m - 1) / 2
     #assert(ind[s], 0)
     ind = ind[s:] # lower triangle indices only
-    deltaE = deltaE.flat[ind] # lower triangle flattened
 
     if not isinstance(D, (list, tuple)):
         D = [D] # D needs to be a sequence, even if it has just one element
     n_D = len(D) # number of bath coupling ops
 
     # combine degenerate deltaE, build jump ops
-    A = []
-    # first dH == 0
-    dH = [deltaE[0]]
-    r, c = unravel_index(ind[0], (m, m))
-    for d in D:
-        A.append( [ dot(dot(P[c], d), P[r]) ] )
-
-    for k in range(1, len(deltaE)):
-        r, c = unravel_index(ind[k], (m, m))
-        if abs(deltaE[k] - deltaE[k-1]) > tol:
+    dH = []
+    A = [[]] * n_D
+    current_dE = inf
+    # loop over lower triangle indices
+    for k in ind:
+        dE = deltaE.flat[k]
+        if abs(dE -current_dE) > tol:
             # new omega value, new jump op
-            dH.append(deltaE[k])
+            current_dE = dE
+            dH.append(dE)
             for op in range(n_D):
-                A[op].append( dot(dot(P[c], D[op]), P[r]) )
-        else:
-            # extend current op
-            for op in range(n_D):
-                A[op][-1] += dot(dot(P[c], D[op]), P[r])
+                A[op].append(0)
+        # extend current jump op
+        r, c = unravel_index(k, (m, m))
+        for op in range(n_D):
+            A[op][-1] += dot(dot(P[c], D[op]), P[r])
 
+    A  = array(A)
+    dH = array(dH)
+    # find columns in which every A vanishes
+    temp = zeros(A.shape[0:2])
+    for k in range(len(dH)):
+        for op in range(n_D):
+            temp[op, k] = norm(A[op, k]) > tol
+    temp = temp.any(0)
+    # eliminate zero As and corresponding dHs
+    A = A[:,temp]
+    dH = dH[temp]
+
+    # Are some of the remaining dH differences too low for RWA to hold properly?
+    # TODO justify the numerical tolerance used
+    for k in range(1, len(dH)):
+        if abs(dH[k] -dH[k-1]) < 1e-3:
+            print('Warning: Small difference between dH({}) and dH({}) may break the RWA.\n'.format(k-1, k))
     return dH, A
 
 
@@ -413,9 +425,11 @@ def _check_baths(B):
 
 def lindblad_ops(H, D, B):
     r"""Lindblad operators for a Born-Markov master equation.
-    ::
 
-       L, H_LS = lindblad_ops(H, D, B)
+    :param array H:  System Hamiltonian
+    :param array D:  Hermitian interaction operator
+    :param bath B:   :class:`qit.markov.bath` instance
+    :returns tuple (L, H_LS):
 
     Builds the Lindblad operators corresponding to a
     base Hamiltonian H and a (Hermitian) interaction operator D
@@ -474,7 +488,6 @@ def superop(H, D, B):
     a list of the corresponding interaction operators.
     """
     # Ville Bergholm 2009-2011
-
     B = _check_baths(B)
 
     # jump ops

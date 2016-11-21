@@ -113,6 +113,7 @@ b bugfix
               + seq.dd
               - seq.cpmg (merged into seq.dd)
               b invariant.LU fixed.
+              b markov.ops warns of possible RWA violations.
               + examples.werner_states
               * examples.bb84 prints more info.
               * examples.nmr_sequences updated, now also does pulse strength errors.
