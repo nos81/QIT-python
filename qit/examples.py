@@ -457,28 +457,31 @@ def grover_search(n=8):
 
 
 
-def markov_decoherence(T1, T2, B=None):
+def markov_decoherence(T1=7e-10, T2=1e-9, B=None):
     """Markovian decoherence demo.
 
-    Given decoherence times T1 and T2, creates a markovian bath B
+    Given decoherence times T1 and T2 (in s), creates a markovian bath B
     and a coupling operator D which reproduce them on a single-qubit system.
 
     """
-    # Ville Bergholm 2009-2011
+    # Ville Bergholm 2009-2016
 
     from . import markov
     print('\n\n=== Markovian decoherence in a qubit ===\n')
 
-    omega0 = 2*pi* 1e9 # Hz
+    TU = 1e-9  # time unit, s
     T = 1 # K
     delta = 3 + 3*npr.rand() # qubit energy splitting (GHz)
 
+    T1 /= TU
+    T2 /= TU
+
     # setup the bath
     if B == None:
-        B = markov.bath('ohmic', omega0, T) # defaults
+        B = markov.bath('ohmic', 'boson', TU, T) # defaults
 
     # find the correct qubit-bath coupling
-    H, D = B.fit(delta, T1*omega0, T2*omega0)
+    H, D = B.fit(delta, T1, T2)
     L = markov.superop(H, D, B)
     t = linspace(0, 10, 200)
 
@@ -488,8 +491,8 @@ def markov_decoherence(T1, T2, B=None):
     out = s.propagate(L, t, lambda x, h: x.ev(p1))
     plt.figure()
     plt.subplot(2, 1, 1)
-    plt.plot(t, out, 'r-', t, eq +(1-eq)*exp(-t/(T1*omega0)), 'b-.', [0, t[-1]], [eq, eq], 'k:', linewidth = 2)
-    plt.xlabel('$t \\omega_0$')
+    plt.plot(t, out, 'r-', t, eq +(1-eq)*exp(-t/T1), 'b-.', [0, t[-1]], [eq, eq], 'k:', linewidth = 2)
+    plt.xlabel('$t$ [TU]')
     plt.ylabel('probability')
     plt.axis([0, t[-1], 0, 1])
     plt.title('$T_1$: relaxation')
@@ -500,8 +503,8 @@ def markov_decoherence(T1, T2, B=None):
     s = s.u_propagate(R_y(pi/2)) # rotate to (|0>+|1>)/sqrt(2)
     out = s.propagate(L, t, lambda x, h: x.u_propagate(R_y(-pi/2)).ev(p0))
     plt.subplot(2, 1, 2)
-    plt.plot(t, out, 'r-', t, 0.5*(1+exp(-t/(T2*omega0))), 'b-.', linewidth = 2)
-    plt.xlabel('$t \omega_0$')
+    plt.plot(t, out, 'r-', t, 0.5*(1+exp(-t/T2)), 'b-.', linewidth = 2)
+    plt.xlabel('$t$ [TU]')
     plt.ylabel('probability')
     plt.axis([0, t[-1], 0, 1])
     plt.title('$T_2$: dephasing')
