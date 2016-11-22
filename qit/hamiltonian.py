@@ -19,14 +19,14 @@ Contents
    bose_hubbard
    holstein
 """
-# Ville Bergholm 2014
+# Ville Bergholm 2014-2016
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
 import numpy as np
 from numpy import asarray, conj, transpose, dot
 
-from .base import sx, sz
+from .base import sx, sy, sz
 from .utils import angular_momentum, op_list, boson_ladder, fermion_ladder
 
 
@@ -49,27 +49,21 @@ def _cdot(v, A):
 def heisenberg(dim, C=None, J=(0, 0, 2), B=(0, 0, 1)):
     r"""Heisenberg spin network model.
 
-    Returns the Hamiltonian H for the Heisenberg model, describing a network
-    of n interacting spins in an external magnetic field.
-
-    dim is an n-tuple of the dimensions of the spins, i.e. dim == (2, 2, 2)
-    would be a system of three spin-1/2's.
-
-    C is the :math:`n \times n` connection matrix of the spin network, where C[i,j]
-    is the coupling strength between spins i and j. Only the upper triangle is used.
-
-    J defines the form of the spin-spin interaction. It is either a 3-tuple or a
-    function J(i, j) returning a 3-tuple for site-dependent interactions.
-    Element k of the tuple is the coefficient of the Hamiltonian term :math:`S_k^{(i)} S_k^{(j)}`,
-    where :math:`S_k^{(i)}` is the k-component of the angular momentum of spin i.
-
-    B defines the effective magnetic field the spins locally couple to. It's either
-    a 3-tuple (homogeneous field) or a function B(a) that returns a 3-tuple for
-    site-dependent field.
+    :param tuple dim:  n-tuple of the dimensions of the spins, i.e. dim == (2, 2, 2) would be a system of three spin-1/2's.
+    :param array C:    :math:`n \times n` connection matrix of the spin network, where C[i,j]
+      is the coupling strength between spins i and j. Only the upper triangle is used.
+    :param J:          The form of the spin-spin interaction. Either a 3-tuple or a
+      function J(i, j) returning a 3-tuple for site-dependent interactions (see below).
+    :param B:          The effective magnetic field the spins locally couple to. Either
+      a 3-tuple (homogeneous field) or a function B(a) that returns a 3-tuple for a site-dependent field.
+    :returns (H, dim): H is a Heisenberg model Hamiltonian, describing a network
+      of n interacting spins in an external magnetic field, and dim its dimension vector.
 
     .. math::
 
-      H = \sum_{\langle i,j \rangle} \sum_{k = x,y,z} J(i,j)[k] S_k^{(i)} S_k^{(j)}  +\sum_i \vec{B}(i) \cdot \vec{S}^{(i)})
+      H = \sum_{\langle i,j \rangle} C[i,j] \sum_{k = x,y,z} J(i,j)[k] S_k^{(i)} S_k^{(j)}  +\sum_i \vec{B}(i) \cdot \vec{S}^{(i)},
+
+    where :math:`S_k^{(i)}` is the k-component of the angular momentum operator of spin i.
 
     Examples::
 
@@ -128,36 +122,74 @@ def heisenberg(dim, C=None, J=(0, 0, 2), B=(0, 0, 1)):
 
 
 
-def jaynes_cummings(om_a, om_c, omega, m=10):
-    r"""Jaynes-Cummings model, a two-level atom in a single-mode cavity.
+def jaynes_cummings(om_atom, Omega, m=10, use_RWA=False):
+    r"""Jaynes-Cummings model, one or more two-level atoms coupled to a single-mode cavity.
 
-    Returns the Hamiltonian H and the dimension vector dim for an
-    implementation of the Jaynes-Cummings model, describing a two-level atom coupled
-    to a harmonic oscillator (e.g. a single EM field mode in an optical cavity).
+    :param vector om_atom:  Atom level splittings
+    :param vector Omega:       Atom-cavity coupling
+    :param int m:           Cavity Hilbert space dimension truncation limit
+    :param bool use_RWA:    Should we discard counter-rotating interaction terms?
+    :returns tuple (H, dim):  H is the Hamiltonian H and dim the dimension vector for an
+      implementation of the Jaynes-Cummings model, describing n two-level atoms coupled
+      to a harmonic oscillator (e.g. a single EM field mode in an optical cavity),
+      where n == len(om_atom) == len(Omega).
 
     .. math::
+      H/\hbar = -\sum_k \frac{{\omega_a}_k}{2} Z_k +\omega_c a^\dagger a +\sum_k \frac{\Omega_k}{2} (a+a^\dagger) \otimes X_k
 
-      H/\hbar = \frac{\omega_a}{2} \sigma_z +\omega_c a^\dagger a +\frac{\Omega}{2} \sigma_x (a+a^\dagger)
+    The returned Hamiltonian H has been additionally normalized with :math:`\omega_c`,
+    and is thus dimensionless. om_atom[k] = :math:`{\omega_a}_k / \omega_c`,  Omega[k] = :math:`\Omega_k / \omega_c`.
 
+    The order of the subsystems is [cavity, atom_1, ..., atom_n].
     The dimension of the Hilbert space of the bosonic cavity mode (infinite in principle) is truncated to m.
+    If use_RWA is true, the Rotating Wave Approximation is applied to the Hamiltonian,
+    and the counter-rotating interaction terms are discarded.
     """
-    # Ville Bergholm 2014
+    # Ville Bergholm 2014-2016
 
-    dim = (2, m)
-    a = boson_ladder(m) 
+    n = len(om_atom)
+    if len(Omega) != n:
+        raise ValueError('The coupling vector Omega must be of the same length as the atom splitting vector om_atom.')
+
+    # dimension vector
+    dim = (m,) + (2,)*n
+    # operators
+    a = boson_ladder(m)
     ax = a.conj().transpose()
+    x = a+ax
+    sp = 0.5*(sx -1j*sy) # qubit raising operator
+    sm = sp.conj().transpose()
 
-    temp = [[(om_a/2 * sz, 0)],
-            [(om_c * dot(ax, a), 1)],
-            [(omega * sx, 0), (a+ax, 1)]]
-    H = op_list(temp, dim)
+    atom = []
+    coupling = []
+    # loop over atoms
+    for k in range(n):
+        atom.append([(-0.5*om_atom[k] * sz, k+1)])  # atomic Hamiltonian
+        # atom-cavity coupling
+        if use_RWA:
+            # rotating wave approximation, discard counter-rotating terms
+            coupling.append([(a,   0), (0.5*Omega[k] * sp, k+1)])
+            coupling.append([(ax,  0), (0.5*Omega[k] * sm, k+1)])
+        else:
+            coupling.append([(x, 0),   (0.5*Omega[k] * sx, k+1)])
 
+    # cavity
+    import pdb; pdb.set_trace()
+    Hc    = op_list([[(dot(ax, a), 0)]], dim)
+    Ha    = op_list(atom, dim)
+    H_int = op_list(coupling, dim)
+    H = Hc +Ha +H_int
     return H, dim
 
 
 
 def hubbard(C, U=1, mu=0):
     r"""Hubbard model, fermions on a lattice.
+
+    :param array C:    Connection matrix of the interaction graph
+    :param float U:    Fermion-fermion interaction strength (normalized)
+    :param float mu:   External chemical potential (normalized)
+    :returns tuple (H, dim):
 
     Returns the Hamiltonian H and the dimension vector dim for an
     implementation of the Hubbard model.
@@ -171,11 +203,11 @@ def hubbard(C, U=1, mu=0):
     .. math::
 
       H = -\sum_{\langle i,j \rangle, \sigma} c^\dagger_{i,\sigma} c_{j,\sigma}
-        +\frac{U}{t} \sum_i n_{i,up} n_{i,down} -\frac{\mu}{t} \sum_i (n_{i,up}+n_{i,down})
+        +\frac{U}{t} \sum_i n_{i,up} n_{i,\downarrow} -\frac{\mu}{t} \sum_i (n_{i,up}+n_{i,\downarrow})
     """
-    # Ville Bergholm 2010-2014
+    # Ville Bergholm 2010-2016
 
-    n = len(C)
+    n = C.shape[0]
     dim = 2 * np.ones(2*n)  # n sites, two fermionic modes per site
 
     # fermion annihilation ops f[site, spin]

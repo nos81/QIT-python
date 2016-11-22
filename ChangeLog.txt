@@ -112,6 +112,7 @@ b bugfix
               + seq.knill
               + seq.dd
               - seq.cpmg (merged into seq.dd)
+              * hamiltonian.jaynes_cummings updated.
               b invariant.LU fixed.
               * markov.bath class rewritten, supports also fermionic baths.
               b markov.ops warns of possible RWA violations.
