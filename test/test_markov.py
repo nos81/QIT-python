@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 "Unit tests for qit.markov"
-# Ville Bergholm 2009-2014
+# Ville Bergholm 2009-2016
 
 import unittest
 from numpy.random import rand, randn
@@ -22,17 +22,23 @@ class SeqTest(unittest.TestCase):
         """Testing the Markovian bath module."""
 
         dim = 6
+        TU = 1e-9  # s
         H = rand_hermitian(dim)
         D = [rand_hermitian(dim)/10, rand_hermitian(dim)/10]
-        B = [bath('ohmic', 1e9, 0.02), bath('ohmic', 1e9, 0.03)]
+        B = [bath('ohmic', 'boson', TU, 0.02), bath('ohmic', 'fermion', TU, 0.03)]
 
         # jump operators
         dH, X = ops(H, D)
-        self.assertAlmostEqual(dH[0], 0, delta=tol)
+        self.assertEqual(len(D), X.shape[0])
+        self.assertEqual(len(dH), X.shape[1])
+
+        # jump ops should sum to D
         for n, A in enumerate(X):
-            temp = A[0] # dH[0] == 0
-            for k in range(1, len(dH)):
-                temp += A[k] +A[k].conj().transpose() # A(-omega) == A'(omega)
+            temp = 0
+            for k in range(len(dH)):
+                temp += A[k]
+                if dH[k] != 0:
+                    temp += A[k].conj().transpose() # A(-omega) == A'(omega)
             self.assertAlmostEqual(norm(temp - D[n]), 0, delta=tol) # Lindblad ops should sum to D
 
         # equivalence of Lindblad operators and the Liouvillian superoperator
@@ -40,7 +46,6 @@ class SeqTest(unittest.TestCase):
         S1 = superop_lindblad(LL, H + H_LS)
         S2 = superop(H, D, B)
         self.assertAlmostEqual(norm(S1 - S2), 0, delta=tol)
-
 
 
 if __name__ == '__main__':

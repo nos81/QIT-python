@@ -5,7 +5,8 @@ Born-Markov noise (:mod:`qit.markov`)
 
 
 This module simulates the effects of a heat bath coupled to a quantum
-system, using the Born-Markov approximation.
+system, using the Born-Markov approximation in the weak coupling limit.
+This results in a Lindblad-form master equation for the system.
 
 The treatment in this module mostly follows Ref. :cite:`BP`.
 
@@ -21,7 +22,6 @@ Contents
    ops
    lindblad_ops
    superop   
-   bath
 
 
 :class:`bath` methods
@@ -42,10 +42,13 @@ Contents
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
-from numpy import (array, sqrt, exp, log10, sin, cos, arctan2, tanh, dot, argsort, pi,
+import collections
+
+from numpy import (array, sqrt, exp, log, log10, sin, cos, arctan2, tanh, sign, dot, argsort, pi,
                    r_, linspace, logspace, searchsorted, inf, newaxis, unravel_index, zeros, empty)
 from scipy.linalg import norm
 from scipy.integrate import quad
+from scipy.special import expi
 import scipy.constants as const
 import matplotlib.pyplot as plt
 
@@ -144,8 +147,6 @@ class bath(object):
         self.stat = stat
         self.TU   = TU
         self.T    = T
-        # shorthand
-        self.scale = const.hbar / (const.k * T * TU)
 
         if type == 'ohmic':
             pass
@@ -158,14 +159,20 @@ class bath(object):
 
     def __repr__(self):
         """String representation."""
-        return """Markovian heat bath.  Spectral density: {sd}, {st}ic statistics, T = {temp:g} K, TU = {tu:g} s""".format(sd = self.type, st = self.stat, temp = self.T, tu = self.TU)
+        return """<Markovian heat bath. Spectral density: {sd}, {st}ic statistics, T = {temp:g} K, TU = {tu:g} s>""".format(sd = self.type, st = self.stat, temp = self.T, tu = self.TU)
+
+
+    def desc(self):
+        """Bath description string for plots."""
+        return '{}, {}, relative T: {:.4g}, cutoff: {}, {:.4g}'.format(self.type, self.stat, 1/self.scale, self.cut_type, self.cut_omega)
 
 
     def set_cutoff(self, type, lim):
         """Set the spectral density cutoff."""
         # We assume that cut_func(0) == 1.
 
-        self.cut_type = type
+        if type != None:
+            self.cut_type = type
         self.cut_omega = lim  # == omega_c*TU
 
         # update cutoff function
@@ -183,6 +190,9 @@ class bath(object):
     def setup(self):
         """Initializes the g and s functions, and the LUT.
         Must be called after parameters change."""
+
+        # shorthand
+        self.scale = const.hbar / (const.k * self.T * self.TU)
 
         # s_func has simple poles at \nu = \pm x.
         if self.stat == 'boson':
@@ -207,7 +217,7 @@ class bath(object):
 
 
     def build_LUT(self, om=None):
-        """Build a lookup table for the S integral.
+        """Build a lookup table for the spectral correlation tensor Gamma.
 
         :param vector om:  Vector of omegas denoting the points to compute.
         """
@@ -229,17 +239,92 @@ class bath(object):
 
         # plot the LUT
         if True:
-            plt.figure()
-            plt.plot(self.omega, self.gs_table, '-x')
-            plt.xlabel('omega [1/TU]')
-            plt.legend(['g', 'S'])
-            plt.title('Bath correlation tensor Gamma: {}, {}, relative T: {}, cutoff: {}, {}'.format(self.type, self.stat, 1/self.scale, self.cut_type, self.cut_omega))
-            plt.grid(True)
+            self.plot_LUT()
 
         # limits at infinity
         self.omega    = r_[-inf, self.omega, inf]
         self.gs_table = r_[[[0, 0]], self.gs_table, [[0, 0]]]
 
+
+    def _plot(self, x, om, q, gs, odd_s, even_s, f=plt.plot):
+        """Plotting utility."""
+
+        plt.figure()
+        plt.hold(True)
+        plt.grid(True)
+        plt.plot(x, gs, '-x')
+        plt.plot(x, odd_s, 'k-', x, even_s, 'm-')
+
+        # analytical expressions for even and odd s funcs
+        if self.cut_type == 'sharp':
+            odd_s = log(abs(q**2 / (q**2-1)))
+            even_s = log(abs((1+q) / (1-q))) -2/q
+        elif self.cut_type == 'smooth':
+            odd_s = 2*log(abs(q)) / (1+q**2)
+            even_s = -pi/q  / (1+q**2)
+        elif self.cut_type == 'exp':
+            odd_s = expi(-q)*exp(q) +expi(q)*exp(-q)
+            even_s = -(expi(-q)*exp(q) -expi(q)*exp(-q)) -2/q
+        else:
+            raise ValueError('Unknown cut type.')
+        f(x, om * odd_s, 'ko', x, om * even_s, 'mo')
+        plt.ylabel('[1/TU]')
+        plt.legend(['$\gamma$', 'S', '$S(\omega)-S(-\omega)$', '$S(\omega)+S(-\omega)$',
+                    '$S(\omega)-S(-\omega)$ (fermion)', '$S(\omega)+S(-\omega)$ (boson)'])
+
+
+
+    def plot_LUT(self):
+        """Plot the contents of the spectral correlation tensor LUT."""
+
+        om = self.omega
+        q = om / self.cut_omega  # normalized
+
+        # computed values
+        s = self.gs_table[:,1]
+        temp = s[::-1]  # s(-x)
+        odd_s  = s -temp  # s(x)-s(-x)
+        even_s = s +temp  # s(x)+s(-x)
+
+        # ratio of Lamb shift to dephasing rate
+        #g = self.gs_table[:,0]
+        #boltz = exp(-self.scale * om)
+        #ratio = odd_s / (g * (boltz+1))
+
+        self._plot(om, om, q, self.gs_table, odd_s, even_s)
+        # cut limits
+        a = plt.axis()[2:]  # y limits
+        c = self.cut_omega
+        plt.plot([c,c], a, 'k-')
+        plt.plot([-c,-c], a, 'k-')
+
+        plt.xlabel(r'$\omega$ [1/TU]')
+        temp = r'Bath correlation tensor $\Gamma = \frac{1}{2} \gamma(\omega) +i S(\omega)$: '
+        plt.title(temp + self.desc())
+
+
+    def plot_cut(self, boltz=0.5):
+        r"""Plots spectral correlation tensor components as a function of cut limit.
+        boltz is the Boltzmann factor :math:`e^{-\beta \hbar \omega}`.
+        """
+
+        om = -log(boltz) / self.scale  # \omega * TU
+
+        # try different cutoffs relative to om
+        cut = logspace(-1.5, 1.5, 50)
+        gs  = zeros((len(cut), 2))
+        gsm = zeros((len(cut), 2))
+        for k in range(len(cut)):
+            print(k)
+            self.set_cutoff(None, cut[k] * abs(om))
+            gs[k,:]  = self.compute_gs(om)
+            gsm[k,:] = self.compute_gs(-om)
+        odd_s  = gs[:,1] -gsm[:,1]
+        even_s = gs[:,1] +gsm[:,1]
+        q = sign(om) / cut
+        self._plot(cut, om, q, gs, odd_s, even_s, plt.semilogx)
+        plt.xlabel(r'$\omega_c/\omega$')
+        plt.title(self.desc() + ', boltzmann: {:.4g}, omega: {:.4g}'.format(boltz, om))
 
 
     def compute_gs(self, x):
@@ -402,12 +487,12 @@ def ops(H, D):
     r"""Jump operators for a Born-Markov master equation.
 
     :param array H: System Hamiltonian
-    :param array D: Hermitian interaction operator
+    :param sequence D: Sequence of Hermitian interaction operators
     :returns tuple (dH, A):
 
     dH is a list of the sorted unique nonnegative differences between
-    eigenvalues of H, and A is a sequence of the corresponding jump operators:
-    :math:`A_k(dH_i) = A[k][i]`.
+    eigenvalues of H, and A is an array of the corresponding jump operators:
+    :math:`A_k(dH_i) = A[k][i]`, where the jump ops A[k] correspond to D[k].
 
     Since :math:`A_k(-dH) = A_k^\dagger(dH)`, only the nonnegative dH:s and corresponding A:s are returned.
     """
@@ -425,13 +510,13 @@ def ops(H, D):
     #assert(ind[s], 0)
     ind = ind[s:] # lower triangle indices only
 
-    if not isinstance(D, (list, tuple)):
+    if not isinstance(D, collections.Sequence):
         D = [D] # D needs to be a sequence, even if it has just one element
     n_D = len(D) # number of bath coupling ops
 
     # combine degenerate deltaE, build jump ops
     dH = []
-    A = [[]] * n_D
+    A = [[] for k in range(n_D)]
     current_dE = inf
     # loop over lower triangle indices
     for k in ind:
@@ -470,8 +555,8 @@ def ops(H, D):
 
 def _check_baths(B):
     """Internal helper."""
-    if not isinstance(B, (list, tuple)):
-        B = [B] # needs to be a list, even if it has just one element
+    if not isinstance(B, collections.Sequence):
+        B = [B] # needs to be a sequence, even if it has just one element
 
     # make sure the baths have the same TU!
     temp = B[0].TU
@@ -494,13 +579,13 @@ def lindblad_ops(H, D, B):
     base Hamiltonian H and a (Hermitian) interaction operator D
     coupling the system to bath B.
 
-    Returns :math:`L = \{A_i / \omega_0 \}_i` and :math:`H_{\text{LS}} / (\hbar \omega_0)`,
-    where :math:`A_i` are the Lindblad operators and :math:`H_{\text{LS}}` is the Lamb shift.
+    Returns a list L of Lindblad operators :math:`A_i` (in units of :math:`1/\sqrt{\text{TU}}`)
+    and the Lamb shift Hamiltonian :math:`H_{\text{LS}}` (in units of :math:`\hbar/\text{TU}`).
 
-    B can also be a list of baths, in which case D has to be
-    a list of the corresponding interaction operators.
+    B can also be a sequence of baths, in which case D has to be
+    a sequence of the corresponding interaction operators.
     """
-    # Ville Bergholm 2009-2011
+    # Ville Bergholm 2009-2016
 
     B = _check_baths(B)
 
@@ -511,22 +596,25 @@ def lindblad_ops(H, D, B):
     for n, b in enumerate(B):
         A = X[n] # jump ops for bath/interaction op n
 
-        # dH == 0 terms
-        g, s = b.corr(0)
-        L.append(sqrt(g) * A[0])
-        H_LS += s * dot(A[0].conj().transpose(), A[0])  # Lamb shift
+        for k in range(len(dH)):
+            #NA[k] = norm(A[k], 'fro'); # how significant is this op?
 
-        for k in range(1, len(dH)):
             # first the positive energy shift
             g, s = b.corr(dH[k])
-            L.append(sqrt(g) * A[k])
+            # is the dissipation significant?
+            if abs(g) >= tol:
+                L.append(sqrt(g) * A[k])
             H_LS += s * dot(A[k].conj().transpose(), A[k])
+
+            if dH[k] == 0:
+                # no negative shift
+                continue
 
             # now the corresponding negative energy shift
             g, s = b.corr(-dH[k])
-            L.append(sqrt(g) * A[k].conj().transpose())   # note the difference here, A(-omega) = A'(omega)
-            H_LS += s * dot(A[k], A[k].conj().transpose()) # here too
-
+            if abs(g) >= tol:
+                L.append(sqrt(g) * A[k].conj().transpose()) # note the difference here, A(-omega) = A'(omega)
+            H_LS += s * dot(A[k], A[k].conj().transpose())  # here too
     return L, H_LS
     # TODO ops for different baths can be combined into a single basis,
     # N^2-1 ops max in total
@@ -536,43 +624,44 @@ def lindblad_ops(H, D, B):
 def superop(H, D, B):
     r"""Liouvillian superoperator for a Born-Markov master equation.
 
+    :param array H:  System Hamiltonian
+    :param array D:  Hermitian interaction operator
+    :param bath B:   :class:`qit.markov.bath` instance
+    :returns array L:
+
     Builds the Liouvillian superoperator L corresponding to a
     base Hamiltonian H and a (Hermitian) interaction operator D
     coupling the system to bath B.
 
-    Returns :math:`L/\omega_0`, which includes the system Hamiltonian, the Lamb shift,
-    and the Lindblad dissipator.
+    L includes the system Hamiltonian, the Lamb shift,
+    and the Lindblad dissipator, and is in units of 1/TU.
 
-    B can also be a list of baths, in which case D has to be
-    a list of the corresponding interaction operators.
+    B can also be a sequence of baths, in which case D has to be
+    a sequence of the corresponding interaction operators.
     """
-    # Ville Bergholm 2009-2011
+    # Ville Bergholm 2009-2016
     B = _check_baths(B)
 
     # jump ops
     dH, X = ops(H, D)
     iH_LS = 1j * H  # i * (system Hamiltonian + Lamb-Stark shift)
-    acomm = 0
-    diss = 0
+    acomm = 0  # anticommutator
+    diss = 0   # the rest of the dissipator
     for n, b in enumerate(B):
         A = X[n] # jump ops for bath/interaction op n
 
         # we build the Liouvillian in a funny order to be a bit more efficient
-        # dH == 0 terms
-        [g, s] = b.corr(0)
-        temp = dot(A[0].conj().transpose(), A[0])
-
-        iH_LS += (1j * s) * temp  # Lamb shift
-        acomm += (-0.5 * g) * temp # anticommutator
-        diss  += lrmul(g * A[0], A[0].conj().transpose()) # dissipator (part)
-
-        for k in range(1, len(dH)):
+        for k in range(len(dH)):
             # first the positive energy shift
             g, s = b.corr(dH[k])
             temp = dot(A[k].conj().transpose(), A[k])
             iH_LS += (1j * s) * temp
             acomm += (-0.5 * g) * temp
             diss  += lrmul(g * A[k], A[k].conj().transpose())
+
+            if dH[k] == 0:
+                # no negative shift
+                continue
 
             # now the corresponding negative energy shift
             g, s = b.corr(-dH[k])
