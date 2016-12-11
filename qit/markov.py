@@ -31,12 +31,16 @@ Contents
 
 .. autosummary::
 
-   build_LUT
+   desc
    set_cutoff
    setup
+   build_LUT
    compute_gs
    corr
    fit
+   plot_LUT
+   plot_cutoff
+   plot_correlation
 """
 # Ville Bergholm 2011-2016
 
@@ -45,10 +49,11 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 import collections
 
 from numpy import (array, sqrt, exp, log, log10, sin, cos, arctan2, tanh, sign, dot, argsort, pi,
-                   r_, linspace, logspace, searchsorted, inf, newaxis, unravel_index, zeros, empty)
+                   r_, linspace, logspace, searchsorted, inf, newaxis, unravel_index, zeros, ones, empty,
+                   sinh, cosh)
 from scipy.linalg import norm
 from scipy.integrate import quad
-from scipy.special import expi
+from scipy.special import expi, shichi
 import scipy.constants as const
 import matplotlib.pyplot as plt
 
@@ -64,33 +69,44 @@ class bath(object):
 
     Supports bosonic and fermionic canonical ensembles at
     absolute temperature T, with an ohmic spectral density.
-    The bath couples to the system via a single-term coupling.
+    The bath couples to the system via a single-term coupling
+    :math:`H_\text{int} = A \otimes \sum_k \lambda_k (a_k +a_k')`.
 
     The bath spectral density is ohmic with a cutoff:
-
-    .. math::
-
-       J(\omega) = \omega \: \mathrm{cut}(\omega) \Theta(\omega).
+    :math:`J(\omega) = \omega \: \mathrm{cut}(\omega) \Theta(\omega)`.
 
     Three types of cutoffs are supported:
 
     .. math::
-
        \mathrm{cut}_\text{exp}(x \: \omega_c) &= \exp(-x),\\
        \mathrm{cut}_\text{smooth}(x \: \omega_c) &= \frac{1}{1+x^2},\\
        \mathrm{cut}_\text{sharp}(x \: \omega_c)  &= \Theta(1-x).
 
-    The effects of the bath on the system are contained in the complex spectral correlation tensor
-
-    .. math::
-
-       \Gamma(\omega) = \frac{1}{2} \gamma(\omega) +i S(\omega)
-
-    where :math:`\gamma` and :math:`S` are real.
+    The effects of the bath on the system are contained in the complex spectral correlation tensor :math:`\Gamma`.
     Computing values of this tensor is the main purpose of this class.
+    It depends on three parameters:
+    the inverse temperature of the bath :math:`s = \beta \hbar`,
+    the spectral cutoff frequency of the bath :math:`\omega_c`,
+    and the system frequency :math:`\omega`. It has the following scaling property:
 
     .. math::
+       \Gamma_{s,\omega_c}(\omega) = \Gamma_{s/a,\omega_c a}(\omega a) / a.
 
+    Hence we may eliminate the dimensions by choosing a = TU:
+
+    .. math::
+       \Gamma_{s,\omega_c}(\omega) = \frac{1}{\text{TU}} \Gamma_{\hat{s}, \hat{\omega_c}}(\hat{\omega}),
+
+    where the hat denotes a dimensionless quantity.
+    Since we only have one coupling term, :math:`\Gamma` is a scalar.
+    We split it into its hermitian and antihermitian parts:
+
+    .. math::
+       \Gamma_{s, \omega_c}(\omega) = \frac{1}{2} \gamma(\omega) +i S(\omega),
+
+    where :math:`\gamma` and :math:`S` are real, and
+
+    .. math::
       \gamma(\omega) &= 2 \pi (1 \pm n(\omega)) \mathrm{cut}(|\omega|)
       \begin{cases}
       \omega   \quad \text{(bosons)}\\
@@ -127,6 +143,8 @@ class bath(object):
     Data member  Description
     ===========  ===========
     cut_func     Spectral density cutoff function.
+    pf           Planck or Fermi function depending on statistics.
+    corr_int     Integral transform for the dimensionless bath correlation function.
     g_func       Spectral correlation tensor, real part. :math:`\gamma(\omega/\text{TU}) \: \text{TU} = \mathrm{g\_func}(\omega)`.
     s_func       Spectral correlation tensor, imaginary part.
     g0           :math:`\lim_{\omega \to 0} \gamma(\omega)`.
@@ -154,7 +172,7 @@ class bath(object):
             raise ValueError('Unknown bath type.')
 
         # defaults, can be changed later
-        self.set_cutoff('exp', 10)
+        self.set_cutoff('exp', 1)
 
 
     def __repr__(self):
@@ -162,9 +180,12 @@ class bath(object):
         return """<Markovian heat bath. Spectral density: {sd}, {st}ic statistics, T = {temp:g} K, TU = {tu:g} s>""".format(sd = self.type, st = self.stat, temp = self.T, tu = self.TU)
 
 
-    def desc(self):
+    def desc(self, long=True):
         """Bath description string for plots."""
-        return '{}, {}, relative T: {:.4g}, cutoff: {}, {:.4g}'.format(self.type, self.stat, 1/self.scale, self.cut_type, self.cut_omega)
+        temp = '{}, {}, inverse T: {:.4g}, cutoff: {}, {:.4g}'.format(self.type, self.stat, self.scale, self.cut_type, self.cut_omega)
+        if long:
+            return r'Bath correlation tensor $\Gamma = \frac{1}{2} \gamma(\omega) +i S(\omega)$: ' +temp
+        return temp
 
 
     def set_cutoff(self, type, lim):
@@ -173,7 +194,8 @@ class bath(object):
 
         if type != None:
             self.cut_type = type
-        self.cut_omega = lim  # == omega_c*TU
+        if lim != None:
+            self.cut_omega = lim  # == omega_c*TU
 
         # update cutoff function
         if self.cut_type == 'sharp':
@@ -196,24 +218,30 @@ class bath(object):
 
         # s_func has simple poles at \nu = \pm x.
         if self.stat == 'boson':
-            self.g_func = lambda x: 2*pi * x * self.cut_func(abs(x)) * (1 + 1 / (exp(self.scale * x) - 1))
+            self.pf = lambda x: 1/(exp(self.scale * x) - 1)
+            self.corr_int_real = lambda s,nu: nu * self.cut_func(nu) * cos(nu*s) * (1 +2*self.pf(nu))
+            self.corr_int_imag = lambda s,nu: nu * self.cut_func(nu) * -sin(nu*s)
+            self.g_func = lambda x: 2*pi * x * self.cut_func(abs(x)) * (1 +self.pf(x))
+            #self.s_func = lambda x,nu: nu * self.cut_func(nu) * ((1+self.pf(nu))/(x-nu) +self.pf(nu)/(x+nu))
             self.s_func = lambda x,nu: nu * self.cut_func(nu) * (x / tanh(self.scale * nu/2) +nu) / (x**2 -nu**2)
             self.g0 = 2*pi / self.scale
             temp, abserr = quad(self.cut_func, 0, inf)
         elif self.stat == 'fermion':
-            self.g_func = lambda x: 2*pi * abs(x) * self.cut_func(abs(x)) * (1 -1/(exp(self.scale * x) + 1))
+            self.pf = lambda x: 1/(exp(self.scale * x) + 1)
+            self.corr_int_real = lambda s,nu: nu * self.cut_func(nu) * cos(nu*s)
+            self.corr_int_imag = lambda s,nu: nu * self.cut_func(nu) * sin(nu*s) * (-1 +2*self.pf(nu))
+            self.g_func = lambda x: 2*pi * abs(x) * self.cut_func(abs(x)) * (1 -self.pf(x))
+            #self.s_func = lambda x,nu: nu * self.cut_func(nu) * ((1-self.pf(nu))/(x-nu) +self.pf(nu)/(x+nu))
             self.s_func = lambda x,nu: nu * self.cut_func(nu) * (x +nu * tanh(self.scale * nu/2)) / (x**2 -nu**2)
             self.g0 = 0
             temp, abserr = quad(lambda x: self.cut_func(x) * tanh(x*self.scale/2), 0, inf)
         else:
             raise ValueError('Unknown bath statistics.')
-
         self.s0 = -temp
 
         # clear lookup tables, since changing the cutoff requires recalc of S
-        # start with a single point precomputed
-        self.omega = array([-inf, 0, inf])
-        self.gs_table = array([[0, 0], [self.g0, self.s0], [0, 0]])
+        self.omega = array([])
+        self.gs_table = array([])
 
 
     def build_LUT(self, om=None):
@@ -236,10 +264,6 @@ class bath(object):
         for k in range(len(om)):
             print(k)
             self.gs_table[k] = self.compute_gs(self.omega[k])
-
-        # plot the LUT
-        if True:
-            self.plot_LUT()
 
         # limits at infinity
         self.omega    = r_[-inf, self.omega, inf]
@@ -267,6 +291,7 @@ class bath(object):
             even_s = -(expi(-q)*exp(q) -expi(q)*exp(-q)) -2/q
         else:
             raise ValueError('Unknown cut type.')
+
         f(x, om * odd_s, 'ko', x, om * even_s, 'mo')
         plt.ylabel('[1/TU]')
         plt.legend(['$\gamma$', 'S', '$S(\omega)-S(-\omega)$', '$S(\omega)+S(-\omega)$',
@@ -275,11 +300,12 @@ class bath(object):
 
 
     def plot_LUT(self):
-        """Plot the contents of the spectral correlation tensor LUT."""
+        """Plot the contents of the spectral correlation tensor LUT as a function of omega."""
+
+        if len(self.omega) == 0:
+            self.build_LUT()
 
         om = self.omega
-        q = om / self.cut_omega  # normalized
-
         # computed values
         s = self.gs_table[:,1]
         temp = s[::-1]  # s(-x)
@@ -291,53 +317,158 @@ class bath(object):
         #boltz = exp(-self.scale * om)
         #ratio = odd_s / (g * (boltz+1))
 
-        self._plot(om, om, q, self.gs_table, odd_s, even_s)
+        c = self.cut_omega
+        self._plot(om, om, om/c, self.gs_table, odd_s, even_s)
         # cut limits
         a = plt.axis()[2:]  # y limits
-        c = self.cut_omega
         plt.plot([c,c], a, 'k-')
         plt.plot([-c,-c], a, 'k-')
 
         plt.xlabel(r'$\omega$ [1/TU]')
-        temp = r'Bath correlation tensor $\Gamma = \frac{1}{2} \gamma(\omega) +i S(\omega)$: '
-        plt.title(temp + self.desc())
+        plt.title(self.desc())
 
 
-    def plot_cut(self, boltz=0.5):
-        r"""Plots spectral correlation tensor components as a function of cut limit.
-        boltz is the Boltzmann factor :math:`e^{-\beta \hbar \omega}`.
+    def plot_cutoff(self, boltz=0.5):
+        r"""Plot spectral correlation tensor components as a function of cutoff frequency.
+        boltz is the Boltzmann factor :math:`e^{-\beta \hbar \omega}` that fixes omega.
         """
 
-        om = -log(boltz) / self.scale  # \omega * TU
+        orig_scale  = self.scale
+        orig_cutoff = self.cut_omega
 
-        # try different cutoffs relative to om
-        cut = logspace(-1.5, 1.5, 50)
-        gs  = zeros((len(cut), 2))
-        gsm = zeros((len(cut), 2))
-        for k in range(len(cut)):
+        om = -log(boltz) / self.scale  # \omega * TU
+        # scale with |om|
+        temp = abs(om)
+        om_scaled = om / temp  # sign of om
+        self.scale *= temp     # scale the temperature parameter
+
+        # try different cutoffs relative to omega
+        cutoff = logspace(-1.5, 1.5, 50)
+        gs  = zeros((len(cutoff), 2))
+        gsm = zeros((len(cutoff), 2))
+        for k in range(len(cutoff)):
             print(k)
-            self.set_cutoff(None, cut[k] * abs(om))
-            gs[k,:]  = self.compute_gs(om)
-            gsm[k,:] = self.compute_gs(-om)
+            self.set_cutoff(None, cutoff[k])  # scaled cutoff frequency
+            gs[k,:]  = self.compute_gs(om_scaled)
+            gsm[k,:] = self.compute_gs(-om_scaled)
+        gs  *= temp
+        gsm *= temp
         odd_s  = gs[:,1] -gsm[:,1]
         even_s = gs[:,1] +gsm[:,1]
-        q = sign(om) / cut
-        self._plot(cut, om, q, gs, odd_s, even_s, plt.semilogx)
+
+        # restore original bath parameters
+        self.scale = orig_scale
+        self.set_cutoff(None, orig_cutoff)
+
+        self._plot(cutoff, om, om_scaled/cutoff, gs, odd_s, even_s, plt.semilogx)
         plt.xlabel(r'$\omega_c/\omega$')
-        plt.title(self.desc() + ', boltzmann: {:.4g}, omega: {:.4g}'.format(boltz, om))
+        plt.title(self.desc() + ', boltzmann: {:.4g} => omega: {:.4g}'.format(boltz, om))
+
+
+    def plot_correlation(self):
+        r"""Plot the bath correlation function
+        :math:`C_{s,\omega_c}(t) = \frac{1}{\hbar^2}\langle B(t) B(0)\rangle`.
+
+        It scales as
+
+        .. math::
+           C_{s,\omega_c}(t) = \frac{1}{a^2} C_{s/a,\omega_c a}(t/a).
+
+        Choosing a = TU, we obtain
+
+        .. math::
+           C_{s,\omega_c}(t) = \frac{1}{\text{TU}^2} C_{\hat{s}, \hat{\omega_c}}(\hat{t}).
+        """
+
+        tol_nu = 1e-5  # approaching the singularity at nu=0 this closely
+        c = self.cut_omega
+        plt.figure()
+
+        # plot the functions to be transformed
+        plt.subplot(1,3,1)
+        nu = linspace(tol_nu, 5*c, 500)
+        plt.plot(nu, nu * self.cut_func(nu) * self.pf(nu), 'r')
+        plt.hold(True)
+        if self.stat == 'boson':
+            plt.plot(nu, nu * self.cut_func(nu) * (1+self.pf(nu)), 'b')
+        else:
+            plt.plot(nu, nu * self.cut_func(nu) * (1-self.pf(nu)), 'g')
+        plt.grid(True)
+        plt.legend(['$n$', '$1 \pm n$'])
+        plt.xlabel(r'$\nu$ [1/TU]')
+        plt.title('Integrand without exponentials')
+
+        # plot the full integrand
+        plt.subplot(1,3,2)
+        t = linspace(0, 4/c, 5)
+        nu = linspace(tol_nu, 5*c, 100)
+        res = empty((len(nu), len(t)), dtype=complex)
+        for k in range(len(t)):
+            print(k)
+            res[:,k] = self.corr_int_real(t[k], nu) +1j*self.corr_int_imag(t[k], nu)
+        plt.plot(nu, res.real, '-', nu, res.imag, '--')
+        plt.grid(True)
+        plt.xlabel(r'$\nu$ [1/TU]')
+        plt.title('Integrand')
+
+        # plot the correlation function
+        plt.subplot(1,3,3)
+        t = linspace(tol_nu, 10/c, 100)  # real part of C(t) is even, imaginary part odd
+        res = empty(len(t), dtype=complex)
+        # upper limit for integration
+        if self.cut_type == 'smooth':
+            int_max = 100*c  # HACK, the integrator does not do well otherwise
+        else:
+            int_max = inf
+        for k in range(len(t)):
+            print(k)
+            #fun = lambda x: x * self.cut_func(x) * (exp(-1j*x*t[k])*(1+self.pf(x))+exp(1j*x*t[k])*self.pf(x))
+            fun1 = lambda x: self.corr_int_real(t[k], x)
+            fun2 = lambda x: self.corr_int_imag(t[k], x)
+            res[k], abserr = quad(fun1, tol_nu, int_max)
+            temp, abserr = quad(fun2, tol_nu, int_max)
+            res[k] += 1j*temp
+        plt.plot(t, res.real, 'k-', t, res.imag, 'k--', t, abs(res), 'k-.')
+        a = plt.axis()
+        plt.hold(True)
+        plt.grid(True)
+        plt.xlabel('t [TU]')
+        plt.ylabel('[1/TU^2]')
+        plt.title('Bath correlation function C(t): ' + self.desc(False))
+
+        # plot analytic high- and low-temp limits
+        x = c * t
+        if self.cut_type == 'sharp':
+            temp = ((1 +1j*x)*exp(-1j*x) -1)/x**2
+            hb = 2/self.scale * sin(x)/x
+        elif self.cut_type == 'smooth':
+            shi, chi = shichi(x)
+            temp = sinh(x)*shi -cosh(x)*chi -1j*pi/2*exp(-abs(x))
+            hb = pi/self.scale * exp(-abs(x))
+        elif self.cut_type == 'exp':
+            temp = 1/(1 +1j*x)**2
+            hb = 2/self.scale / (1+x**2)
+        else:
+            raise ValueError('Unknown cutoff type "{0}"'.format(self.cut_type))
+        temp *= c**2
+        hb   *= c
+        if self.stat == 'boson':
+            plt.plot(t, temp.real, 'b.')  # real part, cold
+            plt.plot(t, hb, 'r.')  # real part, hot
+            plt.plot(t, temp.imag, 'ko')  # imag part, every T
+            plt.legend(['re C', 'im C', '|C|', 're C (cold, analytic)', 're C (hot, analytic)', 'im C (analytic)'])
+        else:
+            plt.plot(t, temp.real, 'k.')  # real part, every T
+            plt.plot(t, temp.imag, 'bo')  # imag part, cold
+            plt.plot(t, 0*t, 'ro')  # imag part, hot
+            plt.legend(['re C', 'im C', '|C|', 're C (analytic)', 'im C (cold, analytic)', 'im C (hot, analytic)'])
+        plt.axis(a)
+        return res
 
 
     def compute_gs(self, x):
-        r"""Compute the spectral correlation tensor.
-
-        .. math::
-
-          \text{compute\_gs}(x)[1] &= S(x /\text{TU}) \: \text{TU}
-          = P \int_0^\infty \mathrm{d}y \frac{J(y/\text{TU}) \: \text{TU}}{(x-y)(x+y)}
-          \begin{cases}
-          x \coth(\text{scale} \: y/2) +y \quad \text{(bosons)}\\
-          x +y \tanh(\text{scale} \: y/2) \quad \text{(fermions)}
-          \end{cases}
+        r"""Computes the spectral correlation tensor.
+        See :func:`corr` for usage.
         """
         ep = 1e-5 # epsilon for Cauchy principal value
         tol_omega0 = 1e-8
@@ -356,7 +487,7 @@ class bath(object):
 
 
     def corr(self, x):
-        r"""Bath spectral correlation tensor.
+        r"""Bath spectral correlation tensor, computed or interpolated.
 
         :param float x:  Angular frequency [1/TU]
         :returns tuple (g,s): Real and imaginary parts of the spectral correlation tensor [1/TU]

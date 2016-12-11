@@ -115,6 +115,9 @@ b bugfix
               * hamiltonian.jaynes_cummings updated.
               b invariant.LU fixed.
               * markov.bath class rewritten, supports also fermionic baths.
+              + markov/bath.plot_correlation
+              + markov/bath.plot_LUT
+              + markov/bath.plot_cutoff
               b markov.ops warns of possible RWA violations.
               + examples.werner_states
               * examples.bb84 prints more info.
