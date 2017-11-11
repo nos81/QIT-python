@@ -94,7 +94,7 @@ b bugfix
               b Lots of pylinting.
 
 0.12.0      in progress
-              * Bump dependencies: NumPy 1.7.1, SciPy 0.12.0, matplotlib 1.2
+              * Bump dependencies: NumPy 1.13.3, SciPy 1.0.0, matplotlib 1.5
               + lmap.tensorpow
               + lmap.real
               + lmap.imag

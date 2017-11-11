@@ -11,18 +11,27 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
-import sys, os, re
+import sys
+import os
+import re
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path.append(os.path.abspath('..'))
+sys.path.insert(0, os.path.abspath('..'))
+import qit
 
 # -- General configuration -----------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx.ext.autosummary', 'sphinx.ext.pngmath', 'sphinxcontrib.bibtex']
+extensions = [
+    'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
+    'sphinx.ext.pngmath',
+    'sphinx.ext.napoleon',
+    'sphinxcontrib.bibtex',
+]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -38,9 +47,8 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Quantum Information Toolkit'
-copyright = u'2011-2014, Ville Bergholm et al.'
+copyright = u'2011-2017, Ville Bergholm et al.'
 
-import qit
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
@@ -60,7 +68,7 @@ version = re.match(r'^(\d+\.\d+)', release).expand(r'\1')
 # non-false value, then it is used:
 #today = ''
 # Else, today_fmt is used as the format for a strftime call.
-today_fmt = '%Y-%b-%d'
+today_fmt = '%Y-%m-%d'
 
 # List of documents that shouldn't be included in the build.
 #unused_docs = []
