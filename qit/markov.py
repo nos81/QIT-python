@@ -42,7 +42,7 @@ Contents
    plot_cutoff
    plot_correlation
 """
-# Ville Bergholm 2011-2016
+# Ville Bergholm 2011-2017
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
@@ -127,7 +127,7 @@ class bath(object):
     ===========  ===========
     Data member  Description
     ===========  ===========
-    type         Bath type. Currently only 'ohmic' is supported.
+    type         Bath type. 'ohmic' or 'photon'.
     stat         Bath statistics. Either 'boson' or 'fermion'.
     TU           Time unit (in s). All Hamiltonians have been made dimensionless by multiplying with :math:`\text{TU}/\hbar`.
     T            Absolute temperature of the bath (in K).
@@ -165,12 +165,6 @@ class bath(object):
         self.stat = stat
         self.TU   = TU
         self.T    = T
-
-        if type == 'ohmic':
-            pass
-        else:
-            raise ValueError('Unknown bath type.')
-
         # defaults, can be changed later
         self.set_cutoff('exp', 1)
 
@@ -182,7 +176,7 @@ class bath(object):
 
     def desc(self, long=True):
         """Bath description string for plots."""
-        temp = '{}, {}, inverse T: {:.4g}, cutoff: {}, {:.4g}'.format(self.type, self.stat, self.scale, self.cut_type, self.cut_omega)
+        temp = '{}, {}, \\beta \\hbar \\omega_c: {:.4g}, cutoff: {}, {:.4g}'.format(self.type, self.stat, self.scale*self.cut_omega, self.cut_type, self.cut_omega)
         if long:
             return r'Bath correlation tensor $\Gamma = \frac{1}{2} \gamma(\omega) +i S(\omega)$: ' +temp
         return temp
@@ -201,7 +195,7 @@ class bath(object):
         if self.cut_type == 'sharp':
             self.cut_func = lambda x: x <= self.cut_omega  # Heaviside theta cutoff
         elif self.cut_type == 'smooth':
-            self.cut_func = lambda x: 1/(1+(x/self.cut_omega)**2)  # rational cutoff
+            self.cut_func = lambda x: 1/(1+(x/self.cut_omega)**2)  # rational Lorentz cutoff
         elif self.cut_type == 'exp':
             self.cut_func = lambda x: exp(-x / self.cut_omega)  # exponential cutoff
         else:
@@ -216,28 +210,35 @@ class bath(object):
         # shorthand
         self.scale = const.hbar / (const.k * self.T * self.TU)
 
+        self.g0 = 0
+        # spectral density (without cutoff)
+        if self.type == 'ohmic':
+            self.J = lambda nu: nu
+            if self.stat == 'boson':
+                self.g0 = 2*pi / self.scale
+        elif self.type == 'photon':
+            self.J = lambda nu: nu**3
+        else:
+            raise ValueError('Unknown bath type.')
+
         # s_func has simple poles at \nu = \pm x.
         if self.stat == 'boson':
             self.pf = lambda x: 1/(exp(self.scale * x) - 1)
-            self.corr_int_real = lambda s,nu: nu * self.cut_func(nu) * cos(nu*s) * (1 +2*self.pf(nu))
-            self.corr_int_imag = lambda s,nu: nu * self.cut_func(nu) * -sin(nu*s)
-            self.g_func = lambda x: 2*pi * x * self.cut_func(abs(x)) * (1 +self.pf(x))
-            #self.s_func = lambda x,nu: nu * self.cut_func(nu) * ((1+self.pf(nu))/(x-nu) +self.pf(nu)/(x+nu))
-            self.s_func = lambda x,nu: nu * self.cut_func(nu) * (x / tanh(self.scale * nu/2) +nu) / (x**2 -nu**2)
-            self.g0 = 2*pi / self.scale
-            temp, abserr = quad(self.cut_func, 0, inf)
+            self.corr_int_real = lambda s,nu: self.J(nu) * self.cut_func(nu) * cos(nu*s) / tanh(self.scale * nu/2)
+            self.corr_int_imag = lambda s,nu: self.J(nu) * self.cut_func(nu) * -sin(nu*s)
+            self.g_func = lambda x: 2*pi * self.J(x) * self.cut_func(abs(x)) * (1 +self.pf(x))
+            #self.s_func = lambda x,nu: self.J(nu) * self.cut_func(nu) * ((1+self.pf(nu))/(x-nu) +self.pf(nu)/(x+nu))
+            self.s_func = lambda x,nu: self.J(nu) * self.cut_func(nu) * (x / tanh(self.scale * nu/2) +nu) / (x**2 -nu**2)
         elif self.stat == 'fermion':
             self.pf = lambda x: 1/(exp(self.scale * x) + 1)
-            self.corr_int_real = lambda s,nu: nu * self.cut_func(nu) * cos(nu*s)
-            self.corr_int_imag = lambda s,nu: nu * self.cut_func(nu) * sin(nu*s) * (-1 +2*self.pf(nu))
-            self.g_func = lambda x: 2*pi * abs(x) * self.cut_func(abs(x)) * (1 -self.pf(x))
-            #self.s_func = lambda x,nu: nu * self.cut_func(nu) * ((1-self.pf(nu))/(x-nu) +self.pf(nu)/(x+nu))
-            self.s_func = lambda x,nu: nu * self.cut_func(nu) * (x +nu * tanh(self.scale * nu/2)) / (x**2 -nu**2)
-            self.g0 = 0
-            temp, abserr = quad(lambda x: self.cut_func(x) * tanh(x*self.scale/2), 0, inf)
+            self.corr_int_real = lambda s,nu: self.J(nu) * self.cut_func(nu) * cos(nu*s)
+            self.corr_int_imag = lambda s,nu: self.J(nu) * self.cut_func(nu) * sin(nu*s) * -tanh(self.scale * nu/2)
+            self.g_func = lambda x: 2*pi * self.J(abs(x)) * self.cut_func(abs(x)) * (1 -self.pf(x))
+            #self.s_func = lambda x,nu: self.J(nu) * self.cut_func(nu) * ((1-self.pf(nu))/(x-nu) +self.pf(nu)/(x+nu))
+            self.s_func = lambda x,nu: self.J(nu) * self.cut_func(nu) * (x +nu * tanh(self.scale * nu/2)) / (x**2 -nu**2)
         else:
             raise ValueError('Unknown bath statistics.')
-        self.s0 = -temp
+        self.s0, abserr = quad(lambda nu: self.s_func(0, nu), 0, inf)
 
         # clear lookup tables, since changing the cutoff requires recalc of S
         self.omega = array([])
@@ -387,14 +388,14 @@ class bath(object):
         # plot the functions to be transformed
         plt.subplot(1,3,1)
         nu = linspace(tol_nu, 5*c, 500)
-        plt.plot(nu, nu * self.cut_func(nu) * self.pf(nu), 'r')
+        plt.plot(nu, self.J(nu) * self.cut_func(nu) * self.pf(nu), 'r')
         plt.hold(True)
         if self.stat == 'boson':
-            plt.plot(nu, nu * self.cut_func(nu) * (1+self.pf(nu)), 'b')
+            plt.plot(nu, self.J(nu) * self.cut_func(nu) * (1+self.pf(nu)), 'b')
         else:
-            plt.plot(nu, nu * self.cut_func(nu) * (1-self.pf(nu)), 'g')
+            plt.plot(nu, self.J(nu) * self.cut_func(nu) * (1-self.pf(nu)), 'g')
         plt.grid(True)
-        plt.legend(['$n$', '$1 \pm n$'])
+        plt.legend(['$J*n$', '$J*(1 \pm n)$'])
         plt.xlabel(r'$\nu$ [1/TU]')
         plt.title('Integrand without exponentials')
 
@@ -464,6 +465,16 @@ class bath(object):
             plt.legend(['re C', 'im C', '|C|', 're C (analytic)', 'im C (cold, analytic)', 'im C (hot, analytic)'])
         plt.axis(a)
         return res
+
+        if False:
+            c0 = abs(res[0])
+            temp = linspace(0, 0.5/c, 10)
+            plt.plot(temp, c0*(1-(temp*c)**2), 'k-')
+            temp = linspace(0.5/c, self.scale, 10)
+            plt.plot(temp, c0*0.75/2*(temp*c)**(-1), 'k:')
+            temp = linspace(self.scale, t[-1], 10)
+            plt.plot(temp, c0*exp(-temp/self.scale), 'k--')
+
 
 
     def compute_gs(self, x):
