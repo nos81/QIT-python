@@ -26,7 +26,7 @@ from __future__ import division, absolute_import, print_function, unicode_litera
 
 import numpy as np
 from numpy import (array, asarray, arange, empty, zeros, ones, sqrt, sin, cos, dot, sort, trace, kron,
-    pi, r_, c_, linspace, meshgrid, roll, concatenate, angle)
+                   pi, r_, c_, linspace, meshgrid, roll, concatenate, angle, mod)
 from numpy.linalg import det, eigvals
 from scipy.linalg import norm
 import matplotlib.pyplot as plt
@@ -114,6 +114,7 @@ def canonical(U):
     if c[2] < 0:
         c[0] = 1 - c[0]
         c[2] = -c[2]
+    c = mod(c, 1)
     return c
 
 
@@ -236,7 +237,7 @@ def plot_weyl_2q(ax=None):
     """
     # Ville Bergholm 2005-2012
 
-    if ax == None:
+    if ax is None:
         ax = plt.subplot(111, projection='3d')
     ax.hold(True)
     ax.plot_surface(array([[0, 0.5, 1], [0, 0.5, 1]]), array([[0, 0, 0], [0, 0.5, 0]]), array([[0, 0, 0], [0, 0.5, 0]]), alpha = 0.2)

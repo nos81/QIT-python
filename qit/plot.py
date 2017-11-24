@@ -100,7 +100,7 @@ def bloch_sphere(ax=None):
     # Ville Bergholm  2005-2012
     # James Whitfield 2010
 
-    if ax == None:
+    if ax is None:
         ax = plt.subplot(111, projection='3d')
 
     ax.hold(True)
@@ -145,7 +145,7 @@ def correlation_simplex(ax=None, labels='diagonal'):
 
     import mpl_toolkits.mplot3d as mplot3
 
-    if ax == None:
+    if ax is None:
         ax = plt.subplot(111, projection='3d')
 
     ax.hold(True)
@@ -211,7 +211,7 @@ def correlation_simplex(ax=None, labels='diagonal'):
     return ax, ind
 
 
-def state_trajectory(traj, reset=True, ax=None, color='b'):
+def state_trajectory(traj, reset=True, ax=None, color='b', marker=''):
     """Plot a state trajectory in the correlation representation.
 
     For a single-qubit system, plots the trajectory in the Bloch sphere.
@@ -236,16 +236,15 @@ def state_trajectory(traj, reset=True, ax=None, color='b'):
     """
     # Ville Bergholm  2006-2012
 
-    if ax == None:
+    if ax is None:
         ax = plt.subplot(111, projection='3d')
 
     def plot_traj(ax, A, ind):
         """Plots the trajectory formed by the correlations given in ind."""
-
-        ax.scatter(A[0,  ind[0]],  A[0,  ind[1]],  A[0,  ind[2]], c = color, marker = 'x')
-        # if we only have a single point, do not bother with these
+        ax.plot(A[:,  ind[0]],  A[:,  ind[1]],  A[:,  ind[2]], c = color, marker = marker)
+        # if we only have a single point, do not bother with start and end markers
         if len(A) > 1:
-            ax.plot(A[:,  ind[0]],  A[:,  ind[1]],  A[:,  ind[2]], c = color)
+            ax.scatter(A[0,  ind[0]],  A[0,  ind[1]],  A[0,  ind[2]], c = color, marker = 'x')
             ax.scatter(A[-1, ind[0]],  A[-1, ind[1]],  A[-1, ind[2]], c = color, marker = 'o')
 
 

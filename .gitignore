@@ -2,3 +2,6 @@
 *.diff
 *.pyc
 doc/_build
+build
+dist
+qit.egg-info

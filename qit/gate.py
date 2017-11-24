@@ -47,7 +47,7 @@ Linear maps
 from __future__ import division, absolute_import, print_function, unicode_literals
 
 import itertools
-from numpy import pi, prod, empty, zeros, trace, exp, sqrt, mod, isscalar, kron, array, ones, array_equal, sum, unravel_index, ravel_multi_index
+from numpy import pi, prod, empty, zeros, eye, trace, exp, sqrt, mod, isscalar, kron, array, ones, array_equal, sum, unravel_index, ravel_multi_index
 import scipy.sparse as sparse
 
 from .lmap import lmap, tensor
@@ -116,7 +116,7 @@ def mod_add(dim1, dim2, N=None):
 
     d1 = prod(dim1)
     d2 = prod(dim2)
-    if N == None:
+    if N is None:
         N = d2
     elif d2 < N:
         raise ValueError('Target register dimension must be >= N.')
@@ -157,7 +157,7 @@ def mod_inc(x, dim, N=None):
     if isscalar(dim):
         dim = (dim,)  # scalar into a tuple
     d = prod(dim)
-    if N == None:
+    if N is None:
         N = d
     elif d < N:
         raise ValueError('Gate dimension must be >= N.')
@@ -190,7 +190,7 @@ def mod_mul(x, dim, N=None):
     if isscalar(dim):
         dim = (dim,)  # scalar into a tuple
     d = prod(dim)
-    if N == None:
+    if N is None:
         N = d
     elif d < N:
         raise ValueError('Gate dimension must be >= N.')
@@ -221,7 +221,7 @@ def phase(theta, dim=None):
     if isscalar(dim):
         dim = (dim,)  # scalar into a tuple
     n = len(theta)
-    if dim == None:
+    if dim is None:
         dim = (n,)
     d = prod(dim)
     if d != n:
@@ -311,7 +311,7 @@ def controlled(U, ctrl=(1,), dim=None):
     if isscalar(dim):
         dim = (dim,)  # scalar into a tuple
     t = len(ctrl)
-    if dim == None:
+    if dim is None:
         dim = qubits(t) # qubits by default
 
     if t != len(dim):
@@ -404,7 +404,7 @@ def two(B, t, d_in):
         p = [0, 2, 1]
     else:
         p = [1, 2, 0]
-    U = tensor(B, lmap(sparse.eye(inbetween))).reorder((p, p), inplace = True)
+    U = tensor(B, lmap(eye(inbetween))).reorder((p, p), inplace = True)
     U = tensor(lmap(sparse.eye(before)), U, lmap(sparse.eye(after)))
 
     # restore dimensions
@@ -446,9 +446,32 @@ def plusdot(n_in, n_out, d=2):
     # Ville Bergholm 2014-2016
 
     # TODO this implementation has small numerical errors from qft, we can do better
-    U = copydot(n_in, n_out, d)
-    Q = qft(d)
-    return Q.tensorpow(n_out) * U * Q.tensorpow(n_in)
+    #U = copydot(n_in, n_out, d)
+    #Q = qft(d)
+    #return Q.tensorpow(n_out) * U * Q.tensorpow(n_in)
+
+    dim_in  = (d,) * n_in
+    dim_out = (d,) * n_out
+    d_in  = d ** n_in
+    d_out = d ** n_out
+    P = sparse.dok_matrix((d_out, d_in))
+    x = d ** (-(n_in +n_out -2)/2)
+
+    # TODO if scipy could reshape sparse matrices this would be easy... build a n_in==0 plusdot and then reshape it.
+    if n_in == 0:
+        # loop over all output indices except the last one
+        for j in range(int(d_out / d)):
+            temp = sum(unravel_index(k, dim_out[1:]))  # sum of subsystem indices
+            last = -temp % d  # the last index must take this value for the sum to be 0 (mod d)
+            P[j, d*j +last] = x
+    else:
+        for j in range(d_out):
+            temp = sum(unravel_index(j, dim_out))
+            for k in range(int(d_in / d)):
+                temp2 = sum(unravel_index(k, dim_in[1:]))
+                last = -(temp +temp2) % d
+            P[j, d*k +last] = x
+    return lmap(P, (dim_out, dim_in))
 
 
 def epsilon(n):
