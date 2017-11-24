@@ -104,6 +104,7 @@ b bugfix
               + gate.copydot
               + gate.plusdot
               + gate.epsilon
+              + utils.cdot
               + utils.tensorsum
               + utils.rand_GL
               + utils.superop_to_choi
@@ -113,6 +114,7 @@ b bugfix
               + seq.dd
               - seq.cpmg (merged into seq.dd)
               * hamiltonian.jaynes_cummings updated.
+              * hamiltonian.heisenberg updated.
               b invariant.LU fixed.
               * markov.bath class rewritten, supports also fermionic baths.
               + markov/bath.plot_correlation

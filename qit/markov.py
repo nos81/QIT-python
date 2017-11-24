@@ -186,9 +186,9 @@ class bath(object):
         """Set the spectral density cutoff."""
         # We assume that cut_func(0) == 1.
 
-        if type != None:
+        if type is not None:
             self.cut_type = type
-        if lim != None:
+        if lim is not None:
             self.cut_omega = lim  # == omega_c*TU
 
         # update cutoff function
@@ -252,7 +252,7 @@ class bath(object):
         """
 
         # TODO justify limits for S lookup
-        if om == None:
+        if om is None:
             # Default sampling for the lookup table.
             lim = self.cut_omega
             #lim = log10(10) / 5 / self.scale  # up to boltzmann factor == 10

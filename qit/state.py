@@ -192,7 +192,7 @@ class state(lmap):
                 # named state
                 name = s.lower()
 
-                if dim == None:
+                if dim is None:
                     dim = (2, 2, 2) # default: three-qubit state
 
                 n = len(dim) # subsystems
@@ -220,7 +220,7 @@ class state(lmap):
       
             else:
                 # number string defining a standard basis ket
-                if dim == None:
+                if dim is None:
                     n = len(s)  # number of subsystems
                     dim = qubits(n)  # assume they're qubits
 
@@ -238,7 +238,7 @@ class state(lmap):
         elif isinstance(s, (numbers.Number, np.number)):
             # FIXME when numpy number hierarchy inherits the Python one
             # integer defining a standard basis ket
-            if dim == None:
+            if dim is None:
                 raise ValueError('Need system dimension.')
 
             ind = s
@@ -885,7 +885,7 @@ class state(lmap):
 
         d = self.dims()
 
-        if M == None:
+        if M is None:
             # full measurement in the computational basis
             p = self.prob()  # probabilities 
             if perform:
@@ -1093,7 +1093,7 @@ class state(lmap):
         dim = array(self.dims())
         n = self.subsystems()
 
-        if sys == None:
+        if sys is None:
             if n == 2:
                 # reasonable choice
                 sys = (0,)
@@ -1147,7 +1147,7 @@ class state(lmap):
         """
         # Ville Bergholm 2009-2012
 
-        if sys != None:
+        if sys is not None:
             s = self.to_ket().ptrace(sys) # partial trace over one partition
         else:
             s = self
@@ -1180,7 +1180,7 @@ class state(lmap):
 
         dim = self.dims()
 
-        if sys != None:
+        if sys is not None:
             # concurrence between a qubit and a larger system
             if not(len(sys) == 1 and dim[sys] == 2):
                 raise ValueError('Concurrence only defined between a qubit and another system.')
@@ -1503,7 +1503,7 @@ class state(lmap):
         """
         # Ville Bergholm 2009-2011
 
-        if dim == None:
+        if dim is None:
             dim = tuple(sqrt(A.shape).astype(int))  # s == dim ** 2
 
         G = tensorbasis(dim)

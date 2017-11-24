@@ -237,7 +237,7 @@ def husimi(s, alpha=None, z=0, res=(40, 40), lim=(-2, 2, -2, 2)):
     """
     # Ville Bergholm 2010
 
-    if alpha == None:
+    if alpha is None:
         # return a 2D grid of W values
         a = linspace(lim[0], lim[1], res[0])
         b = linspace(lim[2], lim[3], res[1])
@@ -281,7 +281,7 @@ def wigner(s, alpha=None, res=(20, 20), lim=(-2, 2, -2, 2)):
     """
     # Ville Bergholm 2010
 
-    if alpha == None:
+    if alpha is None:
         # return a grid of W values for a grid of alphas
         a = linspace(lim[0], lim[1], res[0])
         b = linspace(lim[2], lim[3], res[1])

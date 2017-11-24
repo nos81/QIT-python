@@ -93,6 +93,7 @@ Miscellaneous
    assert_o
    copy_memoize
    op_list
+   cdot
    qubits
    R_nmr
    R_x
@@ -125,7 +126,7 @@ __all__ = ['assert_o', 'copy_memoize',
            'spectral_decomposition',
            'gellmann', 'tensorbasis',
            'R_nmr', 'R_x', 'R_y', 'R_z',
-           'op_list',
+           'op_list', 'cdot',
            'qubits']
 
 
@@ -185,7 +186,7 @@ def lcm(a, b):
 def rank(A, tol=None):
     """Matrix rank."""
     s = svdvals(A)
-    if tol == None:
+    if tol is None:
         tol = max(A.shape) * np.amax(s) * np.finfo(A.dtype).eps
     return np.sum(s > tol, dtype=int)
 
@@ -206,7 +207,7 @@ def orth(A, tol=None, kernel=False, spectrum=False):
     Adaptation of scipy.linalg.orth with optional absolute tolerance.
     """
     U, s, Vh = svd(A, full_matrices=False)
-    if tol == None:
+    if tol is None:
         tol = max(A.shape) * np.amax(s) * np.finfo(A.dtype).eps
     num = np.sum(s > tol, dtype=int)
 
@@ -643,33 +644,36 @@ def vec(rho):
 def inv_vec(v, dim=None):
     r"""Reshapes a vector into a matrix.
 
-    Given dim == (n, m), reshapes vector v (length n*m) into a matrix :math:`\rho` (shape == dim),
+    Reshapes vector v into a matrix :math:`\rho` (shape == dim),
     using column-major ordering. If dim is not given, :math:`\rho` is assumed to be square.
 
     Used e.g. to convert state operators from superoperator representation
     to standard matrix representation.
+
+    Args:
+      v   (vector): vector to be reshaped, len == m*n
+      dim (Sequence[int]): (m, n) == shape of the matrix
     """
     # JDW 2009
     # Ville Bergholm 2009
-
     d = v.size
-    if dim == None:
+    if dim is None:
         # assume a square matrix
-        n = sqrt(d)
-        if floor(n) != n:
+        n = int(sqrt(d))
+        if n**2 != d:
             raise ValueError('Length of vector v is not a squared integer.')
         dim = (n, n)
-    else:
-        if prod(dim) != d:
-            raise ValueError('Dimensions n, m are not compatible with given vector v.')
+    elif prod(dim) != d:
+        raise ValueError('Dimensions are not compatible with given vector.')
     return v.reshape(dim, order='F').copy()
 
 
 def lmul(L, q=None):
     r"""Superoperator equivalent for multiplying from the left.
 
-    :param array L: matrix, shape (m, p)
-    :param int q: The shape of :math:`\rho` is (p, q). If q is not given, :math:`\rho` is assumed square.
+    Args:
+      L (array): multiplying operator, shape == (m, p)
+      q   (int): The shape of :math:`\rho` is (p, q). If q is not given, :math:`\rho` is assumed square.
 
     Returns the superoperator that implements left multiplication
     of a vectorized matrix :math:`\rho` by the matrix L.
@@ -678,7 +682,7 @@ def lmul(L, q=None):
     """
     # Ville Bergholm 2009
 
-    if q == None:
+    if q is None:
         q = L.shape[1]  # assume target is a square matrix
     return kron(eye(q), L)
 
@@ -686,8 +690,9 @@ def lmul(L, q=None):
 def rmul(R, p=None):
     r"""Superoperator equivalent for multiplying from the right.
 
-    :param array R: matrix, shape (q, r)
-    :param int p: The shape of :math:`\rho` is (p, q). If p is not given, :math:`\rho` is assumed square.
+    Args:
+      R (array): multiplying operator, shape == (q, r)
+      p   (int): The shape of :math:`\rho` is (p, q). If p is not given, :math:`\rho` is assumed square.
 
     Returns the superoperator that implements right multiplication
     of a vectorized matrix :math:`\rho` by the matrix R.
@@ -696,7 +701,7 @@ def rmul(R, p=None):
     """
     # Ville Bergholm 2009
 
-    if p == None:
+    if p is None:
         p = R.shape[0]  # assume target is a square matrix
     return kron(R.transpose(), eye(p))
 
@@ -734,7 +739,7 @@ def superop_lindblad(A, H=None):
     # Ville Bergholm 2009-2010
 
     # Hamiltonian
-    if H == None:
+    if H is None:
         sh = A[0].shape
         iH = 0
     else:
@@ -791,7 +796,7 @@ def superop_fp(L, tol=None):
     # Ville Bergholm 2011-2012
 
     # Hilbert space dimension
-    d = sqrt(L.shape[1])
+    d = int(sqrt(L.shape[1]))
 
     # Get the kernel of L, restricted to vec-mapped Hermitian matrices.
     # columns of A: complex orthogonal vectors A_i spanning the kernel (with real coefficients)
@@ -865,16 +870,20 @@ def superop_to_choi(L):
 def angular_momentum(d):
     r"""Angular momentum matrices.
 
-    :param int d: dimension, the corresponding angular momentum quantum number is j = (d-1)/2
-    :returns: 3-tuple of angular momentum matrices (Jx, Jy, Jz)
-
     Returns the dimensionless angular momentum matrices :math:`\vec{J} / \hbar`
     for the d-dimensional subspace.
 
     The angular momentum matrices fulfill the commutation relation
     :math:`[J_x, J_y] = i J_z` and all its cyclic permutations.
+
+    :math:`\exp(-1i * J[k] * \theta)` is a rotation by :math:`\theta` radians.
+
+    Args:
+      d (int): dimension, the corresponding angular momentum quantum number is j = (d-1)/2
+    Returns:
+      tuple: 3-tuple of angular momentum matrices (Jx, Jy, Jz)
     """
-    # Ville Bergholm 2009-2014
+    # Ville Bergholm 2009-2017
 
     if d < 1:
         raise ValueError('Dimension must be one or greater.')
@@ -1111,7 +1120,7 @@ def tensorbasis(n, d=None, get_locality=False):
     """
     # Ville Bergholm 2005-2016
 
-    if d == None:
+    if d is None:
         # dim vector
         dim = n
         n = len(dim)
@@ -1169,12 +1178,14 @@ def tensorbasis(n, d=None, get_locality=False):
 def op_list(G, dim):
     r"""Operator consisting of k-local terms, given as a list.
 
-    :param list G: list of k-local operator terms
-    :param vector dim: vector of subsystem dimensions
-    :returns: operator O defined by the connection list
+    Args:
+      G     (list): list of k-local operator terms
+      dim (vector): vector of subsystem dimensions
+    Returns:
+      array: matrix defined by G
 
     G is a list of arrays, :math:`G = [c_1, c_2, ..., c_n]`,
-    where each array :math:`c_i` corresponds to a term in O.
+    where each array :math:`c_i` corresponds to a term in the operator.
 
     An array that has 2 columns and k rows, :math:`c_i` = [(A1, s1), (A2, s2), ... , (Ak, sk)],
     where Aj are arrays and sj subsystem indices, corresponds to the
@@ -1196,10 +1207,11 @@ def op_list(G, dim):
 
        \sigma_{z1} +\sigma_{z2} +2 \sigma_{z3} +\sigma_{x1} \sigma_{x3} +\sigma_{y1} \sigma_{y3} +\sigma_{z1} \sigma_{z3} +A_2 (B+C)_3.
     """
-    # Ville Bergholm 2009-2016
+    # Ville Bergholm 2009-2017
 
     # TODO we could try to infer dim from the operators
-    H = 0j
+    D = prod(dim)
+    H = zeros((D, D), complex)
     for k, spec in enumerate(G):
         a = -1  # last subsystem taken care of
         term = 1
@@ -1215,12 +1227,25 @@ def op_list(G, dim):
             if op[0].shape[1] != dim[b]:
                 raise ValueError('The dimension of operator {0} in spec {1} does not match dim.'.format(j, k))
 
-            term = mkron(term, eye(prod(dim[a+1:b])), op[0])
+            term = mkron(term, eye(int(prod(dim[a+1:b]))), op[0])
             a = b
         # final identity
-        term = mkron(term, eye(prod(dim[a+1:])))
+        term = mkron(term, eye(int(prod(dim[a+1:]))))
         H += term
     return H
+
+
+def cdot(v, A):
+    """Real dot product of a vector and a tuple of operators.
+
+    Args:
+      v (vector):
+      A (tuple[array]):
+    """
+    res = 0j
+    for vv, AA in zip(v, A):
+        res += vv * AA
+    return res
 
 
 def qubits(n):

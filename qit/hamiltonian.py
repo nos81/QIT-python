@@ -27,7 +27,7 @@ import numpy as np
 from numpy import asarray, conj, transpose, dot
 
 from .base import sx, sy, sz
-from .utils import angular_momentum, op_list, boson_ladder, fermion_ladder
+from .utils import (angular_momentum, op_list, boson_ladder, fermion_ladder, cdot)
 
 
 __all__ = [
@@ -38,30 +38,56 @@ __all__ = [
     'holstein']
 
 
-def _cdot(v, A):
-    """Real dot product of a vector and a tuple of operators."""
-    res = 0j
-    for vv, AA in zip(v, A):
-        res += vv * AA
-    return res
 
-
-def heisenberg(dim, C=None, J=(0, 0, 2), B=(0, 0, 1)):
-    r"""Heisenberg spin network model.
-
-    :param tuple dim:  n-tuple of the dimensions of the spins, i.e. dim == (2, 2, 2) would be a system of three spin-1/2's.
-    :param array C:    :math:`n \times n` connection matrix of the spin network, where C[i,j]
-      is the coupling strength between spins i and j. Only the upper triangle is used.
-    :param J:          The form of the spin-spin interaction. Either a 3-tuple or a
-      function J(i, j) returning a 3-tuple for site-dependent interactions (see below).
-    :param B:          The effective magnetic field the spins locally couple to. Either
-      a 3-tuple (homogeneous field) or a function B(a) that returns a 3-tuple for a site-dependent field.
-    :returns (H, dim): H is a Heisenberg model Hamiltonian, describing a network
-      of n interacting spins in an external magnetic field, and dim its dimension vector.
+def magnetic_dipole(dim, B=(0, 0, 1)):
+    r"""Local magnetic dipole Hamiltonian.
 
     .. math::
 
-      H = \sum_{\langle i,j \rangle} C[i,j] \sum_{k = x,y,z} J(i,j)[k] S_k^{(i)} S_k^{(j)}  +\sum_i \vec{B}(i) \cdot \vec{S}^{(i)},
+      H = \sum_i \vec{B}(i) \cdot \vec{S}^{(i)},
+
+    where :math:`S_k^{(i)}` is the k-component of the angular momentum operator of spin i.
+
+    Args:
+      dim (tuple): dimensions of the spins, i.e. dim == (2, 2, 2) would be a system of three spin-1/2's.
+      B   (tuple): The effective magnetic field the spins locally couple to. Either
+                   a 3-tuple (homogeneous field) or a function B(a) that returns a 3-tuple for a site-dependent field.
+    Returns:
+      array: the Hamiltonian
+    """
+    if not callable(B):
+        if len(B) != 3:
+            raise ValueError('B must be either a 3-tuple or a function.')
+        Bf = lambda i: B
+    else:
+        Bf = B
+
+    # local magnetic field terms
+    temp = []
+    for i in range(len(dim)):
+        A = angular_momentum(dim[i])  # spin ops
+        temp.append([(cdot(Bf(i), A), i)])
+    H = op_list(temp, dim)
+    return H
+
+
+def heisenberg(dim, J=(0, 0, 2), C=None):
+    r"""Heisenberg spin network model.
+
+    Args:
+      dim (tuple): dimensions of the spins, i.e. dim == (2, 2, 2) would be a system of three spin-1/2's.
+      J   (tuple): The form of the spin-spin interaction. Either a 3-tuple or a
+                   function J(s, i, j) returning the coefficient of the Hamiltonian term S_s^{(i)} * S_s^{(b)}.
+      C   (array): Optional connection matrix of the spin network, where C[i,j]
+                   is the coupling strength between spins i and j. Only the upper triangle is used.
+    Returns:
+      array: the Hamiltonian
+
+    Builds a Heisenberg model Hamiltonian, describing a network of n interacting spins.
+
+    .. math::
+
+      H = \sum_{\langle i,j \rangle} C[i,j] \sum_{k = x,y,z} J(i,j)[k] S_k^{(i)} S_k^{(j)},
 
     where :math:`S_k^{(i)}` is the k-component of the angular momentum operator of spin i.
 
@@ -71,54 +97,46 @@ def heisenberg(dim, C=None, J=(0, 0, 2), B=(0, 0, 1)):
       J = (2, 2, 2)        isotropic Heisenberg coupling
       J = (2, 2, 0)        XX+YY coupling
       J = (0, 0, 2)        Ising ZZ coupling
-      B = (0, 0, 1)        homogeneous Z-aligned field
     """
-    # Ville Bergholm 2009-2014
+    # Ville Bergholm 2009-2017
 
     n = len(dim) # number of spins in the network
-
-    if C == None:
-        # linear chain
-        C = np.eye(n, n, 1)
-
-    # make J and B into functions
-    if isinstance(J, tuple):
+    # make J into a function
+    if not callable(J):
         if len(J) != 3:
             raise ValueError('J must be either a 3-tuple or a function.')
+
+        if C is None:
+            # default: linear chain
+            C = np.eye(n, n, 1)
+
         J = asarray(J)
-        Jf = lambda i, j: C[i, j] * J
+        Jf = lambda s, i, j: J[s] * C[i, j]
     else:
         Jf = J
 
-    if isinstance(B, tuple):
-        if len(B) != 3:
-            raise ValueError('B must be either a 3-tuple or a function.')
-        Bf = lambda i: B
-    else:
-        Bf = B
-
-    # local magnetic field terms
+    # spin-spin couplings:
     temp = []
-    for i in range(n):
-        A = angular_momentum(dim[i])  # spin ops
-        temp.append([(_cdot(Bf(i), A), i)])
+    if C is None:
+        # loop over the entire upper triangle
+        for i in range(n):
+            A = angular_momentum(dim[i])  # spin ops for first site
+            for j in range(i+1, n):
+                B = angular_momentum(dim[j])  # and the second
+                for s in range(3):
+                    temp.append([(Jf(s, i, j) * A[s], i), (B[s], j)])
+    else:
+        # loop over nonzero entries of C, only use the upper triangle
+        C = np.triu(C)
+        for i, j in transpose(C.nonzero()):
+            # spin ops for sites i and j
+            A = angular_momentum(dim[i])
+            B = angular_momentum(dim[j])
+            for s in range(3):
+                temp.append([(Jf(s, i, j) * A[s], i), (B[s], j)])
+
     H = op_list(temp, dim)
-
-    # spin-spin couplings: loop over nonzero entries of C
-    # only use the upper triangle
-    C = np.triu(C)
-    for i, j in transpose(C.nonzero()):
-        # spin ops for sites i and j
-        Si = angular_momentum(dim[i])
-        Sj = angular_momentum(dim[j])
-        temp = []
-        # coupling between sites a and b
-        c = Jf(i, j)
-        for k in range(3):
-            temp.append([(c[k] * Si[k], i), (Sj[k], j)])
-        H += op_list(temp, dim)
-
-    return H, dim
+    return H
 
 
 

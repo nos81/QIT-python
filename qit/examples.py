@@ -108,8 +108,8 @@ def adiabatic_qc_3sat(n=6, n_clauses=None, clauses=None, problem='3sat'):
     if n < 3:
         n = 3
 
-    if clauses == None:
-        if n_clauses == None:
+    if clauses is None:
+        if n_clauses is None:
             if problem == '3sat':
                 n_clauses = 5*n
             else:  # exact cover
@@ -477,7 +477,7 @@ def markov_decoherence(T1=7e-10, T2=1e-9, B=None):
     T2 /= TU
 
     # setup the bath
-    if B == None:
+    if B is None:
         B = markov.bath('ohmic', 'boson', TU, T) # defaults
 
     # find the correct qubit-bath coupling
@@ -529,10 +529,10 @@ def nmr_sequences(seqs=None, titles=None):
 
     print('\n\n=== NMR control sequences for correcting systematic errors ===\n')
 
-    if seqs == None:
+    if seqs is None:
         seqs = [seq.nmr([[pi, 0]]), seq.corpse(pi), seq.scrofulous(pi), seq.bb1(pi), seq.knill()]
         titles = [r'Plain $\pi$ pulse', 'CORPSE', 'SCROFULOUS', 'BB1', 'Knill']
-    elif titles == None:
+    elif titles is None:
         titles = ['User-given seq'] * len(seqs)
 
     # Pulse length/timing errors also affect the drift term, pulse strength errors don't.
@@ -699,7 +699,7 @@ def phase_estimation_precision(t, U, u=None):
     # find eigenstates of the operator
     N = U.shape[0]
     d, v = eig(U)
-    if u == None:
+    if u is None:
         u = state(v[:, 0], N) # exact eigenstate
 
     print('Use {0} qubits to estimate the phases of the eigenvalues of a U({1}) operator.\n'.format(t, N))
@@ -1314,7 +1314,6 @@ def teleportation(d=2):
     I   = gate.id(d)
 
     dim = (d, d)
-
     # EPR preparation circuit
     U = add * tensor(H, I)
 
