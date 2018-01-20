@@ -23,13 +23,17 @@ import qit
 
 # -- General configuration -----------------------------------------------------
 
+# If your documentation needs a minimal Sphinx version, state it here.
+needs_sphinx = '1.6'
+
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
-    'sphinx.ext.pngmath',
+    'sphinx.ext.imgmath',
     'sphinx.ext.napoleon',
+    'sphinx.ext.todo',
     'sphinxcontrib.bibtex',
 ]
 
@@ -47,7 +51,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Quantum Information Toolkit'
-copyright = u'2011-2017, Ville Bergholm et al.'
+copyright = u'2011-2018, Ville Bergholm et al.'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -96,6 +100,9 @@ pygments_style = 'sphinx'
 
 # A list of ignored prefixes for module index sorting.
 #modindex_common_prefix = []
+
+# If true, `todo` and `todoList` produce output, else they produce nothing.
+todo_include_todos = True
 
 
 # -- Options for HTML output ---------------------------------------------------
@@ -198,3 +205,20 @@ latex_elements = {'papersize': 'a4paper',
 
 # If false, no module index is generated.
 #latex_use_modindex = True
+
+#=========================================================================
+
+# the order in which autodoc lists the documented members
+autodoc_member_order = 'bysource'
+
+# documentation source for classes
+autoclass_content = 'both'
+
+# latex macros
+imgmath_latex_preamble = ''
+with open('macros.tex', 'r') as f:
+    for macro in f:
+        # used when building latex and pdf versions
+        latex_elements['preamble'] += macro + '\n'
+        # used when building html version
+        imgmath_latex_preamble += macro + '\n'
