@@ -51,5 +51,5 @@ setup(name             = 'qit',
         ],
       keywords = 'quantum information, quantum mechanics, toolkit',
       packages         = ['qit'],
-      install_requires = ['numpy>=1.13.3', 'scipy>=1.0.0', 'matplotlib>=1.5']
+      install_requires = ['numpy>=1.13.3', 'scipy>=1.0.0', 'matplotlib>=2.0']
       )

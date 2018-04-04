@@ -42,21 +42,20 @@ General-purpose quantum algorithms
    phase_estimation
    find_order
 """
-# Ville Bergholm 2011-2016
+# Ville Bergholm 2011-2018
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
-from math import asin
 from operator import mod
 from copy import deepcopy
 
 import numpy as np
 from numpy import (asarray, array, diag, kron, prod, floor, ceil, sqrt, log2, exp, angle, arange, linspace,
-    logical_not, sin, cos, arctan2, empty, zeros, ones, eye, sort, nonzero, pi, trace, dot, meshgrid, r_)
+                   logical_not, sin, cos, arcsin, arctan2, empty, zeros, ones, eye, sort, nonzero, pi, trace, dot, meshgrid, r_)
 from numpy.linalg import eig, norm
 import numpy.random as npr
 from scipy.misc import factorial
-import matplotlib.pyplot as plt
+from matplotlib.pyplot import figure, subplots
 from matplotlib.gridspec import GridSpec
 from mpl_toolkits.mplot3d import Axes3D   # FIXME makes buggy 3d plotting work for some reason
 
@@ -68,40 +67,25 @@ from .state import state, fidelity
 from . import gate, ho, plot
 
 
-__all__ = [
- 'adiabatic_qc_3sat',
- 'adiabatic_qc',
- 'bb84',
- 'bernstein_vazirani',
- 'grover_search',
- 'markov_decoherence',
- 'nmr_sequences',
- 'phase_estimation',
- 'phase_estimation_precision',
- 'qft_circuit',
- 'quantum_channels',
- 'quantum_walk',
- 'qubit_and_resonator',
- 'shor_factorization',
- 'find_order',
- 'superdense_coding',
- 'teleportation',
- 'tour']
-
-
 def adiabatic_qc_3sat(n=6, n_clauses=None, clauses=None, problem='3sat'):
     """Adiabatic quantum computing demo.
 
     This example solves random 3-SAT problems by simulating the
     adiabatic quantum algorithm of :cite:`Farhi`.
 
-    Note that this is incredibly inefficient because we first essentially
+    NOTE: This simulation is incredibly inefficient because we first essentially
     solve the NP-complete problem classically using an exhaustive
     search when computing the problem Hamiltonian H1, and then
     simulate an adiabatic quantum computer solving the same problem
     using the quantum algorithm.
+
+    Args:
+      n (int): number of logical variables (bits, qubits)
+      n_clauses (int): number of clauses
+      clauses (array[int]): array of shape (n_clauses, 3) defining the clauses
+      problem (str): problem type, either '3sat' or '3exact_cover'
     """
-    # Ville Bergholm 2009-2011
+    # Ville Bergholm 2009-2018
 
     print('\n\n=== Solving 3-SAT using adiabatic qc ===\n')
 
@@ -116,7 +100,7 @@ def adiabatic_qc_3sat(n=6, n_clauses=None, clauses=None, problem='3sat'):
                 n_clauses = n//2
 
         # generate clauses
-        clauses = zeros((n_clauses, 3), int)
+        clauses = zeros((n_clauses, 3), dtype=int)
         for k in range(n_clauses):
             bits = list(range(n))
             for j in range(3):
@@ -134,7 +118,7 @@ def adiabatic_qc_3sat(n=6, n_clauses=None, clauses=None, problem='3sat'):
     zb  = array([0, 1], int) # 0.5*(I - sz)
     z_op = []
     for k in range(n):
-        z_op.append(mkron(ones(2 ** k, int), zb, ones(2 ** (n-k-1), int)))
+        z_op.append(mkron(ones(2 ** k, dtype=int), zb, ones(2 ** (n-k-1), dtype=int)))
 
     print('{0} bits, {1} clauses'.format(n, n_clauses))
     # Encode the problem into the final Hamiltonian.
@@ -186,6 +170,12 @@ def adiabatic_qc(H0, H1, s0, tmax=50):
 
     This is a helper function for simulating the adiabatic quantum
     algorithm of :cite:`Farhi` and plotting the results.
+
+    Args:
+      H0 (array): initial Hamiltonian
+      H1 (vector): diagonal of the final Hamiltonian (assumed diagonal)
+      s0 (~qit.state.state): initial state
+      tmax (float): final time
     """
     # Ville Bergholm 2009-2011
 
@@ -201,12 +191,12 @@ def adiabatic_qc(H0, H1, s0, tmax=50):
 
     # plots
     # final state probabilities
-    plt.figure()
-    plot.adiabatic_evolution(t, res, H_func)
+    fig = figure()
+    plot.adiabatic_evolution(fig, t, res, H_func)
 
-    plt.figure()
-    res[-1].plot()
-    plt.title('Final state')
+    fig = figure()
+    ax = res[-1].plot(fig)
+    ax.set_title('Final state')
 
     print('Final Hamiltonian (diagonal):')
     print(H1)
@@ -226,8 +216,10 @@ def adiabatic_qc(H0, H1, s0, tmax=50):
 def bb84(n=50):
     """Bennett-Brassard 1984 quantum key distribution protocol demo.
 
-    Simulate the protocol with n qubits transferred.
+    Simulate the BB84 protocol with an eavesdropper attempting an intercept-resend attack.
 
+    Args:
+      n (int): number of qubits transferred
     """
     # Ville Bergholm 2009-2016
     from .base import H
@@ -338,6 +330,10 @@ def bernstein_vazirani(n=6, linear=True):
     implementing a linear Boolean function :math:`f_a(x) := a \cdot x`, returns the bit
     vector a (and thus identifies the function) with just a single oracle call.
     If the oracle function is not linear, the algorithm will fail.
+
+    Args:
+      n (int): number of qubits
+      linear (bool): if False, use a random nonlinear function instead, leading to the algorithm failing
     """
     # Ville Bergholm 2011-2012
 
@@ -386,14 +382,15 @@ def bernstein_vazirani(n=6, linear=True):
     # final Hadamards
     s = s.u_propagate(H)
 
-    plt.figure()
-    s.plot()
+    fig = figure()
+    s.plot(fig)
     title = 'Bernstein-Vazirani algorithm, '
     if linear:
         title += 'linear oracle'
     else:
         title += 'nonlinear oracle (fails)'
-    plt.title(title)
+    fig.gca().set_title(title)
+    fig.show()
 
     p, res = s.measure()
     # measured binary vector
@@ -411,8 +408,10 @@ def bernstein_vazirani(n=6, linear=True):
 def grover_search(n=8):
     """Grover search algorithm demo.
 
-    Simulate the Grover search algorithm :cite:`Grover` formulated using amplitude amplification
-    in a system of n qubits.
+    Simulate the Grover search algorithm :cite:`Grover` formulated using amplitude amplification.
+
+    Args:
+      n (int): number of qubits
     """
     # Ville Bergholm 2009-2010
 
@@ -422,7 +421,7 @@ def grover_search(n=8):
     N = 2 ** n # number of states
 
     sol = npr.randint(N)
-    reps = int(pi/(4*asin(sqrt(1/N))))
+    reps = int(pi/(4*arcsin(sqrt(1/N))))
 
     print('Using {0} qubits.'.format(n))
     print('Probability maximized by {0} iterations.'.format(reps))
@@ -460,9 +459,13 @@ def grover_search(n=8):
 def markov_decoherence(T1=7e-10, T2=1e-9, B=None):
     """Markovian decoherence demo.
 
-    Given decoherence times T1 and T2 (in s), creates a markovian bath B
-    and a coupling operator D which reproduce them on a single-qubit system.
+    Given a pair of T1 and T2 decoherence times, creates a system Hamiltonian 
+    and a system-bath coupling operator which reproduce them on a single-qubit system.
 
+    Args:
+      T1 (float): relaxation time T1 (in s)
+      T2 (float): dephasing time T2 (in s)
+      B (markov.bath): optional bath object
     """
     # Ville Bergholm 2009-2016
 
@@ -483,37 +486,38 @@ def markov_decoherence(T1=7e-10, T2=1e-9, B=None):
     # find the correct qubit-bath coupling
     H, D = B.fit(delta, T1, T2)
     L = markov.superop(H, D, B)
-    t = linspace(0, 10, 200)
+    t = linspace(0, 10, 400)
 
     # T1 demo
     eq = 1 / (1 + exp(delta * B.scale)) # equilibrium rho_11
     s = state('1') # qubit in the |1> state
     out = s.propagate(L, t, lambda x, h: x.ev(p1))
-    plt.figure()
-    plt.subplot(2, 1, 1)
-    plt.plot(t, out, 'r-', t, eq +(1-eq)*exp(-t/T1), 'b-.', [0, t[-1]], [eq, eq], 'k:', linewidth = 2)
-    plt.xlabel('$t$ [TU]')
-    plt.ylabel('probability')
-    plt.axis([0, t[-1], 0, 1])
-    plt.title('$T_1$: relaxation')
-    plt.legend(('simulated $P_1$', '$P_{1}^{eq} +(1-P_{1}^{eq}) \\exp(-t/T_1)$'))
+    fig, axes = subplots(nrows=2, ncols=1)
+    axes[0].plot(t, out, 'r-', t, eq +(1-eq)*exp(-t/T1), 'b-.', [0, t[-1]], [eq, eq], 'k:', linewidth = 2)
+    axes[0].set_xlabel('$t$ [TU]')
+    axes[0].set_ylabel('probability')
+    axes[0].set_xlim([0, t[-1]])
+    axes[0].set_ylim([0, 1])
+    axes[0].set_title('$T_1$: relaxation')
+    axes[0].legend((r'simulated $P_1$', r'$P_{1}^{eq} +(1-P_{1}^{eq}) \exp(-t/T_1)$'))
 
     # T2 demo
     s = state('0')
     s = s.u_propagate(R_y(pi/2)) # rotate to (|0>+|1>)/sqrt(2)
     out = s.propagate(L, t, lambda x, h: x.u_propagate(R_y(-pi/2)).ev(p0))
-    plt.subplot(2, 1, 2)
-    plt.plot(t, out, 'r-', t, 0.5*(1+exp(-t/T2)), 'b-.', linewidth = 2)
-    plt.xlabel('$t$ [TU]')
-    plt.ylabel('probability')
-    plt.axis([0, t[-1], 0, 1])
-    plt.title('$T_2$: dephasing')
-    plt.legend(('simulated $P_0$', '$\\frac{1}{2} (1+\\exp(-t/T_2))$'))
+    axes[1].plot(t, out, 'r-', t, 0.5*(1+exp(-t/T2)), 'b-.', linewidth = 2)
+    axes[1].set_xlabel('$t$ [TU]')
+    axes[1].set_ylabel('probability')
+    axes[1].set_xlim([0, t[-1]])
+    axes[1].set_ylim([0, 1])
+    axes[1].set_title('$T_2$: dephasing')
+    axes[1].legend((r'simulated $P_0$', r'$\frac{1}{2} (1+\exp(-t/T_2))$'))
+    fig.show()
     return H, D, B
 
 
 
-def nmr_sequences(seqs=None, titles=None):
+def nmr_sequences(seqs=None, titles=None, strength_error=True):
     """NMR control sequences demo.
 
     Compares the performance of different single-qubit NMR control
@@ -522,8 +526,13 @@ def nmr_sequences(seqs=None, titles=None):
     of both off-resonance error f and fractional pulse length error g.
 
     Reproduces fidelity plots in :cite:`Cummins`.
+
+    Args:
+      seqs (Sequence[~seq.seq]): control sequences to compare
+      titles (Sequence[str]): names of the control sequences
+      strength_error (bool): if True use a pulse strength error, otherwise use a pulse length error
     """
-    # Ville Bergholm 2006-2016
+    # Ville Bergholm 2006-2018
 
     from . import seq
 
@@ -536,13 +545,12 @@ def nmr_sequences(seqs=None, titles=None):
         titles = ['User-given seq'] * len(seqs)
 
     # Pulse length/timing errors also affect the drift term, pulse strength errors don't.
-    strength_error = True
     if strength_error:
         error_type = 'pulse strength error'
     else:
         error_type = 'pulse length error'
 
-    # off-resonance Hamiltonian (constant \sigma_z drift term) times -1i
+    # off-resonance Hamiltonian (a constant \sigma_z-type drift term) times -1j
     offres_A = -0.5j * sz
 
     psi = state('0') # initial state
@@ -559,20 +567,22 @@ def nmr_sequences(seqs=None, titles=None):
         ax.set_title(title)
         plot.state_trajectory(out, ax = ax)
 
+    # loop over the different sequences
     for k, ss in enumerate(seqs):
-        tt = titles[k]
-        fig = plt.figure()
+        fig = figure()
+        fig.suptitle(titles[k])
         gs = GridSpec(2, 2)
         U = ss.to_prop()  # target propagator
         psi_target = [psi.u_propagate(U).bloch_vector()]  # target state
 
+        # State evolution plots.
         # The two systematic error types we are interested here can be
         # incorporated into the control sequence.
         #==================================================
         s_error = deepcopy(ss)
         s_error.A = ss.A +0.1 * offres_A  # off-resonance error (constant \sigma_z drift term)
-        ax = fig.add_subplot(gs[0, 0], projection = '3d')
-        helper(ax, s_error, tt + ' evolution, off-resonance error')
+        ax = fig.add_subplot(2,2,1, projection='3d')
+        helper(ax, s_error, 'evolution, off-resonance error')
         #plot.state_trajectory(psi_target, reset=False, marker='')
 
         #==================================================
@@ -581,8 +591,8 @@ def nmr_sequences(seqs=None, titles=None):
             s_error.control = ss.control * 1.1  # pulse strength error
         else:
             s_error.tau = ss.tau * 1.1  # pulse length error
-        ax = fig.add_subplot(gs[1, 0], projection = '3d')
-        helper(ax, s_error, tt + ' evolution, ' + error_type)
+        ax = fig.add_subplot(2,2,3, projection='3d')
+        helper(ax, s_error, 'evolution, ' + error_type)
 
         #==================================================
         s_error = deepcopy(ss)
@@ -591,6 +601,7 @@ def nmr_sequences(seqs=None, titles=None):
             """fidelity of two unitary rotations, [0,1]"""
             return 0.5 * abs(trace(dot(a.conj().transpose(), b)))
 
+        # prepare the fidelity contour plot
         for u in range(nf):
             s_error.A = ss.A + f[u] * offres_A  # off-resonance error
             for v in range(ng):
@@ -607,32 +618,44 @@ def nmr_sequences(seqs=None, titles=None):
         #ax.surf(X, Y, 1-fid)
         ax.set_xlabel('Off-resonance error')
         ax.set_ylabel('Pulse length error')
-        ax.set_title(tt + ' fidelity')
-        plt.show()
+        ax.set_title('fidelity')
+        fig.show()
 
-    plt.figure()
-    plt.plot(f, fid[(ng+1)/2, :, :])
-    plt.xlabel('Off-resonance error')
-    plt.ylabel('fidelity')
-    plt.legend(titles)
-    plt.grid(True)
-    plt.axis([-1,1,0,1])
+    # horizontal and vertical slices through the error plane
+    fig = figure()
+    ax = fig.gca()
+    ax.plot(f, fid[ng//2, :, :])
+    ax.set_xlabel('Off-resonance error')
+    ax.set_ylabel('fidelity')
+    ax.legend(titles)
+    ax.grid(True)
+    ax.set_xlim([-1,1])
+    ax.set_ylim([0,1])
+    ax.set_title('Fidelity under off-resonance error')
 
-    plt.figure()
-    plt.plot(g, fid[:, (nf+1)/2, :])
-    plt.xlabel(error_type)
-    plt.ylabel('fidelity')
-    plt.legend(titles)
-    plt.grid(True)
-    plt.axis([-1,1,0,1])
+    fig = figure()
+    ax = fig.gca()
+    ax.plot(g, fid[:, nf//2, :])
+    ax.set_xlabel(error_type)
+    ax.set_ylabel('fidelity')
+    ax.legend(titles)
+    ax.grid(True)
+    ax.set_xlim([-1,1])
+    ax.set_ylim([0,1])
+    ax.set_title('Fidelity under ' + error_type)
 
 
 
 def phase_estimation(t, U, s, implicit=False):
     r"""Quantum phase estimation algorithm.
 
-    Estimate an eigenvalue of the unitary :class:`lmap` U using t qubits,
-    starting from the state s.
+    Args:
+      t (int): number of qubits
+      U (~qit.lmap.lmap): unitary operator
+      u (~qit.state.state): initial state
+      implicit (bool): if True, use implicit measurement instead of partial trace
+
+    Estimate an eigenvalue of U using t qubits, starting from the state s.
 
     Returns the state of the index register after the phase estimation
     circuit, but before final measurement.
@@ -663,7 +686,7 @@ def phase_estimation(t, U, s, implicit=False):
 
     # controlled unitaries
     for k in range(t):
-        ctrl = -ones(t)
+        ctrl = -ones(t, dtype=int)
         ctrl[k] = 1
         temp = gate.controlled(U ** (2 ** (t-1-k)), ctrl)
         reg = reg.u_propagate(temp)
@@ -686,9 +709,13 @@ def phase_estimation(t, U, s, implicit=False):
 def phase_estimation_precision(t, U, u=None):
     """Quantum phase estimation demo.
 
-    Estimate an eigenvalue of unitary operator U using t bits, starting from the state u.
+    Args:
+      t (int): number of qubits
+      U (array): unitary operator
+      u (~qit.state.state): Initial state. If not given, use a random eigenvector of U.
+
+    Estimate an eigenvalue of U using t qubits, starting from the state u.
     Plots and returns the probability distribution of the resulting t-bit approximations.
-    If u is not given, use a random eigenvector of U.
 
     Uses :func:`phase_estimation`.
     """
@@ -701,6 +728,9 @@ def phase_estimation_precision(t, U, u=None):
     d, v = eig(U)
     if u is None:
         u = state(v[:, 0], N) # exact eigenstate
+        title = 'eigenstate'
+    else:
+        title = 'given state'
 
     print('Use {0} qubits to estimate the phases of the eigenvalues of a U({1}) operator.\n'.format(t, N))
     p = phase_estimation(t, lmap(U), u).prob()
@@ -709,29 +739,31 @@ def phase_estimation_precision(t, U, u=None):
     w = 0.8 / T
 
     # plot probability distribution
-    plt.figure()
-    plt.hold(True)
-    plt.bar(x, p, width = w) # TODO align = 'center' ???
-    plt.xlabel(r'phase / $2\pi$')
-    plt.ylabel('probability')
-    plt.title('Phase estimation')
-    #axis([-1/(T*2), 1-1/(T*2), 0, 1])
+    fig = figure()
+    ax = fig.gca()
+    ax.bar(x, p, width = w) # TODO align = 'center' ???
+    ax.set_xlabel(r'phase / $2\pi$')
+    ax.set_ylabel('probability')
+    ax.set_title('Phase estimation, ' + title)
+    #ax.set_xlim([-1/(T*2), 1-1/(T*2)]) # [0, 1]
 
     # compare to correct answer
     target = angle(d) / (2*pi) + 1
     target -= floor(target)
-    plt.plot(target, 0.5*max(p)*ones(len(target)), 'mo')
+    ax.plot(target, 0.5*max(p)*ones(len(target)), 'mo')
 
-    plt.legend(('Target phases', 'Measurement probability distribution'))
-    return p
+    ax.legend(('Target phases', 'Measurement probability distribution'))
+    fig.show()
 
 
 
 def qft_circuit(dim=(2, 3, 3, 2)):
     r"""Quantum Fourier transform circuit demo.
 
-    Simulate the quadratic QFT circuit construction.
-    dim is the dimension vector of the subsystems.
+    Args:
+      dim (Sequence[int]): dimension vector of the subsystems
+
+    Simulate the quadratic quantum circuit for QFT.
 
     NOTE: If dim is not palindromic the resulting circuit also
     reverses the order of the dimensions in the SWAP cascade.
@@ -777,6 +809,9 @@ def quantum_channels(p=0.3):
     """Visualization of simple one-qubit channels.
 
     Visualizes the effect of different quantum channels on a qubit using the Bloch sphere representation.
+
+    Args:
+      p (float): probability
     """
     # Ville Bergholm 2009-2012
 
@@ -810,30 +845,35 @@ def quantum_channels(p=0.3):
         ax.plot_surface(res[0], res[1], res[2], rstride = 1, cstride = 1, color = 'm', alpha = 0.2, linewidth = 0)
         ax.set_title(T)
 
-    fig = plt.figure()
-    plt.title('Quantum channels')
+    fig = figure()
+    fig.suptitle('Bloch sphere evolution under one-qubit quantum channels')
     n = len(channels)
-    gs = GridSpec(2, int(ceil(n / 2)))
+    gs = GridSpec(2, (n+1)//2)
     for k in range(n):
-        ax = fig.add_subplot(gs[k], projection = '3d')
+        ax = fig.add_subplot(gs[k], projection='3d')
         present(ax, channels[k], titles[k])
-
-    plt.show()
-
+    fig.show()
 
 
-def quantum_walk(steps=7, n=11, p=0.05, n_coin=2):
+
+def quantum_walk(steps=8, n=21, p=0.05, n_coin=2):
     """Quantum random walk demo.
 
-    Simulates a 1D quantum walker controlled by a unitary quantum coin.
+    Simulates a wrapping 1D quantum walker controlled by a unitary quantum coin.
     On each step the coin is flipped and the walker moves either to the left
     or to the right depending on the result.
+    A three-dimensional coin introduces a third option, staying put.
 
-    After each step, the position of the walker is measured with probability p.
-    p == 1 results in a fully classical random walk, whereas
-    p == 0 corresponds to the "fully quantum" case.
+    Args:
+      steps (int): number of steps
+      n (int): number of possible walker positions
+      p (float): probability of measuring the walker after each step
+      n_coin (int): coin dimension, 2 or 3
+
+    NOTE: p=1 results in a fully classical random walk, whereas
+    p=0 corresponds to the "fully quantum" case.
     """
-    # Ville Bergholm 2010-2011
+    # Ville Bergholm 2010-2018
     from .base import H
 
     print('\n\n=== Quantum walk ===\n')
@@ -841,21 +881,25 @@ def quantum_walk(steps=7, n=11, p=0.05, n_coin=2):
     coin   = state('0', n_coin)
     walker = state(n // 2, n)
 
-    s = coin.tensor(walker).to_op(inplace = True)
+    s = coin.tensor(walker).to_op(inplace=True)
 
     # translation operators (wrapping)
-    left  = gate.mod_inc(-1, n)
-    right = left.ctranspose()
+    left  = gate.mod_inc(-1, n).data.todense()
+    right = left.conj().T
+    stay = eye(n)
 
     if n_coin == 2:
         # coin flip operator
         #C = R_x(pi / 2)
         C = H
         # shift operator: heads, move left; tails, move right
-        S = kron(p0, left.data) +kron(p1, right.data)
-    else:
+        S = kron(p0, left) +kron(p1, right)
+        #S = kron(p0, stay) +kron(p1, right)
+    elif n_coin == 3:
         C = rand_U(n_coin)
-        S = kron(diag([1, 0, 0]), left.data) +kron(diag([0, 1, 0]), right.data) +kron(diag([0, 0, 1]), eye(n))
+        S = kron(diag([1, 0, 0]), left) +kron(diag([0, 1, 0]), right) +kron(diag([0, 0, 1]), stay)
+    else:
+        raise ValueError('Coin dimension must be 2 or 3.')
 
     # propagator for a single step (flip + shift)
     U = dot(S, kron(C, eye(n)))
@@ -863,10 +907,9 @@ def quantum_walk(steps=7, n=11, p=0.05, n_coin=2):
     # Kraus ops for position measurement
     M = []
     for k in range(n):
-        temp = zeros((n, n))
+        temp = zeros((n, n), dtype=complex)
         temp[k, k] = sqrt(p)
         M.append(kron(eye(n_coin), temp))
-
     # "no measurement"
     M.append(sqrt(1-p) * eye(n_coin * n))
 
@@ -874,15 +917,21 @@ def quantum_walk(steps=7, n=11, p=0.05, n_coin=2):
         s = s.u_propagate(U)
         #s = s.kraus_propagate(M)
         s.data = p*diag(diag(s.data)) + (1-p)*s.data  # equivalent but faster...
-
     s = s.ptrace([0]) # ignore the coin
-    plt.figure()
-    s.plot()
-    plt.title('Walker state after {0} steps'.format(steps))
 
-    plt.figure()
-    plt.bar(arange(n), s.prob(), width = 0.8)
-    plt.title('Walker position probability distribution after {0} steps'.format(steps))
+    # plot final state and position
+    fig, ax = subplots()
+    s.plot(fig)
+    temp = ' after {} steps, p = {}'.format(steps, p)
+    ax.set_title('Walker state' + temp)
+    fig.show()
+
+    fig, ax = subplots()
+    ax.bar(arange(n)-n//2, s.prob(), width=0.8)
+    ax.set_title('Walker position' + temp)
+    ax.set_xlabel('position')
+    ax.set_ylabel('probability')
+    fig.show()
     return s
 
 
@@ -891,6 +940,9 @@ def qubit_and_resonator(d_r=30):
 
     Simulates a qubit coupled to a microwave resonator.
     Reproduces plots from the experiment in :cite:`Hofheinz`.
+
+    Args:
+      d_r (int): resonator truncation dimension
     """
     # Ville Bergholm 2010-2014
 
@@ -971,13 +1023,14 @@ def qubit_and_resonator(d_r=30):
         LL = H(d, 0, 0)  # detuned propagation
         out[k, :] = s.propagate(LL, t, out_func = readout)
 
-    plt.figure()
-    plot.pcolor(out, t, detunings / (2*pi*1e-3))
-    #plt.colorbar(orientation = 'horizontal')
-    plt.xlabel('Interaction time $\\tau$ (ns)')
-    plt.ylabel('Detuning, $\\Delta/(2\\pi)$ (MHz)')
-    plt.title('One photon Rabi-swap oscillations between qubit and resonator, $P_e$')
-
+    fig, ax = subplots()
+    plot.pcolor(ax, out, t, detunings / (2*pi*1e-3))
+    #fig.colorbar(orientation = 'horizontal')
+    ax.set_xlabel(r'Interaction time $\tau$ (ns)')
+    ax.set_ylabel(r'Detuning, $\Delta/(2\pi)$ (MHz)')
+    ax.set_title('One photon Rabi-swap oscillations between qubit and resonator, $P_e$')
+    fig.show()
+    
     #figure
     #f = fft(out, [], 2)
     #pcolor(abs(fftshift(f, 2)))
@@ -1041,13 +1094,13 @@ def qubit_and_resonator(d_r=30):
     out1 = s1.propagate(H(0, 0, 0), t, readout)
     out2 = s2.propagate(H(0, 0, 0), t, readout)
 
-    plt.figure()
-    plt.plot(t, out1, 'b-', t, out2, 'r-')
-    plt.xlabel('Interaction time $\\tau$ (ns)')
-    plt.ylabel('$P_e$')
-    plt.title('Resonator readout through qubit.')
-    plt.legend(('$|1\\rangle + |3\\rangle$', '$|1\\rangle + i|3\\rangle$'))
-
+    fig, ax = subplots()
+    ax.plot(t, out1, 'b-', t, out2, 'r-')
+    ax.set_xlabel(r'Interaction time $\tau$ (ns)')
+    ax.set_ylabel('$P_e$')
+    ax.set_title('Resonator readout through qubit.')
+    ax.legend((r'$|1\rangle + |3\rangle$', r'$|1\rangle + i|3\rangle$'))
+    fig.show()
 
     #=================================
     # Wigner spectroscopy
@@ -1071,19 +1124,22 @@ def qubit_and_resonator(d_r=30):
     print('\nComputing the Wigner function...')
     s = s.ptrace((1,))
     W, a, b = ho.wigner(s, res = (80, 80), lim = (-2.5, 2.5, -2.5, 2.5))
-    plt.figure()
-    plot.pcolor(W, a, b, (-1, 1))
-    plt.title('Wigner function $W(\\alpha)$')
-    plt.xlabel('Re($\\alpha$)')
-    plt.ylabel('Im($\\alpha$)')
-
+    fig, ax = subplots()
+    plot.pcolor(ax, W, a, b, (-1, 1))
+    ax.set_title(r'Wigner function $W(\alpha)$')
+    ax.set_xlabel(r'Re($\alpha$)')
+    ax.set_ylabel(r'Im($\alpha$)')
+    fig.show()
 
 
 def shor_factorization(N=9, cheat=False):
     """Shor's factorization algorithm demo.
 
-    Simulates Shor's factorization algorithm, tries to factorize the integer N.
-    If cheat is False, simulates the full algorithm. Otherwise avoids the quantum part.
+    Simulates Shor's factorization algorithm.
+
+    Args:
+      N (int): integer to factorize
+      cheat (bool): If False, simulates the full algorithm. Otherwise avoids the quantum part.
 
     NOTE: This is a very computationally intensive quantum algorithm
     to simulate classically, and probably will not run for any
@@ -1184,9 +1240,16 @@ def find_order(a, N, epsilon=0.25):
     """Quantum order-finding subroutine.
 
     Finds the period of the function f(x) = a^x mod N.
-    epsilon is the maximum allowed failure probability for the subroutine.
 
-    Returns r, s where r/s approximates period/T.
+    Args:
+      a (int): base
+      N (int): modulus
+      epsilon (float): maximum allowed failure probability for the subroutine
+
+    N and epsilon together determine the number of qubits, m required to perform the modular arthmetic, and t to serve as the index in the phase estimation.
+
+    Returns:
+      (int, int): (r, s) where r/s approximates period/2**t.
 
     Uses :func:`phase_estimation`.
 
@@ -1256,6 +1319,8 @@ def superdense_coding(d=2):
     Simulate Alice sending two d-its of information to Bob using 
     a shared EPR qudit pair.
 
+    Args:
+      d (int): qudit dimension
     """
     # Ville Bergholm 2010-2011
 
@@ -1304,6 +1369,8 @@ def teleportation(d=2):
 
     Simulate the teleportation of a d-dimensional qudit from Alice to Bob.
 
+    Args:
+      d (int): qudit dimension
     """
     # Ville Bergholm 2009-2011
 
@@ -1365,6 +1432,9 @@ def werner_states(d=2):
 
     Plots some properties of d-dimensional family of Werner states and their
     dual isotropic states as a function of the parameter p.
+
+    Args:
+      d (int): qudit dimension
     """
     # Ville Bergholm 2014-2016
 
@@ -1380,27 +1450,27 @@ def werner_states(d=2):
         res[k,:] = [w.purity(), w.lognegativity(1), iso.lognegativity(1)]
         #res2[k] = iso.purity()
 
-    plt.figure()
+    fig, ax = subplots()
     leg = ['Werner/isotropic purity', 'Werner lognegativity', 'Isotropic lognegativity',
            'maximally mixed state', 'maximally entangled generalized Bell state']
-    plt.plot(pp, res)
-    plt.hold(True)
+    ax.plot(pp, res)
     # fully depolarized state
     p_mix = (d+1)/(2*d)
-    plt.plot(p_mix, 0, 'ko')
+    ax.plot(p_mix, 0, 'ko')
     # generalized Bell state
     p_bell = (d+1)/2
-    plt.plot(p_bell, 0, 'rs')
+    ax.plot(p_bell, 0, 'rs')
     if d == 2:
         # singlet state
         p_singlet = 0
-        plt.plot(p_singlet, 0, 'bs')
+        ax.plot(p_singlet, 0, 'bs')
         leg.append('singlet state')
 
-    plt.title('Werner and isotropic states in d = {0}'.format(d))
-    plt.xlabel('Werner state parameter p')
-    plt.legend(leg)
-    plt.grid(True)
+    ax.set_title('Werner and isotropic states in d = {0}'.format(d))
+    ax.set_xlabel('Werner state parameter p')
+    ax.legend(leg)
+    ax.grid(True)
+    fig.show()
 
 
 
@@ -1408,59 +1478,67 @@ def tour():
     """Guided tour to the quantum information toolkit.
     """
 
-    print('This is the guided tour for the Quantum Information Toolkit.')
-    print("It should be run in the interactive mode, 'ipython --pylab'.")
-    print('Between examples, press any key to proceed to the next one.')
+    print("""This is the guided tour for the Quantum Information Toolkit.
+It should be run in the interactive mode, 'ipython --pylab'.
+Between examples, press enter to proceed to the next one.""")
 
     def pause():
-        plt.waitforbuttonpress()
+        input('Press enter.')
+        #plt.waitforbuttonpress()
 
-    temp = plt.figure()
-    teleportation()
-    pause()
-    superdense_coding()
-    pause()
-    plt.close(temp)
+    if 1:
+        # simple demos
+        teleportation()
+        pause()
 
-    adiabatic_qc_3sat(5, 25)
-    pause()
+        superdense_coding()
+        pause()
 
-    phase_estimation_precision(5, rand_U(4))
-    plt.title('Phase estimation, eigenstate')
-    phase_estimation_precision(5, rand_U(4), state(0, [4]))
-    plt.title('Phase estimation, random state')
-    pause()
+        bb84(40)
+        pause()
 
-    nmr_sequences()
-    pause()
+        qft_circuit((2, 3, 2))
+        pause()
 
-    quantum_channels()
-    pause()
+        werner_states(2)
+        werner_states(3)
+        pause()
 
-    bernstein_vazirani(6, linear = True)
-    bernstein_vazirani(6, linear = False)
-    pause()
+    if 1:
+        # sequences and channels
+        quantum_channels()
+        pause()
 
-    grover_search(6)
-    pause()
+        nmr_sequences()
+        pause()
 
-    # shor_factorization(9) # TODO need to use sparse matrices to get even this far(!)
-    shor_factorization(311*269, cheat = True)
-    pause()
+    if 1:
+        # algorithms
+        bernstein_vazirani(6, linear = True)
+        bernstein_vazirani(6, linear = False)
+        pause()
 
-    bb84(40)
-    pause()
+        grover_search(6)
+        pause()
 
-    markov_decoherence(7e-10, 1e-9)
-    pause()
+        phase_estimation_precision(5, rand_U(4))
+        phase_estimation_precision(5, rand_U(4), state(0, [4]))
+        pause()
 
-    qubit_and_resonator(20)
-    pause()
+        adiabatic_qc_3sat(5, 25)
+        pause()
 
-    qft_circuit((2, 3, 2))
-    pause()
+        # shor_factorization(9) # TODO need to use sparse matrices to get even this far(!)
+        shor_factorization(311*269, cheat = True)
+        pause()
 
-    werner_states(2)
-    werner_states(3)
+    if 1:
+        # simulations
+        markov_decoherence(7e-10, 1e-9)
+        pause()
 
-    #quantum_walk()
+        quantum_walk()
+        pause()
+
+        qubit_and_resonator(20)
+        pause()

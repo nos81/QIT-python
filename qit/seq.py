@@ -21,7 +21,7 @@ Contents
    dd
    propagate
 """
-# Ville Bergholm 2009-2016
+# Ville Bergholm 2009-2018
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
@@ -42,6 +42,7 @@ class seq(object):
     Piecewise constant control sequences for quantum systems.
 
     Variables:
+
     =======  ===============================================================================================
     A        Drift generator (typically :math:`-1j/\hbar` times a Hamiltonian and a time unit of your choice).
     B        List of control generators. c := len(B).
@@ -53,13 +54,13 @@ class seq(object):
 
     .. math::
 
-    G_j = A +\sum_k \text{control}_{jk} B_k,
+      G_j = A +\sum_k \text{control}_{jk} B_k,
 
     and the corresponding propagator is
 
     .. math::
 
-    P_j = \exp(\tau_j G_j).
+      P_j = \exp(\tau_j G_j).
     """
     def __init__(self, tau=[], control=zeros((0,2))):
         # construct the sequence
@@ -96,13 +97,10 @@ class seq(object):
 
 
 def nmr(a):
-    r"""Convert NMR-style rotations into a one-qubit control sequence.
+    r"""Convert a sequence of NMR-style rotations into a one-qubit control sequence.
 
-    Returns a one-qubit control sequence corresponding to the array a:
-
-    .. math::
-
-       a = [[\theta_1, \phi_1], [\theta_2, \phi_2], ...]
+    Args:
+      a (array-like): sequence of one-qubit rotations using the NMR notation: :math:`[[\theta_1, \phi_1], [\theta_2, \phi_2], ...]`
 
     Each :math:`\theta, \phi` pair corresponds to a NMR rotation
     of the form :math:`\theta_\phi`,
@@ -113,6 +111,9 @@ def nmr(a):
 
        R_{\vec{a}}(\theta) = \exp(-i \vec{a} \cdot \vec{\sigma} \theta/2) = \exp(-i H t) \quad \Leftarrow \quad
        H = \vec{a} \cdot \vec{\sigma}/2, \quad t = \theta.
+
+    Returns:
+      seq: one-qubit control sequence corresponding to the array a
     """
     # Ville Bergholm 2006-2016
 

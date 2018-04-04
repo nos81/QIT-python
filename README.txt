@@ -15,7 +15,7 @@ Python libraries:
 
 * `NumPy <http://numpy.org/>`_  1.13.3
 * `SciPy <http://scipy.org/>`_  1.0.0
-* `matplotlib <http://matplotlib.org/>`_  1.5
+* `matplotlib <http://matplotlib.org/>`_  2.0
 
 For interactive use the `IPython <http://ipython.org/>`_ interactive shell is recommended.
 
