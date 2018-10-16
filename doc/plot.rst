@@ -1,0 +1,2 @@
+.. automodule:: qit.plot
+   :members:

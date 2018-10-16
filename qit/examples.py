@@ -191,8 +191,7 @@ def adiabatic_qc(H0, H1, s0, tmax=50):
 
     # plots
     # final state probabilities
-    fig = figure()
-    plot.adiabatic_evolution(fig, t, res, H_func)
+    plot.adiabatic_evolution(t, res, H_func)
 
     fig = figure()
     ax = res[-1].plot(fig)

@@ -20,6 +20,7 @@ Contents:
    invariant
    markov
    seq
+   plot
    examples
    references
 
