@@ -61,7 +61,7 @@ Superoperators
    lmul
    rmul
    lrmul
-   superop_lindblad   
+   superop_lindblad
    superop_fp
    superop_to_choi
 
@@ -100,14 +100,14 @@ Miscellaneous
    R_y
    R_z
 """
-# Ville Bergholm 2008-2012
+# Ville Bergholm 2008-2018
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
 from copy import deepcopy
 
 import numpy as np
-from numpy import (array, mat, dtype, empty, zeros, ones, eye, prod, sqrt, exp,
+from numpy import (array, mat, dtype, empty, zeros, eye, prod, sqrt, exp,
     dot, sort, diag, trace, kron, pi, r_, c_, inf, isscalar, floor, ceil, log, log10, vdot)
 from numpy.random import rand, randn
 from numpy.linalg import qr, det, eigh, eigvalsh
@@ -243,11 +243,11 @@ def nullspace_hermitian(A, tol=None):
     Singular values <= tol are considered zero.
     """
     # Hermitian and antihermitian (orthogonal) real subspaces: V = H \oplus A, h \in H, a \in A
-    # If G = A'*A is either block-diagonal or block-antidiagonal wrt these, 
+    # If G = A'*A is either block-diagonal or block-antidiagonal wrt these,
     # x = h+a, Gx = \lambda x implies that Gh = \lambda h and Aa = \lambda a.
     # Hence...
     # Ax := [Q, x] is block-antidiagonal if Q is hermitian
-    
+
     # Ville Bergholm 2011-2012
 
     def to_real(C):
@@ -292,16 +292,22 @@ def eighsort(A):
 
 def comm(A, B):
     """Array commutator.
-    
-    Returns [A, B] := A*B - B*A 
+
+    Args:
+      A, B (array):
+    Returns:
+      array: [A, B] := A*B - B*A
     """
     return dot(A, B) - dot(B, A)
 
 
 def acomm(A, B):
     """Array anticommutator.
-    
-    Returns {A, B} := A*B + B*A 
+
+    Args:
+      A, B (array):
+    Returns:
+      array: {A, B} := A*B + B*A
     """
     return dot(A, B) + dot(B, A)
 
@@ -334,7 +340,7 @@ def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
         raise ValueError("A and v must be plain numpy.ndarray instances, not numpy.matrix.")
 
     n = A.shape[0]
-    m = min(n, m)  # Krylov space dimension, m <= n 
+    m = min(n, m)  # Krylov space dimension, m <= n
 
     if isscalar(t):
         tt = array([t])
@@ -385,7 +391,7 @@ def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
         Returns the number of basis vectors generated, and a boolean indicating a happy breakdown.
         NOTE that the we _must_not_ change global variables other than V and H here
         """
-        # beta_0 and alpha_m are not used in H, beta_m only in a single position for error control 
+        # beta_0 and alpha_m are not used in H, beta_m only in a single position for error control
         prev = 0
         for k in range(0, m):
             vk = (1 / beta) * v
@@ -418,7 +424,7 @@ def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
             for i in range(j):
                 H[i, j-1] = vdot(V[:, i], p)
                 p -= H[i, j-1] * V[:, i]
-            temp = norm(p) 
+            temp = norm(p)
             if temp < happy_tol: # "happy breakdown": iteration terminates, Krylov approximation is exact
                 return j, True
             # store the now orthonormal basis vector
@@ -469,10 +475,10 @@ def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
                     err2 = beta * abs(F[m+1, 0]) * av_norm
                     if err1 > 10 * err2:  # quick convergence
                         err_loc = err2
-                        r = m 
+                        r = m
                     elif err1 > err2:  # slow convergence
                         err_loc = (err2 * err1) / (err1 - err2)
-                        r = m 
+                        r = m
                     else:  # asymptotic convergence
                         err_loc = err1
                         r = m-1
@@ -517,12 +523,15 @@ def rand_hermitian(n):
 def rand_U(n):
     """Random U(n) matrix.
 
-    Returns a random unitary n*n matrix.
-    The matrix is random with respect to the Haar measure.
+    Args:
+      n (int): dimension
+    Returns:
+      array: Random unitary n*n matrix.
 
+    The matrix is random with respect to the Haar measure.
     Uses the algorithm in :cite:`Mezzadri`.
     """
-    # Ville Bergholm 2005-2014
+    # Ville Bergholm 2005-2018
 
     # sample the Ginibre ensemble, p(Z(i,j)) == 1/pi * exp(-abs(Z(i,j))^2),
     # p(Z) == 1/pi^(n^2) * exp(-trace(Z'*Z))
@@ -532,7 +541,7 @@ def rand_U(n):
     Q, R = qr(Z)
 
     # eliminate multivaluedness in Q
-    P = diag(R).copy()  # TODO remove copy() once we have numpy 1.10
+    P = diag(R).copy()  # TODO remove .copy() once numpy supports read/write views
     P /= abs(P)
     return dot(Q, diag(P))
 
@@ -671,17 +680,14 @@ def inv_vec(v, dim=None):
 def lmul(L, q=None):
     r"""Superoperator equivalent for multiplying from the left.
 
+    .. math:: L \rho = \text{inv\_vec}(\text{lmul}(L) \text{vec}(\rho))
+
     Args:
       L (array): multiplying operator, shape == (m, p)
       q   (int): The shape of :math:`\rho` is (p, q). If q is not given, :math:`\rho` is assumed square.
-
-    Returns the superoperator that implements left multiplication
-    of a vectorized matrix :math:`\rho` by the matrix L.
-
-    .. math:: L \rho = \text{inv\_vec}(\text{lmul}(L) \text{vec}(\rho))
+    Returns:
+      array: superoperator that implements left multiplication of a vectorized matrix :math:`\rho` by the matrix L
     """
-    # Ville Bergholm 2009
-
     if q is None:
         q = L.shape[1]  # assume target is a square matrix
     return kron(eye(q), L)
@@ -690,17 +696,14 @@ def lmul(L, q=None):
 def rmul(R, p=None):
     r"""Superoperator equivalent for multiplying from the right.
 
+    .. math:: \rho R = \text{inv\_vec}(\text{rmul}(R) \text{vec}(\rho))
+
     Args:
       R (array): multiplying operator, shape == (q, r)
       p   (int): The shape of :math:`\rho` is (p, q). If p is not given, :math:`\rho` is assumed square.
-
-    Returns the superoperator that implements right multiplication
-    of a vectorized matrix :math:`\rho` by the matrix R.
-
-    .. math:: \rho R = \text{inv\_vec}(\text{rmul}(R) \text{vec}(\rho))
+    Returns:
+      array: superoperator that implements right multiplication of a vectorized matrix :math:`\rho` by the matrix R
     """
-    # Ville Bergholm 2009
-
     if p is None:
         p = R.shape[0]  # assume target is a square matrix
     return kron(R.transpose(), eye(p))
@@ -709,17 +712,14 @@ def rmul(R, p=None):
 def lrmul(L, R):
     r"""Superoperator equivalent for multiplying both from left and right.
 
-    :param array L: matrix, shape (m, p)
-    :param array R: matrix, shape (q, r)
-
-    Returns the superoperator that implements left multiplication
-    by the matrix L and right multiplication by the matrix R
-    of a vectorized matrix :math:`\rho`.
-
     .. math:: L \rho R = \text{inv\_vec}(\text{lrmul}(L, R) \text{vec}(\rho))
-    """
-    # Ville Bergholm 2009-2011
 
+    Args:
+      L (array): matrix, shape (m, p)
+      R (array): matrix, shape (q, r)
+    Returns:
+      array: superoperator that implements left multiplication by the matrix L and right multiplication by the matrix R of a vectorized matrix :math:`\rho`
+    """
     # L and R fix the shape of rho completely
     return kron(R.transpose(), L)
 
@@ -727,12 +727,13 @@ def lrmul(L, R):
 def superop_lindblad(A, H=None):
     r"""Liouvillian superoperator for a set of Lindblad operators.
 
-    A is a vector of traceless, orthogonal Lindblad operators.
-    H is an optional Hamiltonian operator.
+    Args:
+      A (Sequence[array]): sequence of traceless, orthogonal Lindblad operators
+      H (array): optional Hamiltonian operator
+    Returns:
+      array: Liouvillian superoperator L
 
-    Returns the Liouvillian superoperator L corresponding to the
-    diagonal-form Lindblad equation
-
+    L corresponding to the diagonal-form Lindblad equation
     .. math:: \dot{\rho} = \text{inv\_vec}(L \text{vec}(\rho)) = -i [H, \rho] +\sum_k \left(A_k \rho A_k^\dagger -\frac{1}{2} \{A_k^\dagger A_k, \rho\}\right)
     """
     # James D. Whitfield 2009
@@ -750,7 +751,7 @@ def superop_lindblad(A, H=None):
     ac = zeros(sh, complex)
     for k in A:
         ac += 0.5 * dot(k.conj().transpose(), k)
-        L += lrmul(k, k.conj().transpose()) 
+        L += lrmul(k, k.conj().transpose())
 
     L += lmul(-ac -iH) +rmul(-ac +iH)
     return L
@@ -766,7 +767,7 @@ def superop_fp(L, tol=None):
 
     .. math:: \dot{\rho} = \text{inv\_vec}(L \text{vec}(\rho)).
 
-    Let size(L) == [D, D] (and d = sqrt(D) be the dimension of the Hilbert space).
+    Let L.shape == (D, D) (and d = sqrt(D) be the dimension of the Hilbert space).
 
     Returns the D*n array A, which contains as its columns a set
     of n vectorized orthogonal Hermitian matrices (with respect to
@@ -785,8 +786,11 @@ def superop_fp(L, tol=None):
     positivity, it is up to the user to choose the coefficients :math:`a_k`
     such that this condition is satisfied.
 
-    Singular values of L less than or equal to the tolerance tol are
-    treated as zero.
+    Args:
+      L (array): Liouvillian superoperator
+      tol (float): tolerance, singular values of L that are <= tol are treated as zero
+    Returns:
+      array, : array containing n vectorized Hermitian matrices as its columns, shape == (D, n)
     """
     #If L has Lindblad form, if L(rho) = \lambda * rho,
     #we also have L(rho') = conj(\lambda) * rho'
@@ -846,6 +850,11 @@ def superop_to_choi(L):
     Given a Liouvillian superoperator L operating on vectorized state
     operators, :math:`L: A \otimes A \to B \otimes B`, returns the
     corresponding Choi matrix :math:`C: A \otimes B \to A \otimes B`.
+
+    Args:
+      L (array): Liouvillian superoperator, shape == (b**2, a**2)
+    Returns:
+      array: corresponding Choi matrix, shape == (a*b, a*b)
     """
     # Ville Bergholm 2015-2016
 
@@ -907,8 +916,10 @@ def angular_momentum(d):
 def boson_ladder(d):
     r"""Bosonic ladder operators.
 
-    :param int d: truncation dimension
-    :returns: bosonic annihilation operator :math:`b`
+    Args:
+      d (int): truncation dimension
+    Returns:
+      array: bosonic annihilation operator :math:`b`
 
     Returns the d-dimensional approximation of the bosonic
     annihilation operator :math:`b` for a single bosonic mode in the
@@ -916,11 +927,9 @@ def boson_ladder(d):
 
     The corresponding creation operator is :math:`b^\dagger`.
     The (infinite-dimensional) bosonic annihilation and creation operators fulfill the commutation relation
-    :math:`[b, b^\dagger] = I`. Due to the d-dimensional basis truncation,
+    :math:`[b, b^\dagger] = \I`. Due to the d-dimensional basis truncation,
     this does not hold for the last dimension of the b matrices returned by this function.
     """
-    # Ville Bergholm 2009-2010
-
     return diag(sqrt(range(1, d)), 1)
 
 
@@ -928,8 +937,10 @@ def boson_ladder(d):
 def fermion_ladder(n):
     r"""Fermionic ladder operators.
 
-    :param int n: number of fermionic modes
-    :returns: array of fermionic annihilation operators :math:`f_k`
+    Args:
+      n (int): number of fermionic modes
+    Returns:
+      vector[object]: fermionic annihilation operators :math:`(f_1, f_2, \ldots, f_n)`
 
     Returns the fermionic annihilation operators for a
     system of n fermionic modes in the second quantization.
@@ -942,7 +953,7 @@ def fermion_ladder(n):
     .. math::
 
       \sigma^- &:= (\sigma_x + i \sigma_y)/2,\\
-      n &:= \sigma^+ \sigma^- = (I-\sigma_z)/2,\\
+      n &:= \sigma^+ \sigma^- = (\I-\sigma_z)/2,\\
       &\sigma^-|0\rangle = 0, \quad \sigma^-|1\rangle = |0\rangle, \quad n|k\rangle = k|k\rangle.
 
     Then define a phase operator to keep track of sign changes when
@@ -958,11 +969,9 @@ def fermion_ladder(n):
     .. math::
 
        \{f_j, f_k\}  &= 0,\\
-       \{f_j, f_k^\dagger\} &= I \delta_{jk},\\
+       \{f_j, f_k^\dagger\} &= \I \delta_{jk},\\
        f_k^\dagger f_k &= n_k.
     """
-    # Ville Bergholm 2009-2014
-
     s = array([[0, 1], [0, 0]]) # single annihilation op
     temp = 1
 
@@ -983,44 +992,54 @@ def fermion_ladder(n):
 def R_nmr(theta, phi):
     r"""SU(2) rotation :math:`\theta_\phi` (NMR notation).
 
-    Returns the one-qubit rotation by angle theta about the unit
+    One-qubit rotation by angle theta about the unit
     vector :math:`[\cos(\phi), \sin(\phi), 0]`, or :math:`\theta_\phi` in the NMR notation.
-    """
-    # Ville Bergholm 2009-2014
 
+    Args:
+      theta (float): rotation angle
+      phi   (float): angle between the rotation axis and the positive x axis
+    Returns:
+      array: rotation matrix
+    """
     return expm(-1j * theta/2 * (np.cos(phi) * sx + np.sin(phi) * sy))
 
 
 def R_x(theta):
     r"""SU(2) x-rotation.
 
-    Returns the one-qubit rotation about the x axis by the angle theta,
-    :math:`e^{-i \sigma_x \theta/2}`.
-    """
-    # Ville Bergholm 2006-2009
+    One-qubit rotation about the x axis by the angle theta.
 
+    Args:
+      theta (float): rotation angle
+    Returns:
+      array: rotation matrix :math:`e^{-i \sigma_x \theta/2}`
+    """
     return expm(-1j * theta/2 * sx)
 
 
 def R_y(theta):
     r"""SU(2) y-rotation.
 
-    Returns the one-qubit rotation about the y axis by the angle theta,
-    :math:`e^{-i \sigma_y \theta/2}`.
-    """
-    # Ville Bergholm 2006-2009
+    One-qubit rotation about the y axis by the angle theta.
 
+    Args:
+      theta (float): rotation angle
+    Returns:
+      array: rotation matrix :math:`e^{-i \sigma_y \theta/2}`
+    """
     return expm(-1j * theta/2 * sy)
 
 
 def R_z(theta):
     r"""SU(2) z-rotation.
 
-    Returns the one-qubit rotation about the z axis by the angle theta,
-    :math:`e^{-i \sigma_z \theta/2}`.
-    """
-    # Ville Bergholm 2006-2009
+    One-qubit rotation about the z axis by the angle theta.
 
+    Args:
+      theta (float): rotation angle
+    Returns:
+      array: rotation matrix :math:`e^{-i \sigma_z \theta/2}`
+    """
     return array([[exp(-1j * theta/2), 0], [0, exp(1j * theta/2)]])
 
 
@@ -1099,7 +1118,7 @@ def gellmann(d):
 
 # TODO lazy evaluation/cache purging would be nice here to control memory usage
 tensorbasis_cache = {}
-def tensorbasis(n, d=None, get_locality=False):
+def tensorbasis(n, d=None, get_locality=False, only_local=False):
     r"""Hermitian tensor-product basis for End(H).
 
     Returns a Hermitian basis for linear operators on the Hilbert space H
@@ -1107,67 +1126,97 @@ def tensorbasis(n, d=None, get_locality=False):
     of Gell-Mann matrices (which in the case of qubits are equal to Pauli matrices).
     The basis elements are normalized such that :math:`\mathrm{Tr}(b_i^\dagger b_j) = \delta_{ij}`.
 
-    The second output variable is an integer array denoting the locality
-    of each basis element, i.e. the number of non-identity matrices
-    in the tensor product.
-
     Input is either two scalars, n and d, in which case the system consists of n qu(d)its, :math:`H = C_d^{\otimes n}`,
     or the vector dim, which contains the dimensions of the individual subsystems:
     :math:`H = C_{dim[0]} \otimes ... \otimes C_{dim[n-1]}`.
 
     In addition to expanding Hermitian operators on H, this basis can be multiplied by
     the imaginary unit to obtain the antihermitian generators of U(prod(dim)).
+
+    Args:
+      n (int, Sequence[int]): number of subsystems, or if d is None, a dimension vector
+      d (int, None): dimension of the qudits constituting the subsystems
+      get_locality (bool): if True, return also the locality of the basis elements
+      only_local (bool): if True, only return basis elements whose locality==1
+    Returns:
+      array[array[complex]], array[int]: basis elements, locality
+
+    The second output variable is an integer array denoting the locality
+    of each basis element, i.e. the number of non-identity matrices
+    in the tensor product.
     """
     # Ville Bergholm 2005-2016
-
     if d is None:
         # dim vector
-        dim = n
+        dim = tuple(n)
         n = len(dim)
     else:
         # n qu(d)its
-        dim = ones(n, int) * d
+        dim = (n,) * d
 
     # check cache first
-    dim = tuple(dim)
     if dim in tensorbasis_cache:
+        B   = tensorbasis_cache[dim][0]
+        loc = tensorbasis_cache[dim][1]
+        if only_local:
+            ind = np.where(loc == 1)
+            B = B[ind]
+            loc = loc[ind]
+
         if get_locality:
-            # tuple: (matrices, locality)
-            return deepcopy(tensorbasis_cache[dim])
+            # tuple: matrices, locality
+            return deepcopy((B, loc))
         else:
             # just the matrices
-            return deepcopy(tensorbasis_cache[dim][0])
+            return deepcopy(B)
 
-    n_elements = array(dim) ** 2    # number of basis elements for each subsystem, incl. identity
-    n_all = prod(n_elements) # number of all tensor basis elements, incl. identity
+    n_elements = np.array(dim) ** 2    # number of basis elements for each subsystem, incl. identity
+    if only_local:
+        n_all = np.sum(n_elements-1)  # just the local tensor basis elements, no identity
+    else:
+        n_all = np.prod(n_elements) # number of all tensor basis elements, incl. identity
 
-    B = []
-    locality = zeros(n_all, dtype=int)  # number of non-identity terms in the corresponding basis element
+    B = np.empty(n_all, dtype='object')
+    locality = np.zeros(n_all, dtype=int)  # number of non-identity terms in the corresponding basis element
     # create the tensor basis
-    for k in range(n_all):  # loop over all basis elements
-        inds = np.unravel_index(k, n_elements)
-        temp = 1 # basis element being built
-        nonid = 0  # number of non-id. matrices included in this element
+    if only_local:
+        # creating the local elements like this is cheaper than creating the entire basis and filtering out just the local ones
+        k = 0
+        for j in range(n):
+            # identities before and after
+            d = int(np.prod(dim[:j]))
+            I_before = np.eye(d) / np.sqrt(d)
+            d = int(np.prod(dim[j+1:]))
+            I_after = np.eye(d) / np.sqrt(d)
+            for i in range(1, n_elements[j]):
+                temp = gellmann(dim[j])[i-1]
+                B[k] = mkron(I_before, temp, I_after)
+                locality[k] = 1
+                k += 1
+    else:
+        for k in range(n_all):  # loop over all basis elements
+            inds = np.unravel_index(k, n_elements)
+            temp = 1 # basis element being built
+            nonid = 0  # number of non-id. matrices included in this element
 
-        for j in range(n):  # loop over subsystems
-            ind = inds[j]   # which local basis element to use
-            d = dim[j]
+            for j in range(n):  # loop over subsystems
+                ind = inds[j]   # which local basis element to use
+                d = dim[j]
+                if ind > 0:
+                    nonid += 1 # using a non-identity matrix
+                    L = gellmann(d)[ind-1]  # Gell-Mann basis vector for the subsystem
+                    # TODO gellmann copying the entire basis for a single matrix is inefficient...
+                else:
+                    L = np.eye(d) / np.sqrt(d)  # identity (scaled)
+                temp = np.kron(temp, L)  # tensor in another matrix
+            B[k] = (temp)
+            locality[k] = nonid  # at least two non-identities => nonlocal element
 
-            if ind > 0:
-                nonid += 1 # using a non-identity matrix
-                L = gellmann(d)[ind - 1]  # Gell-Mann basis vector for the subsystem
-                # TODO gellmann copying the entire basis for a single matrix is inefficient...
-            else:
-                L = eye(d) / sqrt(d)  # identity (scaled)
-            temp = kron(temp, L)  # tensor in another matrix
+        # store into cache
+        tensorbasis_cache[dim] = deepcopy((B, locality))
 
-        B.append(temp)
-        locality[k] = nonid  # at least two non-identities => nonlocal element
-
-    # store into cache
-    tensorbasis_cache[dim] = deepcopy((B, locality))
     if get_locality:
-        return (B, locality)
+        return B, locality
     else:
         return B
 
@@ -1239,8 +1288,10 @@ def cdot(v, A):
     """Real dot product of a vector and a tuple of operators.
 
     Args:
-      v (vector):
-      A (tuple[array]):
+      v (array): vector
+      A (Iterable[array]): arrays of equal shape
+    Returns:
+      array: :math:`\sum_k v_k A_k`
     """
     res = 0j
     for vv, AA in zip(v, A):
@@ -1250,32 +1301,32 @@ def cdot(v, A):
 
 def qubits(n):
     """Dimension vector for an all-qubit system.
-    
-    For the extemely lazy, returns (2,) * n
-    """
-    # Ville Bergholm 2010
 
+    Args:
+      n (int): number of qubits
+    Returns:
+      tuple: (2,) * n
+    """
     return (2,) * n
 
 
 def majorize(x, y):
     r"""Majorization partial order of real vectors.
 
-    :param vector x, y: real vectors, dimension d
-    :returns: True iff :math:`x \preceq y`
-
     Returns True iff x is majorized by y, denoted by :math:`x \preceq y`. This is equivalent to
 
     .. math::
-
        \sum_{k=1}^n x^{\downarrow}_k \le \sum_{k=1}^n y^{\downarrow}_k \quad \text{for all} \quad n \in \{1, 2, \ldots, d\},
 
     where :math:`x^{\downarrow}` is the vector x with the elements sorted in nonincreasing order.
 
     :math:`x \preceq y` if and only if x is in the convex hull of all the coordinate permutations of y.
-    """
-    # Ville Bergholm 2010-2012
 
+    Args:
+      x, y (vector[float]): real vectors, equal length
+    Returns:
+      bool: :math:`x \preceq y`
+    """
     if x.ndim != 1 or y.ndim != 1 or np.iscomplexobj(x) or np.iscomplexobj(y):
         raise ValueError('Inputs must be real vectors.')
 
@@ -1297,13 +1348,11 @@ def majorize(x, y):
 def mkron(*arg):
     r"""This is how kron should work, dammit.
 
-    :param array A,B,C,...: arbitrary numpy arrays
-    :returns: :math:`A \otimes B \otimes C \otimes \ldots`
-
-    Returns the tensor (Kronecker) product of any number of arrays.
+    Args:
+      A, B, C... (array): arbitrary numpy arrays
+    Returns:
+      array: tensor (Kronecker) product of the input arrays, :math:`A \otimes B \otimes C \otimes \ldots`
     """
-    # Ville Bergholm 2009
-
     X = 1
     for A in arg:
         X = kron(X, A)
@@ -1312,9 +1361,12 @@ def mkron(*arg):
 
 def tensorsum(*arg):
     r"""Like kron but adding instead of multiplying.
-    """
-    # Ville Bergholm 2016
 
+    Args:
+      A, B, C... (array): arbitrary numpy arrays
+    Returns:
+      array: tensor sum of the input arrays
+    """
     #c = log(kron(exp(a), exp(b))) # a perverted way of doing it, the exp overflows...
     A = np.asarray(arg[0])
     for B in arg[1:]:

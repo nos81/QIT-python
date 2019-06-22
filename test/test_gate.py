@@ -26,7 +26,8 @@ class GateTest(unittest.TestCase):
         I = id(dim)
         S = swap(*dim)
         # swap' * swap = I
-        self.assertAlmostEqual((S.ctranspose() * S -I).norm(), 0, delta=tol)
+        # FIXME with scipy 0.16 we'll have norm for sparse arrays
+        self.assertAlmostEqual(norm((S.ctranspose() * S -I).data.A), 0, delta=tol)
 
         # TODO test the output
         U = phase(randn(prod(dim)), dim)
@@ -56,6 +57,16 @@ class GateTest(unittest.TestCase):
         self.assertRaises(ValueError, two, S, (3, 2), (2, 3, 4))   # bad targets
         self.assertRaises(ValueError, two, S, (0,), (2, 3, 4))     # wrong number of targets
 
+
+        # test linear maps
+        n_in = 3
+        n_out = 2
+        d = 3
+        C = copydot(n_in, n_out, d)
+        P = plusdot(n_in, n_out, d)
+        Q = qft(d)
+        temp = Q.tensorpow(n_out) * C * Q.tensorpow(n_in)
+        self.assertAlmostEqual((temp -P).norm(), 0, delta=tol)
 
 
 if __name__ == '__main__':

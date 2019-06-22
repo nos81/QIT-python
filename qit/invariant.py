@@ -11,39 +11,44 @@ various local gate and state invariants.
 Contents
 --------
 
-.. autosummary::
+# TODO these function names are terrible
 
+.. autosummary::
    LU
    canonical
    makhlin
    max_concurrence
    plot_makhlin_2q
-   plot_weyl_2q   
+   plot_weyl_2q
 """
 # Ville Bergholm 2011
 
 from __future__ import division, absolute_import, print_function, unicode_literals
 
 import numpy as np
-from numpy import (array, asarray, arange, empty, zeros, ones, sqrt, sin, cos, dot, sort, trace, kron,
-                   pi, r_, c_, linspace, meshgrid, roll, concatenate, angle, mod)
+from numpy import sin, cos, dot, mod
 from numpy.linalg import det, eigvals
 from scipy.linalg import norm
 import matplotlib.pyplot as plt
 
 from .base import sy, Q_Bell
 from .lmap import lmap, tensor
+from .utils import tensorbasis
 
-
-# TODO these function names are terrible
-__all__ = ['canonical', 'makhlin', 'max_concurrence', 'plot_weyl_2q', 'plot_makhlin_2q', 'LU']
 
 
 def LU(rho, k, perms):
     r"""Local unitary polynomial invariants of quantum states.
 
-    Computes the permutation invariant :math:`I_{k; \pi_1, \pi_2, \ldots, \pi_n}` for the state :math:`\rho`.
-    perms is a tuple containing n k-permutation tuples.
+    Computes the permutation invariant :math:`I_{k; \pi_1, \pi_2, \ldots, \pi_n}` for the state :math:`\rho`,
+    defined as :math:`\trace(\rho^{\otimes k} \Pi)`, where :math:`\Pi` permutes all k copies of the i:th subsystem using :math:`\pi_i`.
+
+    Args:
+      rho (state): quantum state with n subsystems
+      k (int): order of the invariant, k >= 1
+      perms (Sequence[Sequence[int]]): len(perms) == n, each element must be a full k-permutation (or an empty sequence denoting the identity permutation)
+    Returns:
+      complex: invariant
 
     Example: :math:`I_{3; (123),(12)}(\rho)` = LU_inv(rho, 3, [(1, 2, 0), (1, 0, 2)])
 
@@ -59,18 +64,17 @@ def LU(rho, k, perms):
         raise ValueError('Need one permutation per subsystem.')
 
     # convert () to identity permutation
-    id_perm = arange(k)
-    perms = list(perms)
+    id_perm = np.arange(k)
 
     # idea: tensor k copies of rho together, then permute all the copies of the i:th subsystem using perms[i] on one side.
     # cols of r correspond to subsystems, rows to copies. the initial order is
-    r = arange(n * k).reshape((k, n))
+    r = np.arange(n * k).reshape((k, n))
     for j, p in enumerate(perms):
         if len(p) == 0:
             p = id_perm
         elif len(p) != k:
             raise ValueError('Permutation #{0} does not have {1} elements.'.format(j, k))
-        r[:,j] = r[asarray(p),j]  # apply the jth permutation
+        r[:,j] = r[np.asarray(p),j]  # apply the jth permutation
     r = r.flatten()
 
     # TODO this could be done much more efficiently
@@ -82,30 +86,35 @@ def LU(rho, k, perms):
 def canonical(U):
     """Canonical local invariants of a two-qubit gate.
 
-    Returns a vector of three real canonical local invariants for the
-    U(4) matrix U, normalized to the range [0,1].
+    Computes a vector of three real canonical local invariants for the U(4) matrix U, normalized to the range [0,1].
+
+    Args:
+      U (array[complex]): U(4) matrix
+    Returns:
+      array[float]: canonical local invariants of U
+
     Uses the algorithm in :cite:`Childs`.
     """
     # Ville Bergholm 2004-2010
 
-    sigma = kron(sy, sy)
+    sigma = np.kron(sy, sy)
     U_flip = dot(dot(sigma, U.transpose()), sigma)  # spin flipped U
-    temp = dot(U, U_flip) / sqrt(complex(det(U)))
+    temp = dot(U, U_flip) / np.sqrt(complex(det(U)))
 
     Lambda = eigvals(temp) #[exp(i*2*phi_1), etc]
     # logarithm to the branch (-1/2, 3/2]
-    Lambda = angle(Lambda) / pi # divide pi away
+    Lambda = np.angle(Lambda) / np.pi # divide pi away
     for k in range(len(Lambda)):
         if Lambda[k] <= -0.5:
             Lambda[k] += 2
     S = Lambda / 2
-    S = sort(S)[::-1]  # descending order
+    S = np.sort(S)[::-1]  # descending order
 
     n = int(round(sum(S)))  # sum(S) must be an integer
     # take away extra translations-by-pi
-    S -= r_[ones(n), zeros(4-n)]
+    S -= np.r_[np.ones(n), np.zeros(4-n)]
     # put the elements in the correct order
-    S = roll(S, -n)
+    S = np.roll(S, -n)
 
     M = [[1, 1, 0], [1, 0, 1], [0, 1, 1]] # scaled by factor 2
     c = dot(M, S[:3])
@@ -121,31 +130,37 @@ def canonical(U):
 def makhlin(U):
     """Makhlin local invariants of a two-qubit gate.
 
-    Returns a vector of the three real Makhlin invariants (see :cite:`Makhlin`) corresponding
+    Computes a vector of the three real Makhlin invariants (see :cite:`Makhlin`) corresponding
     to the U(4) gate U.
-
     Alternatively, given a vector of canonical invariants normalized to [0, 1],
     returns the corresponding Makhlin invariants (see :cite:`Zhang`).
+
+    Args:
+      U (array[complex]): U(4) matrix
+    Returns:
+      array[float]: Makhlin local invariants of U
+
+    Alternatively, U may be given in terms of a vector of three
+    canonical local invariants.
     """
     # Ville Bergholm 2004-2010
-
     if U.shape[-1] == 3:
         c = U
         # array consisting of vectors of canonical invariants
-        c *= pi
-        g = empty(c.shape)
-        
+        c *= np.pi
+        g = np.empty(c.shape)
+
         g[..., 0] = (cos(c[..., 0]) * cos(c[..., 1]) * cos(c[..., 2])) ** 2 -(sin(c[..., 0]) * sin(c[..., 1]) * sin(c[..., 2])) ** 2
         g[..., 1] = 0.25 * sin(2 * c[..., 0]) * sin(2 * c[..., 1]) * sin(2 * c[..., 2])
         g[..., 2] = 4 * g[..., 0] - cos(2 * c[..., 0]) * cos(2 * c[..., 1]) * cos(2*c[..., 2])
     else:
-        # U(4) gate matrix    
+        # U(4) gate matrix
         V = dot(Q_Bell.conj().transpose(), dot(U, Q_Bell))
         M = dot(V.transpose(), V)
 
-        t1 = trace(M) ** 2
+        t1 = np.trace(M) ** 2
         t2 = t1 / (16 * det(U))
-        g = array([t2.real, t2.imag, ((t1 - trace(dot(M, M))) / (4 * det(U))).real])
+        g = np.array([t2.real, t2.imag, ((t1 -np.trace(dot(M, M))) / (4 * det(U))).real])
     return g
 
 
@@ -155,18 +170,67 @@ def max_concurrence(U):
     Returns the maximum concurrence generated by the two-qubit
     gate U (see :cite:`Kraus`), starting from a tensor state.
 
+    Args:
+      U (array[complex]): U(4) matrix
+    Returns:
+      float: maximum concurrence generated by U
+
     Alternatively, U may be given in terms of a vector of three
     canonical local invariants.
     """
     # Ville Bergholm 2006-2010
-
     if U.shape[-1] == 4:
         # gate into corresponding invariants
         c = canonical(U)
     else:
         c = U
-    temp = roll(c, 1, axis = -1)
-    return np.max(abs(sin(pi * concatenate((c - temp, c + temp), axis = -1))), axis = -1)
+    temp = np.roll(c, 1, axis=-1)
+    return np.max(abs(sin(np.pi * np.concatenate((c -temp, c +temp), axis=-1))), axis=-1)
+
+
+def gate_adjoint_rep(U, dim, only_local=True):
+    """Adjoint representation of a unitary gate in the hermitian tensor basis.
+
+    Args:
+      U  (array[complex]): unitary gate
+      dim (Sequence[int]): dimension vector defining the basis
+      only_local (bool): if True, only return the local part of the matrix
+    Returns:
+      array[float]: adjoint representation of U
+
+    See :cite:`koponen2006`.
+    """
+    D = len(U)
+    if D != np.prod(dim):
+        raise ValueError('Dimension of the gate {} does nor match the dimension vector {}.'.format(D, dim))
+    # generate the local part of \hat{U}
+    B = tensorbasis(dim, d=None, get_locality=False, only_local=only_local)
+    n = len(B)
+    W = np.empty((n, n), dtype=float)
+    for i, x in enumerate(B):
+        for j, y in enumerate(B):
+            # elements of B are hermitian
+            W[i, j] = np.trace(x @ U @ y @ U.T.conj())
+    return W
+
+
+def gate_leakage(U, dim):
+    """Local degrees of freedom leaked by a unitary gate.
+
+    Args:
+      U  (array[complex]): unitary gate
+      dim (Sequence[int]): dimension vector
+    Returns:
+      :
+
+    See :cite:`koponen2006`.
+    """
+    #import pdb
+    #pdb.set_trace()
+    # generate the local part of \hat{U}
+    ULL = gate_adjoint_rep(U, dim, only_local=True)
+    u, s, vh = svd(ULL, full_matrices=False)
+    return s
 
 
 def plot_makhlin_2q(sdiv=31, tdiv=31):
@@ -175,15 +239,18 @@ def plot_makhlin_2q(sdiv=31, tdiv=31):
     Plots the set of two-qubit gates in the space of Makhlin
     invariants (see :func:`makhlin`), returns the Axes3D object.
 
-    The input parameters are the s and t divisions of the mesh.
+    Args:
+      sdiv, tdiv (int): number of s and t divisions in the mesh
+    Returns:
+      Axes3D: plot axes
     """
     # Ville Bergholm 2006-2011
 
     import matplotlib.cm as cm
     import matplotlib.colors as colors
 
-    s = linspace(0, pi,   sdiv)
-    t = linspace(0, pi/2, tdiv)
+    s = np.linspace(0, np.pi,   sdiv)
+    t = np.linspace(0, np.pi/2, tdiv)
 
     # more efficient than meshgrid
     #g1 = kron(cos(s).^2, cos(t).^4) - kron(sin(s).^2, sin(t).^4)
@@ -193,8 +260,8 @@ def plot_makhlin_2q(sdiv=31, tdiv=31):
     #T = kron(ones(size(s)), t)
 
     # canonical coordinate plane (s, t, t) gives the entire surface of the set of gate equivalence classes
-    S, T = meshgrid(s, t)
-    c = c_[S.ravel(), T.ravel(), T.ravel()]
+    S, T = np.meshgrid(s, t)
+    c = np.c_[S.ravel(), T.ravel(), T.ravel()]
     G = makhlin(c).reshape(sdiv, tdiv, 3)
     C = max_concurrence(c).reshape(sdiv, tdiv)
 
@@ -240,9 +307,9 @@ def plot_weyl_2q(ax=None):
     if ax is None:
         ax = plt.subplot(111, projection='3d')
     ax.hold(True)
-    ax.plot_surface(array([[0, 0.5, 1], [0, 0.5, 1]]), array([[0, 0, 0], [0, 0.5, 0]]), array([[0, 0, 0], [0, 0.5, 0]]), alpha = 0.2)
-    ax.plot_surface(array([[0, 0.5], [0, 0.5]]), array([[0, 0.5], [0, 0.5]]), array([[0, 0], [0, 0.5]]), alpha = 0.2)
-    ax.plot_surface(array([[0.5, 1], [0.5, 1]]), array([[0.5, 0], [0.5, 0]]), array([[0, 0], [0.5, 0]]), alpha = 0.2)
+    ax.plot_surface(np.array([[0, 0.5, 1], [0, 0.5, 1]]), np.array([[0, 0, 0], [0, 0.5, 0]]), np.array([[0, 0, 0], [0, 0.5, 0]]), alpha=0.2)
+    ax.plot_surface(np.array([[0, 0.5], [0, 0.5]]), np.array([[0, 0.5], [0, 0.5]]), np.array([[0, 0], [0, 0.5]]), alpha=0.2)
+    ax.plot_surface(np.array([[0.5, 1], [0.5, 1]]), np.array([[0.5, 0], [0.5, 0]]), np.array([[0, 0], [0.5, 0]]), alpha=0.2)
     #axis([0 1 0 0.5 0 0.5])
     ax.axis('equal')
     ax.set_xlabel('$c_1/\\pi$')
