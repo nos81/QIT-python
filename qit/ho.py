@@ -34,7 +34,7 @@ Contents
 from __future__ import division, absolute_import, print_function, unicode_literals
 
 from numpy import array, mat, empty, arange, diag, sqrt, ones, prod, sqrt, pi, isscalar, linspace, newaxis
-from scipy.misc import factorial
+import scipy.special as sps
 from scipy.linalg import expm, norm
 
 from .base import tol
@@ -64,7 +64,7 @@ def coherent_state(alpha, n=default_n):
     # Ville Bergholm 2010
 
     k = arange(n)
-    ket = (alpha ** k) / sqrt(factorial(k))
+    ket = (alpha ** k) / sqrt(sps.factorial(k))
     return state(ket, n).normalize()
     #s = state(0, n).u_propagate(expm(alpha * mat(boson_ladder(n)).H))
     #s = state(0, n).u_propagate(displace(alpha, n))

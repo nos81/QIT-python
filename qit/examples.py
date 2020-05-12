@@ -54,7 +54,7 @@ from numpy import (asarray, array, diag, kron, prod, floor, ceil, sqrt, log2, ex
                    logical_not, sin, cos, arcsin, arctan2, empty, zeros, ones, eye, sort, nonzero, pi, trace, dot, meshgrid, r_)
 from numpy.linalg import eig, norm
 import numpy.random as npr
-from scipy.misc import factorial
+import scipy.special as sps
 from matplotlib.pyplot import figure, subplots
 from matplotlib.gridspec import GridSpec
 from mpl_toolkits.mplot3d import Axes3D   # FIXME makes buggy 3d plotting work for some reason
@@ -1108,7 +1108,7 @@ def qubit_and_resonator(d_r=30):
         # "voodoo cat"
         targ = zeros(d_r)
         for k in range(0, d_r, 3):
-            targ[k] = (2 ** k) / sqrt(factorial(k))
+            targ[k] = (2 ** k) / sqrt(sps.factorial(k))
     else:
         targ = [1, 0, 0, exp(1j * pi * 3/8), 0, 0, 1]
 
