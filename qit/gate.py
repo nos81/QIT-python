@@ -45,7 +45,8 @@ Linear maps
 """
 
 import itertools
-from numpy import pi, prod, empty, zeros, eye, trace, exp, sqrt, mod, isscalar, kron, array, ones, array_equal, sum, unravel_index, ravel_multi_index
+
+import numpy as np
 import scipy.sparse as sparse
 
 from .lmap import lmap, tensor
@@ -83,7 +84,7 @@ def dist(A, B):
         raise ValueError('The lmaps have different dimensions.')
 
     temp = A.ctranspose() * B
-    return 2 * (prod(temp.dim[0]) - abs(trace(temp.data)))
+    return 2 * (np.prod(temp.dim[0]) - abs(np.trace(temp.data)))
 
 
 
@@ -96,9 +97,9 @@ def id(dim):
     Returns:
         lmap: identity gate :math:`\I` for the specified system
     """
-    if isscalar(dim):
+    if np.isscalar(dim):
         dim = (dim,)  # scalar into a tuple
-    return lmap(sparse.eye(prod(dim)), (dim, dim))
+    return lmap(sparse.eye(np.prod(dim)), (dim, dim))
 
 
 def mod_add(dim1, dim2, N=None):
@@ -123,8 +124,8 @@ def mod_add(dim1, dim2, N=None):
     """
     # Ville Bergholm 2010
 
-    d1 = prod(dim1)
-    d2 = prod(dim2)
+    d1 = np.prod(dim1)
+    d2 = np.prod(dim2)
     if N is None:
         N = d2
     elif d2 < N:
@@ -139,7 +140,7 @@ def mod_add(dim1, dim2, N=None):
         for b in range(d2):
             y = d2*a + b
             if b < N:
-                x = d2*a +mod(a+b, N)
+                x = d2*a +np.mod(a+b, N)
             else:
                 # U acts trivially for target states >= N
                 x = y
@@ -167,9 +168,9 @@ def mod_inc(x, dim, N=None):
     """
     # Ville Bergholm 2010
 
-    if isscalar(dim):
+    if np.isscalar(dim):
         dim = (dim,)  # scalar into a tuple
-    d = prod(dim)
+    d = np.prod(dim)
     if N is None:
         N = d
     elif d < N:
@@ -177,7 +178,7 @@ def mod_inc(x, dim, N=None):
 
     U = sparse.dok_matrix((d, d))
     for y in range(N):
-        U[mod(x+y, N), y] = 1
+        U[np.mod(x+y, N), y] = 1
     # U acts trivially for states >= N
     for y in range(N, d):
         U[y, y] = 1
@@ -205,9 +206,9 @@ def mod_mul(x, dim, N=None):
     """
     # Ville Bergholm 2010-2011
 
-    if isscalar(dim):
+    if np.isscalar(dim):
         dim = (dim,)  # scalar into a tuple
-    d = prod(dim)
+    d = np.prod(dim)
     if N is None:
         N = d
     elif d < N:
@@ -221,7 +222,7 @@ def mod_mul(x, dim, N=None):
     # one we might as well cheat
     U = sparse.dok_matrix((d, d))
     for y in range(N):
-        U[mod(x*y, N), y] = 1
+        U[np.mod(x*y, N), y] = 1
     # U acts trivially for states >= N
     for y in range(N, d):
         U[y, y] = 1
@@ -241,16 +242,16 @@ def phase(theta, dim=None):
     """
     # Ville Bergholm 2011
 
-    if isscalar(dim):
+    if np.isscalar(dim):
         dim = (dim,)  # scalar into a tuple
     n = len(theta)
     if dim is None:
         dim = (n,)
-    d = prod(dim)
+    d = np.prod(dim)
     if d != n:
         raise ValueError('Dimension mismatch.')
 
-    return lmap(sparse.diags(exp(1j * theta), 0) , (dim, dim))
+    return lmap(sparse.diags(np.exp(1j * theta), 0) , (dim, dim))
 
 
 @copy_memoize
@@ -268,13 +269,13 @@ def qft(dim):
     """
     # Ville Bergholm 2004-2011
 
-    if isscalar(dim):
+    if np.isscalar(dim):
         dim = (dim,)  # scalar into a tuple
-    N = prod(dim)
-    U = empty((N, N), complex)  # completely dense, so we don't have to initialize it with zeros
+    N = np.prod(dim)
+    U = np.empty((N, N), complex)  # completely dense, so we don't have to initialize it with zeros
     for j in range(N):
         for k in range(N):
-            U[j, k] = exp(2j * pi * j * k / N) / sqrt(N)
+            U[j, k] = np.exp(2j * np.pi * j * k / N) / np.sqrt(N)
     return lmap(U, (dim, dim))
 
 
@@ -324,7 +325,7 @@ def walsh(n):
 
     U = 1
     for _ in range(n):
-        U = kron(U, H)
+        U = np.kron(U, H)
     dim = qubits(n)
     return lmap(U, (dim, dim))
 
@@ -357,7 +358,7 @@ def controlled(U, ctrl=(1,), dim=None):
     # Ville Bergholm 2009-2011
 
     # TODO generalization, uniformly controlled gates?
-    if isscalar(dim):
+    if np.isscalar(dim):
         dim = (dim,)  # scalar into a tuple
     t = len(ctrl)
     if dim is None:
@@ -366,20 +367,20 @@ def controlled(U, ctrl=(1,), dim=None):
     if t != len(dim):
         raise ValueError('ctrl and dim vectors have unequal lengths.')
 
-    if any(array(ctrl) >= array(dim)):
+    if any(np.array(ctrl) >= np.array(dim)):
         raise ValueError('Control on non-existant state.')
 
     yes = 1  # just the diagonal
     for k in range(t):
         if ctrl[k] >= 0:
-            temp = zeros(dim[k])
+            temp = np.zeros(dim[k])
             temp[ctrl[k]] = 1  # control on k
-            yes = kron(yes, temp)
+            yes = np.kron(yes, temp)
         else:
-            yes = kron(yes, ones(dim[k])) # no control on this qudit
+            yes = np.kron(yes, np.ones(dim[k])) # no control on this qudit
 
     no = 1 - yes
-    T = prod(dim)
+    T = np.prod(dim)
     dim = list(dim)
 
     if isinstance(U, lmap):
@@ -392,7 +393,7 @@ def controlled(U, ctrl=(1,), dim=None):
 
     # controlled gates only make sense for square matrices U (we need an identity transformation for the 'no' cases!)
     U_dim = U.shape[0]
-    out = sparse.diags(kron(no, ones(U_dim)), 0) +sparse.kron(sparse.diags(yes, 0), U)
+    out = sparse.diags(np.kron(no, np.ones(U_dim)), 0) +sparse.kron(sparse.diags(yes, 0), U)
     return lmap(out, (d1, d2))
 
 
@@ -439,27 +440,27 @@ def two(B, t, d_in):
         raise ValueError('Exactly two target subsystems required.')
 
     n = len(d_in)
-    t = array(t)
+    t = np.array(t)
     if any(t < 0) or any(t >= n) or t[0] == t[1]:
         raise ValueError('Bad target subsystem(s).')
 
-    d_in = array(d_in)
-    if not array_equal(d_in[t], B.dim[1]):
+    d_in = np.array(d_in)
+    if not np.array_equal(d_in[t], B.dim[1]):
         raise ValueError('Input dimensions do not match.')
 
     # dimensions for the untouched subsystems
     a = min(t)
     b = max(t)
-    before    = prod(d_in[:a])
-    inbetween = prod(d_in[a+1:b])
-    after     = prod(d_in[b+1:])
+    before    = np.prod(d_in[:a])
+    inbetween = np.prod(d_in[a+1:b])
+    after     = np.prod(d_in[b+1:])
 
     # how tensor(B_{01}, I_2) should be reordered
     if t[0] < t[1]:
         p = [0, 2, 1]
     else:
         p = [1, 2, 0]
-    U = tensor(B, lmap(eye(inbetween))).reorder((p, p), inplace = True)
+    U = tensor(B, lmap(np.eye(inbetween))).reorder((p, p), inplace = True)
     U = tensor(lmap(sparse.eye(before)), U, lmap(sparse.eye(after)))
 
     # restore dimensions
@@ -526,14 +527,14 @@ def plusdot(n_in, n_out, d=2):
     if n_in == 0:
         # loop over all output indices except the last one
         for j in range(int(d_out / d)):
-            temp = sum(unravel_index(k, dim_out[1:]))  # sum of subsystem indices
+            temp = np.sum(np.unravel_index(k, dim_out[1:]))  # sum of subsystem indices
             last = -temp % d  # the last index must take this value for the sum to be 0 (mod d)
             P[j, d*j +last] = x
     else:
         for j in range(d_out):
-            temp = sum(unravel_index(j, dim_out))
+            temp = np.sum(np.unravel_index(j, dim_out))
             for k in range(int(d_in / d)):
-                temp2 = sum(unravel_index(k, dim_in[1:]))
+                temp2 = np.sum(np.unravel_index(k, dim_in[1:]))
                 last = -(temp +temp2) % d
             P[j, d*k +last] = x
     return lmap(P, (dim_out, dim_in))
@@ -553,7 +554,7 @@ def epsilon(n):
     def signum(p):
         """Returns the parity of the permutation p by counting cycle lengths."""
         n = len(p)
-        seen = zeros(n, dtype=bool)
+        seen = np.zeros(n, dtype=bool)
         sgn = 1;
         k = 0
         while k < n:
@@ -576,6 +577,6 @@ def epsilon(n):
     # loop through all permutations of n indices
     p = itertools.permutations(range(n))
     for k in p:
-        ind = ravel_multi_index(k, dim)
+        ind = np.ravel_multi_index(k, dim)
         U[ind,0] = signum(k)
     return lmap(U, (dim, (1,)))

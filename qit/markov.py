@@ -45,12 +45,10 @@ Contents
 
 import collections.abc
 
-from numpy import (array, sqrt, exp, log, log10, sin, cos, arctan2, tanh, sign, dot, argsort, pi,
-                   r_, linspace, logspace, searchsorted, inf, newaxis, unravel_index, zeros, ones, empty,
-                   sinh, cosh)
+import numpy as np
 from scipy.linalg import norm
 from scipy.integrate import quad
-from scipy.special import expi, shichi
+import scipy.special as sps
 import scipy.constants as const
 import matplotlib.pyplot as plt
 
@@ -201,9 +199,9 @@ class MarkovianBath:
         if self.cut_type == 'sharp':
             self.cut_func = lambda x: x <= self.cut_omega  # Heaviside theta cutoff
         elif self.cut_type == 'smooth':
-            self.cut_func = lambda x: 1/(1+(x/self.cut_omega)**2)  # rational Lorentz cutoff
+            self.cut_func = lambda x: 1 / (1 + (x / self.cut_omega)**2)  # rational Lorentz cutoff
         elif self.cut_type == 'exp':
-            self.cut_func = lambda x: exp(-x / self.cut_omega)  # exponential cutoff
+            self.cut_func = lambda x: np.exp(-x / self.cut_omega)  # exponential cutoff
         else:
             raise ValueError('Unknown cutoff type "{0}"'.format(self.cut_type))
         self.setup()
@@ -221,7 +219,7 @@ class MarkovianBath:
         if self.type == 'ohmic':
             self.J = lambda nu: nu
             if self.stat == 'boson':
-                self.g0 = 2*pi / self.scale
+                self.g0 = 2 * np.pi / self.scale
         elif self.type == 'photon':
             self.J = lambda nu: nu**3
         else:
@@ -229,33 +227,33 @@ class MarkovianBath:
 
         # s_func has simple poles at \nu = \pm x.
         if self.stat == 'boson':
-            self.pf = lambda x: 1/(exp(self.scale * x) - 1)
-            self.corr_int_real = lambda s,nu: self.J(nu) * self.cut_func(nu) * cos(nu*s) / tanh(self.scale * nu/2)
-            self.corr_int_imag = lambda s,nu: self.J(nu) * self.cut_func(nu) * -sin(nu*s)
-            self.g_func = lambda x: 2*pi * self.J(x) * self.cut_func(abs(x)) * (1 +self.pf(x))
-            #self.s_func = lambda x,nu: self.J(nu) * self.cut_func(nu) * ((1+self.pf(nu))/(x-nu) +self.pf(nu)/(x+nu))
-            self.s_func = lambda x,nu: self.J(nu) * self.cut_func(nu) * (x / tanh(self.scale * nu/2) +nu) / (x**2 -nu**2)
+            self.pf = lambda x: 1/(np.exp(self.scale * x) - 1)
+            self.corr_int_real = lambda s, nu: self.J(nu) * self.cut_func(nu) * np.cos(nu * s) / np.tanh(self.scale * nu / 2)
+            self.corr_int_imag = lambda s, nu: self.J(nu) * self.cut_func(nu) * -np.sin(nu * s)
+            self.g_func = lambda x: 2 * np.pi * self.J(x) * self.cut_func(abs(x)) * (1 + self.pf(x))
+            #self.s_func = lambda x,nu: self.J(nu) * self.cut_func(nu) * ((1 + self.pf(nu)) / (x - nu) + self.pf(nu) / (x + nu))
+            self.s_func = lambda x,nu: self.J(nu) * self.cut_func(nu) * (x / np.tanh(self.scale * nu / 2) + nu) / (x**2 - nu**2)
         elif self.stat == 'fermion':
-            self.pf = lambda x: 1/(exp(self.scale * x) + 1)
-            self.corr_int_real = lambda s,nu: self.J(nu) * self.cut_func(nu) * cos(nu*s)
-            self.corr_int_imag = lambda s,nu: self.J(nu) * self.cut_func(nu) * sin(nu*s) * -tanh(self.scale * nu/2)
-            self.g_func = lambda x: 2*pi * self.J(abs(x)) * self.cut_func(abs(x)) * (1 -self.pf(x))
-            #self.s_func = lambda x,nu: self.J(nu) * self.cut_func(nu) * ((1-self.pf(nu))/(x-nu) +self.pf(nu)/(x+nu))
-            self.s_func = lambda x,nu: self.J(nu) * self.cut_func(nu) * (x +nu * tanh(self.scale * nu/2)) / (x**2 -nu**2)
+            self.pf = lambda x: 1/(np.exp(self.scale * x) + 1)
+            self.corr_int_real = lambda s, nu: self.J(nu) * self.cut_func(nu) * np.cos(nu * s)
+            self.corr_int_imag = lambda s, nu: self.J(nu) * self.cut_func(nu) * np.sin(nu * s) * -np.tanh(self.scale * nu / 2)
+            self.g_func = lambda x: 2 * np.pi * self.J(abs(x)) * self.cut_func(abs(x)) * (1 - self.pf(x))
+            #self.s_func = lambda x,nu: self.J(nu) * self.cut_func(nu) * ((1 - self.pf(nu)) / (x - nu) + self.pf(nu) / (x + nu))
+            self.s_func = lambda x,nu: self.J(nu) * self.cut_func(nu) * (x + nu * np.tanh(self.scale * nu / 2)) / (x**2 - nu**2)
         else:
             raise ValueError('Unknown bath statistics.')
-        self.s0, abserr = quad(lambda nu: self.s_func(0, nu), 0, inf)
+        self.s0, abserr = quad(lambda nu: self.s_func(0, nu), 0, np.inf)
 
         # clear lookup tables, since changing the cutoff requires recalc of S
-        self.omega = empty((0,), dtype=float)
-        self.gs_table = empty((0,2), dtype=float)
+        self.omega = np.empty((0,), dtype=float)
+        self.gs_table = np.empty((0,2), dtype=float)
         self._pad_LUT()
 
 
     def _pad_LUT(self):
         """Add limits at infinity to the lookup tables."""
-        self.omega    = r_[-inf, self.omega, inf]
-        self.gs_table = r_[[[0, 0]], self.gs_table, [[0, 0]]]
+        self.omega    = np.r_[-np.inf, self.omega, np.inf]
+        self.gs_table = np.r_[[[0, 0]], self.gs_table, [[0, 0]]]
 
 
     def build_LUT(self, om=None):
@@ -268,13 +266,13 @@ class MarkovianBath:
         if om is None:
             # Default sampling for the lookup table.
             lim = self.cut_omega
-            #lim = log10(10) / 5 / self.scale  # up to boltzmann factor == 10
-            om = logspace(log10(1.1 * lim), log10(5 * lim), 20) # logarithmic sampling
-            om = r_[linspace(0.05 * lim, 1 * lim, 20), om] # sampling is denser near zero, where S changes more rapidly
-            om = r_[-om[::-1], 0, om]  # symmetric around zero
+            #lim = np.log10(10) / 5 / self.scale  # up to boltzmann factor == 10
+            om = np.logspace(np.log10(1.1 * lim), np.log10(5 * lim), 20) # logarithmic sampling
+            om = np.r_[np.linspace(0.05 * lim, 1 * lim, 20), om] # sampling is denser near zero, where S changes more rapidly
+            om = np.r_[-om[::-1], 0, om]  # symmetric around zero
 
         self.omega = om
-        self.gs_table = empty((len(om), 2))
+        self.gs_table = np.empty((len(om), 2))
         for k in range(len(om)):
             print(k)
             self.gs_table[k] = self.compute_gs(self.omega[k])
@@ -291,14 +289,14 @@ class MarkovianBath:
 
         # analytical expressions for even and odd s funcs
         if self.cut_type == 'sharp':
-            odd_s = log(abs(q**2 / (q**2-1)))
-            even_s = log(abs((1+q) / (1-q))) -2/q
+            odd_s = np.log(abs(q**2 / (q**2-1)))
+            even_s = np.log(abs((1+q) / (1-q))) -2/q
         elif self.cut_type == 'smooth':
-            odd_s = 2*log(abs(q)) / (1+q**2)
-            even_s = -pi/q  / (1+q**2)
+            odd_s = 2*np.log(abs(q)) / (1+q**2)
+            even_s = -np.pi/q  / (1+q**2)
         elif self.cut_type == 'exp':
-            odd_s = expi(-q)*exp(q) +expi(q)*exp(-q)
-            even_s = -(expi(-q)*exp(q) -expi(q)*exp(-q)) -2/q
+            odd_s = sps.expi(-q) * np.exp(q) + sps.expi(q) * np.exp(-q)
+            even_s = -(sps.expi(-q) * np.exp(q) - sps.expi(q) * np.exp(-q)) - 2 / q
         else:
             raise ValueError('Unknown cut type.')
 
@@ -324,7 +322,7 @@ class MarkovianBath:
 
         # ratio of Lamb shift to dephasing rate
         #g = self.gs_table[:,0]
-        #boltz = exp(-self.scale * om)
+        #boltz = np.exp(-self.scale * om)
         #ratio = odd_s / (g * (boltz+1))
 
         c = self.cut_omega
@@ -347,16 +345,16 @@ class MarkovianBath:
         orig_scale  = self.scale
         orig_cutoff = self.cut_omega
 
-        om = -log(boltz) / self.scale  # \omega * TU
+        om = -np.log(boltz) / self.scale  # \omega * TU
         # scale with |om|
         temp = abs(om)
         om_scaled = om / temp  # sign of om
         self.scale *= temp     # scale the temperature parameter
 
         # try different cutoffs relative to omega
-        cutoff = logspace(-1.5, 1.5, 50)
-        gs  = zeros((len(cutoff), 2))
-        gsm = zeros((len(cutoff), 2))
+        cutoff = np.logspace(-1.5, 1.5, 50)
+        gs  = np.zeros((len(cutoff), 2))
+        gsm = np.zeros((len(cutoff), 2))
         for k in range(len(cutoff)):
             print(k)
             self.set_cutoff(None, cutoff[k])  # scaled cutoff frequency
@@ -398,13 +396,13 @@ class MarkovianBath:
 
         # plot the functions to be transformed
         plt.subplot(1,3,1)
-        nu = linspace(tol_nu, 5*c, 500)
+        nu = np.linspace(tol_nu, 5*c, 500)
         plt.plot(nu, self.J(nu) * self.cut_func(nu) * self.pf(nu), 'r')
         plt.hold(True)
         if self.stat == 'boson':
-            plt.plot(nu, self.J(nu) * self.cut_func(nu) * (1+self.pf(nu)), 'b')
+            plt.plot(nu, self.J(nu) * self.cut_func(nu) * (1 + self.pf(nu)), 'b')
         else:
-            plt.plot(nu, self.J(nu) * self.cut_func(nu) * (1-self.pf(nu)), 'g')
+            plt.plot(nu, self.J(nu) * self.cut_func(nu) * (1 - self.pf(nu)), 'g')
         plt.grid(True)
         plt.legend(['$J*n$', '$J*(1 \pm n)$'])
         plt.xlabel(r'$\nu$ [1/TU]')
@@ -412,12 +410,12 @@ class MarkovianBath:
 
         # plot the full integrand
         plt.subplot(1,3,2)
-        t = linspace(0, 4/c, 5)
-        nu = linspace(tol_nu, 5*c, 100)
-        res = empty((len(nu), len(t)), dtype=complex)
+        t = np.linspace(0, 4/c, 5)
+        nu = np.linspace(tol_nu, 5*c, 100)
+        res = np.empty((len(nu), len(t)), dtype=complex)
         for k in range(len(t)):
             print(k)
-            res[:,k] = self.corr_int_real(t[k], nu) +1j*self.corr_int_imag(t[k], nu)
+            res[:,k] = self.corr_int_real(t[k], nu) +1j * self.corr_int_imag(t[k], nu)
         plt.plot(nu, res.real, '-', nu, res.imag, '--')
         plt.grid(True)
         plt.xlabel(r'$\nu$ [1/TU]')
@@ -425,16 +423,16 @@ class MarkovianBath:
 
         # plot the correlation function
         plt.subplot(1,3,3)
-        t = linspace(tol_nu, 10/c, 100)  # real part of C(t) is even, imaginary part odd
-        res = empty(len(t), dtype=complex)
+        t = np.linspace(tol_nu, 10/c, 100)  # real part of C(t) is even, imaginary part odd
+        res = np.empty(len(t), dtype=complex)
         # upper limit for integration
         if self.cut_type == 'smooth':
             int_max = 100*c  # HACK, the integrator does not do well otherwise
         else:
-            int_max = inf
+            int_max = np.inf
         for k in range(len(t)):
             print(k)
-            #fun = lambda x: x * self.cut_func(x) * (exp(-1j*x*t[k])*(1+self.pf(x))+exp(1j*x*t[k])*self.pf(x))
+            #fun = lambda x: x * self.cut_func(x) * (np.exp(-1j*x*t[k])*(1+self.pf(x))+np.exp(1j*x*t[k])*self.pf(x))
             fun1 = lambda x: self.corr_int_real(t[k], x)
             fun2 = lambda x: self.corr_int_imag(t[k], x)
             res[k], abserr = quad(fun1, tol_nu, int_max)
@@ -451,15 +449,15 @@ class MarkovianBath:
         # plot analytic high- and low-temp limits
         x = c * t
         if self.cut_type == 'sharp':
-            temp = ((1 +1j*x)*exp(-1j*x) -1)/x**2
-            hb = 2/self.scale * sin(x)/x
+            temp = ((1 +1j * x) * np.exp(-1j * x) - 1) / x**2
+            hb = 2 / self.scale * np.sin(x) / x
         elif self.cut_type == 'smooth':
-            shi, chi = shichi(x)
-            temp = sinh(x)*shi -cosh(x)*chi -1j*pi/2*exp(-abs(x))
-            hb = pi/self.scale * exp(-abs(x))
+            shi, chi = sps.shichi(x)
+            temp = np.sinh(x) * shi -np.cosh(x) * chi -1j * np.pi / 2 * np.exp(-abs(x))
+            hb = np.pi / self.scale * np.exp(-abs(x))
         elif self.cut_type == 'exp':
-            temp = 1/(1 +1j*x)**2
-            hb = 2/self.scale / (1+x**2)
+            temp = 1 / (1 +1j * x)**2
+            hb = 2 / self.scale / (1 + x**2)
         else:
             raise ValueError('Unknown cutoff type "{0}"'.format(self.cut_type))
         temp *= c**2
@@ -479,12 +477,12 @@ class MarkovianBath:
 
         if False:
             c0 = abs(res[0])
-            temp = linspace(0, 0.5/c, 10)
-            plt.plot(temp, c0*(1-(temp*c)**2), 'k-')
-            temp = linspace(0.5/c, self.scale, 10)
-            plt.plot(temp, c0*0.75/2*(temp*c)**(-1), 'k:')
-            temp = linspace(self.scale, t[-1], 10)
-            plt.plot(temp, c0*exp(-temp/self.scale), 'k--')
+            temp = np.linspace(0, 0.5 / c, 10)
+            plt.plot(temp, c0 * (1 - (temp * c)**2), 'k-')
+            temp = np.linspace(0.5 / c, self.scale, 10)
+            plt.plot(temp, c0 * 0.75 / 2 * (temp * c)**(-1), 'k:')
+            temp = np.linspace(self.scale, t[-1], 10)
+            plt.plot(temp, c0 * np.exp(-temp / self.scale), 'k--')
 
 
 
@@ -504,7 +502,7 @@ class MarkovianBath:
             # TODO scipy quad can do these types of simple pole PVs directly...
             f = lambda nu: self.s_func(x, nu)
             a, abserr = quad(f, tol_omega0, abs(x) -ep)
-            b, abserr = quad(f, abs(x) +ep, inf)
+            b, abserr = quad(f, abs(x) +ep, np.inf)
             return g, a + b
 
 
@@ -531,7 +529,7 @@ class MarkovianBath:
 
         # TODO omega and gs_table into a single dictionary?
         # binary search for the interval [omega_a, omega_b) in which x falls
-        b = searchsorted(self.omega, x, side = 'right')
+        b = np.searchsorted(self.omega, x, side = 'right')
         a = b - 1
         ee = self.omega[[a, b]]
         tt = self.gs_table[[a, b], :]
@@ -573,8 +571,8 @@ class MarkovianBath:
             # compute new g, s values at p and insert them into the table
             temp = self.compute_gs(p)
 
-            self.omega = r_[self.omega[:b], p, self.omega[b:]]
-            self.gs_table = r_[self.gs_table[:b], [temp], self.gs_table[b:]]
+            self.omega = np.r_[self.omega[:b], p, self.omega[b:]]
+            self.gs_table = np.r_[self.gs_table[:b], [temp], self.gs_table[b:]]
 
             # now interpolate the required value
             ee[idx] = p
@@ -612,25 +610,25 @@ class MarkovianBath:
             x = self.scale * delta / 2
 
             if self.stat == 'boson':
-                temp = x / tanh(x) * self.cut_func(abs(delta))
+                temp = x / np.tanh(x) * self.cut_func(abs(delta))
                 # coupling, ZX angle
-                alpha = arctan2(1, sqrt(T1 * iTd *temp))
+                alpha = np.arctan2(1, np.sqrt(T1 * iTd *temp))
                 # dimensionless system-bath coupling factor squared
-                c = iTd * self.scale / (4 * pi * cos(alpha)**2)
+                c = iTd * self.scale / (4 * np.pi * np.cos(alpha)**2)
                 # noise coupling operator
-                D = sqrt(c) * (cos(alpha) * sz + sin(alpha) * sx)
+                D = np.sqrt(c) * (np.cos(alpha) * sz + np.sin(alpha) * sx)
 
                 # decoherence times in scaled time units
-                #T1 = 1/(c * sin(alpha)**2 * 2*pi * delta * coth(x) * self.cut_func(delta))
-                #T_dephase = self.scale/(c *4*pi*cos(alpha)**2)
+                #T1 = 1/(c * np.sin(alpha)**2 * 2 * np.pi * delta * coth(x) * self.cut_func(delta))
+                #T_dephase = self.scale/(c *4*np.pi*np.cos(alpha)**2)
                 #T2 = 1/(0.5/T1 +1/T_dephase)
 
             elif self.stat == 'fermion':
                 if abs(iTd) >= tol:
                     raise ValueError('For a fermionic bath we must have T2 = 2*T1')
                 # dimensionless system-bath coupling factor squared
-                c = 1/(T1 * 2*pi * abs(delta) * self.cut_func(abs(delta)))
-                D = sqrt(c) * sx
+                c = 1 / (T1 * 2 * np.pi * abs(delta) * self.cut_func(abs(delta)))
+                D = np.sqrt(c) * sx
             else:
                 raise NotImplementedError('Unknown bath statistics.')
         else:
@@ -663,10 +661,10 @@ def ops(H, D):
     E, P = spectral_decomposition(H)
     m = len(E) # unique eigenvalues
     # energy difference matrix is antisymmetric, so we really only need the lower triangle
-    deltaE = E[:, newaxis] - E  # deltaE[i,j] == E[i] - E[j]
+    deltaE = E[:, np.newaxis] - E  # deltaE[i,j] == E[i] - E[j]
 
     # mergesort is a stable sorting algorithm
-    ind = argsort(deltaE, axis = None, kind = 'mergesort')
+    ind = np.argsort(deltaE, axis = None, kind = 'mergesort')
     # index of first lower triangle element
     s = m * (m - 1) // 2
     #assert(ind[s], 0)
@@ -679,7 +677,7 @@ def ops(H, D):
     # combine degenerate deltaE, build jump ops
     dH = []
     A = [[] for k in range(n_D)]
-    current_dE = inf
+    current_dE = np.inf
     # loop over lower triangle indices
     for k in ind:
         dE = deltaE.flat[k]
@@ -690,14 +688,14 @@ def ops(H, D):
             for op in range(n_D):
                 A[op].append(0)
         # extend current jump op
-        r, c = unravel_index(k, (m, m))
+        r, c = np.unravel_index(k, (m, m))
         for op in range(n_D):
-            A[op][-1] += dot(dot(P[c], D[op]), P[r])
+            A[op][-1] += np.dot(np.dot(P[c], D[op]), P[r])
 
-    A  = array(A)
-    dH = array(dH)
+    A  = np.array(A)
+    dH = np.array(dH)
     # find columns in which every A vanishes
-    temp = zeros(A.shape[0:2])
+    temp = np.zeros(A.shape[0:2])
     for k in range(len(dH)):
         for op in range(n_D):
             temp[op, k] = norm(A[op, k]) > tol
@@ -769,8 +767,8 @@ def lindblad_ops(H, D, B):
             g, s = b.corr(dH[k])
             # is the dissipation significant?
             if abs(g) >= tol:
-                L.append(sqrt(g) * A[k])
-            H_LS += s * dot(A[k].conj().transpose(), A[k])
+                L.append(np.sqrt(g) * A[k])
+            H_LS += s * np.dot(A[k].conj().transpose(), A[k])
 
             if dH[k] == 0:
                 # no negative shift
@@ -779,8 +777,8 @@ def lindblad_ops(H, D, B):
             # now the corresponding negative energy shift
             g, s = b.corr(-dH[k])
             if abs(g) >= tol:
-                L.append(sqrt(g) * A[k].conj().transpose()) # note the difference here, A(-omega) = A'(omega)
-            H_LS += s * dot(A[k], A[k].conj().transpose())  # here too
+                L.append(np.sqrt(g) * A[k].conj().transpose()) # note the difference here, A(-omega) = A'(omega)
+            H_LS += s * np.dot(A[k], A[k].conj().transpose())  # here too
     return L, H_LS
     # TODO ops for different baths can be combined into a single basis,
     # N^2-1 ops max in total
@@ -822,7 +820,7 @@ def superop(H, D, B):
         for k in range(len(dH)):
             # first the positive energy shift
             g, s = b.corr(dH[k])
-            temp = dot(A[k].conj().transpose(), A[k])
+            temp = np.dot(A[k].conj().transpose(), A[k])
             iH_LS += (1j * s) * temp
             acomm += (-0.5 * g) * temp
             diss  += lrmul(g * A[k], A[k].conj().transpose())
@@ -833,7 +831,7 @@ def superop(H, D, B):
 
             # now the corresponding negative energy shift
             g, s = b.corr(-dH[k])
-            temp = dot(A[k], A[k].conj().transpose()) # note the difference here, A(-omega) = A'(omega)
+            temp = np.dot(A[k], A[k].conj().transpose()) # note the difference here, A(-omega) = A'(omega)
             iH_LS += (1j * s) * temp
             acomm += (-0.5 * g) * temp
             diss  += lrmul(g * A[k].conj().transpose(), A[k]) # here too
