@@ -1,15 +1,13 @@
 #! /usr/bin/python
 from setuptools import setup
-from codecs import open
-from os import path
+import os
 import re
 
-here = path.abspath(path.dirname(__file__))
+here = os.path.abspath(os.path.dirname(__file__))
 
 # Read the version number from a source file.
 def find_version(*file_paths):
-    # Use codecs.open for Python 2 compatibility
-    with open(path.join(here, *file_paths), 'r', 'utf_8') as f:
+    with open(os.path.join(here, *file_paths), mode='r', encoding='utf_8') as f:
         version_file = f.read()
 
     # The version line must have the form
@@ -22,34 +20,34 @@ def find_version(*file_paths):
 
 
 # Use README.txt as the long description
-with open('README.txt', 'r', 'utf_8') as f:
-    long_description = f.read()    
+with open('README.txt', mode='r', encoding='utf_8') as f:
+    long_description = f.read()
 
 
-setup(name             = 'qit',
-      version          = find_version('qit', '__init__.py'),
-      description      = 'Quantum Information Toolkit',
-      long_description = long_description,
-      url              = 'http://qit.sourceforge.net/',
-      author           = 'Ville Bergholm et al.',
-      author_email     = 'smite-meister@users.sourceforge.net',
-      classifiers      = [
-          'Development Status :: 4 - Beta',
-          'Intended Audience :: End Users/Desktop',
-          'Intended Audience :: Science/Research',
-          'Intended Audience :: Information Technology',
-          'Topic :: Scientific/Engineering :: Physics',
-          'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
-          'Operating System :: OS Independent',
-          'Programming Language :: Python',
-          'Programming Language :: Python :: 2',
-          'Programming Language :: Python :: 2.7',
-          'Programming Language :: Python :: 3',
-          'Programming Language :: Python :: 3.3',
-          'Programming Language :: Python :: 3.4',
-          'Programming Language :: Python :: 3.5',
-        ],
-      keywords = 'quantum information, quantum mechanics, toolkit',
-      packages         = ['qit'],
-      install_requires = ['numpy>=1.13.3', 'scipy>=1.0.0', 'matplotlib>=2.0']
-      )
+setup(
+    name             = 'qit',
+    version          = find_version('qit', '__init__.py'),
+    description      = 'Quantum Information Toolkit',
+    long_description = long_description,
+    url              = 'http://qit.sourceforge.net/',
+    author           = 'Ville Bergholm et al.',
+    author_email     = 'smite-meister@users.sourceforge.net',
+    classifiers      =
+    [
+        'Development Status :: 4 - Beta',
+        'Intended Audience :: End Users/Desktop',
+        'Intended Audience :: Science/Research',
+        'Intended Audience :: Information Technology',
+        'Topic :: Scientific/Engineering :: Physics',
+        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+        'Operating System :: OS Independent',
+        'Programming Language :: Python',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.5',
+        'Programming Language :: Python :: 3.6',
+    ],
+    keywords = 'quantum information, quantum mechanics, toolkit',
+    packages         = ['qit'],
+    python_requires  = '>=3.5',
+    install_requires = ['numpy>=1.18.4', 'scipy>=1.4.1', 'matplotlib>=3.2.1']
+)

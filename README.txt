@@ -6,12 +6,10 @@ Quantum Information Toolkit
 Introduction
 ============
 
-Quantum Information Toolkit (QIT) is a free, open source
-Python 2.7 / Python 3 package for various quantum information and
-computing -related purposes, released under GNU GPL.
-It is a sister project of the MATLAB Quantum Information Toolkit
-and has rougly equivalent functionality. QIT requires the following
-Python libraries:
+Quantum Information Toolkit (QIT) is a free, open source Python 3 package for various quantum
+information and computing -related purposes, released under GNU GPL.  It is a descendant of the
+MATLAB Quantum Information Toolkit, and has considerably more functionality. QIT requires the
+following Python libraries:
 
 * `NumPy <http://numpy.org/>`_  1.13.3
 * `SciPy <http://scipy.org/>`_  1.0.0
@@ -49,14 +47,12 @@ change the terms of the license. See LICENSE.txt for the details.
 Design notes
 ============
 
-The main design goals for this toolkit are ease of use and
-comprehensiveness. It is primarily meant to be used as a tool for
-hypothesis testing, small simulations, and learning, not for
-computationally demanding simulations. Hence optimal efficiency of the
-algorithms used is not a number one priority.
-However, if you think an algorithm could be improved without
-compromising accuracy or maintainability, please let the authors know
-or become a contributor yourself!
+The main design goals for this toolkit are ease of use and comprehensiveness. It is primarily meant
+to be used as a tool for experimentation, hypothesis testing, small simulations, and learning, not
+for computationally demanding simulations. Hence optimal efficiency of the algorithms used is not a
+number one priority.
+However, if you think an algorithm could be improved without compromising accuracy or
+maintainability, please let the authors know or become a contributor yourself!
 
 
 Contributing
@@ -69,6 +65,7 @@ coding guidelines:
 * Fully document all the modules, classes and functions using docstrings
   (purpose, calling syntax, output, approximations used, assumptions made...).
   The docstrings may contain reStructuredText markup for math, citations etc.
+  Use the Google docstring style.
 * Add relevant literature references to doc/refs.bib and cite them in the function
   or module docstring using sphinxcontrib-bibtex syntax.
 * Instead of using multiple similar functions, use a single function
@@ -76,14 +73,14 @@ coding guidelines:
 * Raise an exception on invalid input.
 * Use variables sparingly, give them descriptive (but short) names.
 * Use brief comments to explain the logic of your code.
-* When you add new functions also add testing scripts for validating
+* When you add new functions also add tests for validating
   your code. If you modify existing code, make sure you didn't break
-  anything by checking that the testing scripts still run successfully.
+  anything by checking that the tests still run successfully.
 
 
 Authors
 =======
 
-* Ville Bergholm          2008-2018
+* Ville Bergholm          2008-2020
 * Jacob D. Biamonte       2008-2009
 * James D. Whitfield      2009-2010
