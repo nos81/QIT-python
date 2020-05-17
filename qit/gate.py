@@ -4,7 +4,7 @@ Quantum gates (:mod:`qit.gate`)
 ===============================
 
 This module implements many common types of quantum gates (and some
-other useful linear maps). The returned gates are represented as sparse :class:`lmap` instances.
+other useful linear maps). The returned gates are represented as :class:`lmap` instances.
 The data type is float unless complex entries are actually needed.
 
 .. currentmodule:: qit.gate
@@ -20,8 +20,8 @@ Utilities
    controlled
    dist
 
-Basic gates
------------
+Unitary gates
+-------------
 
 .. autosummary::
 
@@ -44,8 +44,6 @@ Linear maps
    epsilon
 """
 
-from __future__ import division, absolute_import, print_function, unicode_literals
-
 import itertools
 from numpy import pi, prod, empty, zeros, eye, trace, exp, sqrt, mod, isscalar, kron, array, ones, array_equal, sum, unravel_index, ravel_multi_index
 import scipy.sparse as sparse
@@ -55,7 +53,7 @@ from .utils import qubits, op_list, assert_o, copy_memoize, gcd
 
 
 __all__ = ['dist', 'id', 'phase', 'qft', 'swap', 'walsh',
-           'mod_add', 'mod_inc', 'mod_mul', 
+           'mod_add', 'mod_inc', 'mod_mul',
            'controlled', 'single', 'two',
            'copydot', 'plusdot', 'epsilon']
 
@@ -68,11 +66,15 @@ __all__ = ['dist', 'id', 'phase', 'qft', 'swap', 'walsh',
 def dist(A, B):
     r"""Distance between two unitary lmaps.
 
-    Returns
+    Args:
+      A (lmap): unitary operator
+      B (lmap): unitary operator
+
+    Returns:
+      float: squared Frobenius norm distance between the unitaries, disregarding global phase
 
     .. math::
-
-       \inf_{\phi \in \mathbb{R}} \|A - e^{i \phi} B\|_F^2
+       \mathrm{dist}(A, B) = \inf_{\phi \in \mathbb{R}} \|A - e^{i \phi} B\|_F^2
        = 2 (\dim_A - |\mathrm{Tr}(A^\dagger B)|)
     """
     # Ville Bergholm 2007-2010
@@ -88,8 +90,11 @@ def dist(A, B):
 def id(dim):
     """Identity gate.
 
-    Returns the identity gate I for the specified system.
-    dim is a tuple of subsystem dimensions.
+    Args:
+        dim (tuple[int]): subsystem dimensions
+
+    Returns:
+        lmap: identity gate :math:`\I` for the specified system
     """
     if isscalar(dim):
         dim = (dim,)  # scalar into a tuple
@@ -99,18 +104,22 @@ def id(dim):
 def mod_add(dim1, dim2, N=None):
     r"""Modular adder gate.
 
-    Returns the gate U, which, operating on the computational state
-    :math:`|x, y\rangle`, produces
-    :math:`|x, y+x (\mod N)\rangle`.
-    dim1 and dim2 are the control and target register dimension vectors.
+    Args:
+        dim1 (tuple[int]): control register dimensions
+        dim2 (tuple[int]): target register dimensions
+        N (int): cutoff dimension, default is ``prod(dim2)``
 
-    By default N == prod(dim2).
-    If N is explicitly given we must have N <= prod(dim2), and U will act trivially on target states >= N.
+    Returns:
+        lmap: modular adder gate U
+
+    .. math::
+       U: \ket{x, y} \mapsto \ket{x, y+x (\mod N)}
+
+    If N is given we must have ``N <= prod(dim2)``, and U will act trivially on target states ``>= N``.
 
     Notes:
-    The modular subtractor gate can be obtained by taking the
-    Hermitian conjugate of mod_add.
-    mod_add(2, 2) is equal to CNOT.
+        The modular subtractor gate can be obtained by taking the Hermitian conjugate of ``mod_add``.
+        ``mod_add(2, 2)`` is equal to CNOT.
     """
     # Ville Bergholm 2010
 
@@ -143,14 +152,18 @@ def mod_add(dim1, dim2, N=None):
 def mod_inc(x, dim, N=None):
     r"""Modular incrementation gate.
 
-    U = mod_inc(x, dim)     N == prod(dim)
-    U = mod_inc(x, dim, N)  gate dimension prod(dim) must be >= N
+    Args:
+        x (int): increment
+        dim (tuple[int]): register dimensions
+        N (int): cutoff dimension, default is ``prod(dim)``
 
-    Returns the gate U, which, operating on the computational state
-    :math:`|y\rangle`, increments it by x (mod N):
-    :math:`U |y\rangle = |y+x (mod N)\rangle`.
+    Returns:
+        lmap: modular incrementation gate U
 
-    If N is given, U will act trivially on computational states >= N.
+    .. math::
+       U: \ket{y} \mapsto \ket{y+x (mod N)}
+
+    If N is given, we must have ``N <= prod(dim)``, and U will act trivially on computational states ``>= N``.
     """
     # Ville Bergholm 2010
 
@@ -175,15 +188,20 @@ def mod_inc(x, dim, N=None):
 def mod_mul(x, dim, N=None):
     r"""Modular multiplication gate.
 
-    U = mod_mul(x, dim)     N == prod(dim)
-    U = mod_mul(x, dim, N)  gate dimension prod(dim) must be >= N
+    Args:
+        x (int): multiplier
+        dim (tuple[int]): register dimensions
+        N (int): cutoff dimension, default is ``prod(dim)``
 
-    Returns the gate U, which, operating on the computational state
-    :math:`|y\rangle`, multiplies it by x (mod N):
-    :math:`U |y\rangle = |x*y (mod N)\rangle`.
-    x and N must be coprime for the operation to be reversible.
+    Returns:
+        lmap: modular multiplication gate U
 
-    If N is given, U will act trivially on computational states >= N.
+    .. math::
+       U: \ket{y} \mapsto \ket{x*y (mod N)}
+
+    ``x`` and ``N`` must be coprime for the operation to be reversible.
+
+    If N is given, we must have ``N <= prod(dim)``, and U will act trivially on computational states ``>= N``.
     """
     # Ville Bergholm 2010-2011
 
@@ -214,7 +232,12 @@ def mod_mul(x, dim, N=None):
 def phase(theta, dim=None):
     """Diagonal phase shift gate.
 
-    Returns the (diagonal) phase shift gate U = diag(exp(i*theta)).
+    Args:
+        theta (vector[float]): phase shift angles
+        dim (tuple[int]): register dimensions, default is ``len(theta),``
+
+    Returns:
+        lmap: the (diagonal) phase shift gate ``diag(exp(i*theta))``
     """
     # Ville Bergholm 2011
 
@@ -234,8 +257,13 @@ def phase(theta, dim=None):
 def qft(dim):
     """Quantum Fourier transform gate.
 
+    Args:
+        dim (tuple[int]): register dimensions
+
+    Returns:
+        lmap: QFT
+
     Returns the quantum Fourier transform gate for the specified system.
-    dim is a vector of subsystem dimensions.
     The returned lmap is dense.
     """
     # Ville Bergholm 2004-2011
@@ -253,12 +281,21 @@ def qft(dim):
 def swap(d1, d2):
     r"""Swap gate.
 
-    Returns the swap gate which swaps the order of two subsystems with dimensions [d1, d2].
+    Args:
+        d1 (int): subsystem 1 dimension
+        d2 (int): subsystem 2 dimension
+
+    Returns:
+        lmap: SWAP gate which swaps the order of two subsystems with dimensions [d1, d2].
 
     .. math::
 
        S: A_1 \otimes A_2 \to A_2 \otimes A_1, \quad
-       v_1 \otimes v_2 \mapsto v_2 \otimes v_1
+       \ket{x, y} \mapsto \ket{y, x}
+
+    Note:
+        The actual subsystem order is swapped as well, not just the states of those subsystems.
+        This is only important if ``d1 != d2``.
     """
     # Ville Bergholm 2010
 
@@ -273,7 +310,12 @@ def swap(d1, d2):
 def walsh(n):
     """Walsh-Hadamard gate.
 
-    Returns the Walsh-Hadamard gate for n qubits.
+    Args:
+        n (int): number of qubits
+
+    Returns:
+        lmap: Walsh-Hadamard gate for n qubits
+
     The returned lmap is dense.
     """
     # Ville Bergholm 2009-2010
@@ -290,20 +332,27 @@ def walsh(n):
 def controlled(U, ctrl=(1,), dim=None):
     r"""Controlled gate.
 
-    Returns the (t+1)-qudit controlled-U gate, where t == length(ctrl).
-    U has to be a square matrix.
+    Args:
+        U (array[complex], lmap): unitary operator
+        ctrl (vector[int]): control nodes
+        dim (tuple[int]): control subsystem dimensions
 
-    ctrl is an integer vector defining the control nodes. It has one entry k per
-    control qudit, denoting the required computational basis state :math:`|k\rangle`
+    Returns:
+        lmap: controlled-U gate
+
+    Returns the ``(t+1)``-qudit controlled-U gate, where ``t == len(ctrl)``.
+
+    ``ctrl`` defines the control nodes. It has one entry k per
+    control qudit, denoting the required computational basis state :math:`\ket{k}`
     for that particular qudit. Value k == -1 denotes no control.
 
     dim is the dimensions vector for the control qudits. If not given, all controls
     are assumed to be qubits.
 
-    Examples::
+    Examples:
 
-      controlled(NOT, [1]) gives the standard CNOT gate.
-      controlled(NOT, [1, 1]) gives the Toffoli gate.
+      * ``controlled(NOT, [1])`` gives the standard CNOT gate.
+      * ``controlled(NOT, [1, 1])`` gives the Toffoli gate.
     """
     # Ville Bergholm 2009-2011
 
@@ -325,7 +374,7 @@ def controlled(U, ctrl=(1,), dim=None):
         if ctrl[k] >= 0:
             temp = zeros(dim[k])
             temp[ctrl[k]] = 1  # control on k
-            yes = kron(yes, temp) 
+            yes = kron(yes, temp)
         else:
             yes = kron(yes, ones(dim[k])) # no control on this qudit
 
@@ -350,10 +399,13 @@ def controlled(U, ctrl=(1,), dim=None):
 def single(L, t, d_in):
     """Single-qudit operator.
 
-    Returns the operator U corresponding to the local operator L applied
-    to subsystem t (and identity applied to the remaining subsystems).
+    Args:
+        L (lmap, array): local (one-subsystem) operator
+        t (int): subsystem to which L is applied
+        d_in (tuple[int]): input dimensions for the constructed operator
 
-    d_in is the input dimension vector for U.
+    Returns:
+        lmap: L applied to subsystem t (and identity applied to the remaining subsystems)
     """
     # James Whitfield 2010
     # Ville Bergholm 2010
@@ -372,10 +424,13 @@ def single(L, t, d_in):
 def two(B, t, d_in):
     """Two-qudit operator.
 
-    Returns the operator U corresponding to the bipartite operator B applied
-    to subsystems t == [t1, t2] (and identity applied to the remaining subsystems).
+    Args:
+        B (lmap, array): two-subsystem operator
+        t (tuple[int]): two subsystems to which B is applied
+        d_in (tuple[int]): input dimensions for the constructed operator
 
-    d_in is the input dimension vector for U.
+    Returns:
+        lmap: B applied to subsystems t (and identity applied to the remaining subsystems)
     """
     # James Whitfield 2010
     # Ville Bergholm 2010-2011
@@ -416,8 +471,13 @@ def two(B, t, d_in):
 def copydot(n_in, n_out, d=2):
     """Copy dot.
 
-    Returns the lmap corresponding to the copy dot with n_in input
-    legs, n_out output legs, and subsystem dimension d.
+    Args:
+        n_in (int): number of input legs
+        n_out (int): number of ouput legs
+        d (int): leg dimension
+
+    Returns:
+        lmap: copy dot
 
     See :cite:`BB2011`
     """
@@ -438,8 +498,13 @@ def copydot(n_in, n_out, d=2):
 def plusdot(n_in, n_out, d=2):
     """Plus dot.
 
-    Returns the lmap corresponding to the plus dot with n_in input
-    legs, n_out output legs, and subsystem dimension d.
+    Args:
+        n_in (int): number of input legs
+        n_out (int): number of ouput legs
+        d (int): leg dimension
+
+    Returns:
+        lmap: plus dot
 
     See :cite:`BB2011`
     """
@@ -477,8 +542,12 @@ def plusdot(n_in, n_out, d=2):
 def epsilon(n):
     """Epsilon tensor.
 
-    Returns the fully antisymmetric Levi-Civita symbol in n dimensions,
-    a tensor with n n-dimensional subsystems.
+    Args:
+        n (int): dimension
+
+    Returns:
+        lmap: the fully antisymmetric Levi-Civita symbol in ``n`` dimensions,
+            a tensor with ``n`` ``n``-dimensional subsystems
     """
     # Ville Bergholm 2016
     def signum(p):
