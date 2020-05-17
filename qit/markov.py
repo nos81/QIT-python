@@ -8,7 +8,7 @@ This module simulates the effects of a heat bath coupled to a quantum
 system, using the Born-Markov approximation in the weak coupling limit.
 This results in a Lindblad-form master equation for the system.
 
-The treatment in this module mostly follows Ref. :cite:`BP`.
+The treatment in this module mostly follows :cite:`BP`.
 
 
 
@@ -21,13 +21,13 @@ Contents
 
    ops
    lindblad_ops
-   superop   
+   superop
 
 
-:class:`bath` methods
----------------------
+:class:`MarkovianBath` methods
+------------------------------
 
-.. currentmodule:: qit.markov.bath
+.. currentmodule:: qit.markov.MarkovianBath
 
 .. autosummary::
 
@@ -42,11 +42,8 @@ Contents
    plot_cutoff
    plot_correlation
 """
-# Ville Bergholm 2011-2017
 
-from __future__ import division, absolute_import, print_function, unicode_literals
-
-import collections
+import collections.abc
 
 from numpy import (array, sqrt, exp, log, log10, sin, cos, arctan2, tanh, sign, dot, argsort, pi,
                    r_, linspace, logspace, searchsorted, inf, newaxis, unravel_index, zeros, ones, empty,
@@ -61,10 +58,10 @@ from .base import sx, sz, tol
 from .utils import lmul, rmul, lrmul, rand_hermitian, superop_lindblad, spectral_decomposition
 
 
-__all__ = ['bath', 'ops', 'lindblad_ops', 'superop']
+__all__ = ['MarkovianBath', 'ops', 'lindblad_ops', 'superop']
 
 
-class bath(object):
+class MarkovianBath:
     r"""Markovian heat bath.
 
     Supports bosonic and fermionic canonical ensembles at
@@ -72,8 +69,17 @@ class bath(object):
     The bath couples to the system via a single-term coupling
     :math:`H_\text{int} = A \otimes \sum_k \lambda_k (a_k +a_k')`.
 
-    The bath spectral density is ohmic with a cutoff:
-    :math:`J(\omega) = \omega \: \mathrm{cut}(\omega) \Theta(\omega)`.
+    Args:
+        type (str): bath type, in ('ohmic', 'photon')
+        stat (str): bath statistics, in ('boson', 'fermion')
+        TU (float): bath time unit (in s)
+        T (float): bath temperature (in K)
+
+    The bath spectral density is either ohmic or photonic, with a cutoff:
+
+    .. math::
+       J_\text{ohmic}(\omega) = \omega \: \mathrm{cut}(\omega) \Theta(\omega),\\
+       J_\text{photon}(\omega) = \omega^3 \: \mathrm{cut}(\omega) \Theta(\omega).
 
     Three types of cutoffs are supported:
 
@@ -118,7 +124,7 @@ class bath(object):
       \omega +\nu \tanh(\beta \hbar \nu/2) \quad \text{(fermions)}
       \end{cases}
 
-    where :math:`n(\omega) := 1/(e^{\beta \hbar \omega} \mp 1)` is the Planc/Fermi function and :math:`\beta = 1/(k_B T)`. 
+    where :math:`n(\omega) := 1/(e^{\beta \hbar \omega} \mp 1)` is the Planc/Fermi function and :math:`\beta = 1/(k_B T)`.
     Since :math:`\Gamma` is pretty expensive to compute, we store the computed results into a lookup table which is used to interpolate nearby values.
 
 
@@ -134,7 +140,7 @@ class bath(object):
     scale        Dimensionless temperature scaling parameter :math:`\hbar / (k_B T \: \text{TU})`.
     cut_type     Spectral density cutoff type (string).
     cut_omega    Spectral density cutoff angular frequency :math:`\omega_c` (in :math:`1/\text{TU}`).
-    ===========  ===========    
+    ===========  ===========
 
 
     Private data (set automatically):
@@ -155,9 +161,9 @@ class bath(object):
     """
     # Ville Bergholm 2009-2016
 
-    def __init__(self, type, stat, TU, T):
+    def __init__(self, type: str, stat: str, TU: float, T: float):
         """constructor
-    
+
         Sets up a descriptor for a heat bath coupled to a quantum system.
         """
         # basic bath parameters
@@ -255,7 +261,8 @@ class bath(object):
     def build_LUT(self, om=None):
         """Build a lookup table for the spectral correlation tensor Gamma.
 
-        :param vector om:  Vector of omegas denoting the points to compute.
+        Args:
+            om (vector[]): vector of omegas denoting the points to compute
         """
         # TODO justify limits for S lookup
         if om is None:
@@ -368,7 +375,7 @@ class bath(object):
         ax.set_xlabel(r'$\omega_c/\omega$')
         ax.set_title(self.desc() + ', boltzmann: {:.4g} => omega: {:.4g}'.format(boltz, om))
         ax.get_figure().show()
-        
+
 
     def plot_correlation(self):
         r"""Plot the bath correlation function
@@ -501,11 +508,14 @@ class bath(object):
             return g, a + b
 
 
-    def corr(self, x):
+    def corr(self, x: float):
         r"""Bath spectral correlation tensor, computed or interpolated.
 
-        :param float x:  Angular frequency [1/TU]
-        :returns tuple (g,s): Real and imaginary parts of the spectral correlation tensor [1/TU]
+        Args:
+            x: angular frequency [1/TU]
+
+        Returns:
+            g, s: Real and imaginary parts of the spectral correlation tensor [1/TU]
 
         .. math::
 
@@ -573,12 +583,15 @@ class bath(object):
 
 
 
-    def fit(self, delta, T1, T2):
+    def fit(self, delta: float, T1: float, T2: float):
         r"""Qubit-bath coupling that reproduces given decoherence times.
 
-        :param float delta:  Energy splitting for the qubit (in units of :math:`\hbar/TU`)
-        :param float T1, T2: Decoherence times T1 and T2 (in units of :math:`TU`)
-        :returns tuple (H, D):
+        Args:
+            delta: qubit energy splitting (in units of :math:`\hbar/TU`)
+            T1, T2: qubit decoherence times T1 and T2 (in units of :math:`TU`)
+
+        Returns:
+            array[complex], array[complex]: qubit Hamiltonian, qubit-bath coupling operator
 
         Returns the qubit Hamiltonian H and the qubit-bath coupling operator D
         that reproduce the decoherence times T1 and T2
@@ -594,7 +607,7 @@ class bath(object):
             iTd = 1/T2 -0.5/T1 # inverse pure dephasing time
             if iTd < 0:
                 raise ValueError('Unphysical decoherence times!')
-    
+
             # match bath couplings to T1, T2
             x = self.scale * delta / 2
 
@@ -632,12 +645,15 @@ class bath(object):
 def ops(H, D):
     r"""Jump operators for a Born-Markov master equation.
 
-    :param array H: System Hamiltonian
-    :param sequence D: Sequence of Hermitian interaction operators
-    :returns tuple (dH, A):
+    Args:
+        H (array[complex]): system Hamiltonian
+        D (Sequence[array[complex]): Hermitian system-bath interaction operators
+
+    Returns:
+        array[float], array[array[complex]]: dH, A
 
     dH is a list of the sorted unique nonnegative differences between
-    eigenvalues of H, and A is an array of the corresponding jump operators:
+    eigenvalues of H, and A is an object array of the corresponding jump operators:
     :math:`A_k(dH_i) = A[k][i]`, where the jump ops A[k] correspond to D[k].
 
     Since :math:`A_k(-dH) = A_k^\dagger(dH)`, only the nonnegative dH:s and corresponding A:s are returned.
@@ -656,7 +672,7 @@ def ops(H, D):
     #assert(ind[s], 0)
     ind = ind[s:] # lower triangle indices only
 
-    if not isinstance(D, collections.Sequence):
+    if not isinstance(D, collections.abc.Sequence):
         D = [D] # D needs to be a sequence, even if it has just one element
     n_D = len(D) # number of bath coupling ops
 
@@ -698,10 +714,13 @@ def ops(H, D):
     return dH, A
 
 
-
 def _check_baths(B):
-    """Internal helper."""
-    if not isinstance(B, collections.Sequence):
+    """Raises an error if the baths do not all have the same time unit.
+
+    Args:
+        B (Sequence[MarkovianBath]): baths to check
+    """
+    if not isinstance(B, collections.abc.Sequence):
         B = [B] # needs to be a sequence, even if it has just one element
 
     # make sure the baths have the same TU!
@@ -712,14 +731,16 @@ def _check_baths(B):
     return B
 
 
-
 def lindblad_ops(H, D, B):
     r"""Lindblad operators for a Born-Markov master equation.
 
-    :param array H:  System Hamiltonian
-    :param array D:  Hermitian interaction operator
-    :param bath B:   :class:`qit.markov.bath` instance
-    :returns tuple (L, H_LS):
+    Args:
+        H (array[complex]): system Hamiltonian
+        D (array[complex]): Hermitian interaction operator
+        B (MarkovianBath): bath instance
+
+    Returns:
+        list[array[complex]], array[complex]: Lindblad operators, Lamb shift Hamiltonian
 
     Builds the Lindblad operators corresponding to a
     base Hamiltonian H and a (Hermitian) interaction operator D
@@ -732,8 +753,7 @@ def lindblad_ops(H, D, B):
     a sequence of the corresponding interaction operators.
     """
     # Ville Bergholm 2009-2016
-
-    B = _check_baths(B)
+    _check_baths(B)
 
     # jump ops
     dH, X = ops(H, D)
@@ -766,18 +786,20 @@ def lindblad_ops(H, D, B):
     # N^2-1 ops max in total
 
 
-
 def superop(H, D, B):
     r"""Liouvillian superoperator for a Born-Markov master equation.
 
-    :param array H:  System Hamiltonian
-    :param array D:  Hermitian interaction operator
-    :param bath B:   :class:`qit.markov.bath` instance
-    :returns array L:
+    Args:
+        H (array[complex]): system Hamiltonian
+        D (array[complex]): Hermitian interaction operator
+        B (MarkovianBath): bath instance
+
+    Returns:
+        array[complex]: Liouvillian superoperator
 
     Builds the Liouvillian superoperator L corresponding to a
     base Hamiltonian H and a (Hermitian) interaction operator D
-    coupling the system to bath B.
+    coupling the system to the bath B.
 
     L includes the system Hamiltonian, the Lamb shift,
     and the Lindblad dissipator, and is in units of 1/TU.
@@ -786,7 +808,7 @@ def superop(H, D, B):
     a sequence of the corresponding interaction operators.
     """
     # Ville Bergholm 2009-2016
-    B = _check_baths(B)
+    _check_baths(B)
 
     # jump ops
     dH, X = ops(H, D)

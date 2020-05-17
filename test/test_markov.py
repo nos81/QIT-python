@@ -25,7 +25,7 @@ class SeqTest(unittest.TestCase):
         TU = 1e-9  # s
         H = rand_hermitian(dim)
         D = [rand_hermitian(dim)/10, rand_hermitian(dim)/10]
-        B = [bath('ohmic', 'boson', TU, 0.02), bath('ohmic', 'fermion', TU, 0.03)]
+        B = [MarkovianBath('ohmic', 'boson', TU, 0.02), MarkovianBath('ohmic', 'fermion', TU, 0.03)]
 
         # jump operators
         dH, X = ops(H, D)
