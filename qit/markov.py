@@ -241,8 +241,15 @@ class bath(object):
         self.s0, abserr = quad(lambda nu: self.s_func(0, nu), 0, inf)
 
         # clear lookup tables, since changing the cutoff requires recalc of S
-        self.omega = array([])
-        self.gs_table = array([])
+        self.omega = empty((0,), dtype=float)
+        self.gs_table = empty((0,2), dtype=float)
+        self._pad_LUT()
+
+
+    def _pad_LUT(self):
+        """Add limits at infinity to the lookup tables."""
+        self.omega    = r_[-inf, self.omega, inf]
+        self.gs_table = r_[[[0, 0]], self.gs_table, [[0, 0]]]
 
 
     def build_LUT(self, om=None):
@@ -250,7 +257,6 @@ class bath(object):
 
         :param vector om:  Vector of omegas denoting the points to compute.
         """
-
         # TODO justify limits for S lookup
         if om is None:
             # Default sampling for the lookup table.
@@ -265,20 +271,16 @@ class bath(object):
         for k in range(len(om)):
             print(k)
             self.gs_table[k] = self.compute_gs(self.omega[k])
-
-        # limits at infinity
-        self.omega    = r_[-inf, self.omega, inf]
-        self.gs_table = r_[[[0, 0]], self.gs_table, [[0, 0]]]
+        self._pad_LUT()
 
 
     def _plot(self, x, om, q, gs, odd_s, even_s, f=plt.plot):
         """Plotting utility."""
 
-        plt.figure()
-        plt.hold(True)
-        plt.grid(True)
-        plt.plot(x, gs, '-x')
-        plt.plot(x, odd_s, 'k-', x, even_s, 'm-')
+        fig, ax = subplots()
+        ax.grid(True)
+        ax.plot(x, gs, '-x')
+        ax.plot(x, odd_s, 'k-', x, even_s, 'm-')
 
         # analytical expressions for even and odd s funcs
         if self.cut_type == 'sharp':
@@ -294,16 +296,16 @@ class bath(object):
             raise ValueError('Unknown cut type.')
 
         f(x, om * odd_s, 'ko', x, om * even_s, 'mo')
-        plt.ylabel('[1/TU]')
-        plt.legend(['$\gamma$', 'S', '$S(\omega)-S(-\omega)$', '$S(\omega)+S(-\omega)$',
+        ax.set_ylabel('[1/TU]')
+        ax.legend(['$\gamma$', 'S', '$S(\omega)-S(-\omega)$', '$S(\omega)+S(-\omega)$',
                     '$S(\omega)-S(-\omega)$ (fermion)', '$S(\omega)+S(-\omega)$ (boson)'])
-
+        fig.show()
 
 
     def plot_LUT(self):
         """Plot the contents of the spectral correlation tensor LUT as a function of omega."""
 
-        if len(self.omega) == 0:
+        if len(self.omega) <= 2:
             self.build_LUT()
 
         om = self.omega
@@ -319,14 +321,15 @@ class bath(object):
         #ratio = odd_s / (g * (boltz+1))
 
         c = self.cut_omega
-        self._plot(om, om, om/c, self.gs_table, odd_s, even_s)
+        ax = self._plot(om, om, om/c, self.gs_table, odd_s, even_s)
         # cut limits
         a = plt.axis()[2:]  # y limits
-        plt.plot([c,c], a, 'k-')
-        plt.plot([-c,-c], a, 'k-')
+        ax.plot([c,c], a, 'k-')
+        ax.plot([-c,-c], a, 'k-')
 
-        plt.xlabel(r'$\omega$ [1/TU]')
-        plt.title(self.desc())
+        ax.set_xlabel(r'$\omega$ [1/TU]')
+        ax.set_title(self.desc())
+        ax.get_figure().show()
 
 
     def plot_cutoff(self, boltz=0.5):
@@ -361,10 +364,11 @@ class bath(object):
         self.scale = orig_scale
         self.set_cutoff(None, orig_cutoff)
 
-        self._plot(cutoff, om, om_scaled/cutoff, gs, odd_s, even_s, plt.semilogx)
-        plt.xlabel(r'$\omega_c/\omega$')
-        plt.title(self.desc() + ', boltzmann: {:.4g} => omega: {:.4g}'.format(boltz, om))
-
+        ax = self._plot(cutoff, om, om_scaled/cutoff, gs, odd_s, even_s, plt.semilogx)
+        ax.set_xlabel(r'$\omega_c/\omega$')
+        ax.set_title(self.desc() + ', boltzmann: {:.4g} => omega: {:.4g}'.format(boltz, om))
+        ax.get_figure().show()
+        
 
     def plot_correlation(self):
         r"""Plot the bath correlation function
@@ -648,7 +652,7 @@ def ops(H, D):
     # mergesort is a stable sorting algorithm
     ind = argsort(deltaE, axis = None, kind = 'mergesort')
     # index of first lower triangle element
-    s = m * (m - 1) / 2
+    s = m * (m - 1) // 2
     #assert(ind[s], 0)
     ind = ind[s:] # lower triangle indices only
 
