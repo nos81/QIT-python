@@ -1,151 +1,180 @@
 # -*- coding: utf-8 -*-
 "Unit tests for qit.utils"
-# Ville Bergholm 2009-2014
+# Ville Bergholm 2009-2020
 
-import unittest
-from numpy import mat, array, dot, eye, trace, kron
-from numpy.random import randn
-from numpy.linalg import norm, det, eigvalsh
-from scipy.linalg import expm
+import pytest
 
-# HACK to import the module in this source distribution, not the installed one!
-import sys, os
-sys.path.insert(0, os.path.abspath('.'))
+import numpy as np
+import scipy.linalg as spl
 
-from qit import version
+import qit
 from qit.base  import tol
 from qit.utils import *
 from qit.gate  import copydot
 
 
+@pytest.fixture(scope="session")
+def tol():
+    """Numerical tolerance."""
+    return qit.tol
+
+@pytest.fixture(scope="session")
+def dim():
+    """Vector dimension."""
+    return 5
+
+
 def randn_complex(*arg):
     "Returns an array of random complex numbers, normally distributed."
-    return randn(*arg) +1j*randn(*arg)
+    return np.random.randn(*arg) +1j*np.random.randn(*arg)
+
+def assertHermitian(H, delta):
+    "Make sure H is hermitian."
+    assert H == pytest.approx(H.T.conj(), abs=delta)
+
+def assertUnitary(U, delta):
+    "Make sure U is unitary."
+    I = np.eye(len(U))
+    temp = U.T.conj()
+    assert np.linalg.norm(U @ temp -I) == pytest.approx(0, abs=delta)
+    assert np.linalg.norm(temp @ U -I) == pytest.approx(0, abs=delta)
 
 
-
-class UtilsTest(unittest.TestCase):
-    def setUp(self):
-        pass
-
-
-    def assertHermitian(self, H, delta):
-        "Make sure H is hermitian."
-        dim = len(H)
-        H = mat(H)
-        self.assertAlmostEqual(norm(H -H.H), 0, delta=delta)
+class TestUtils:
+    def test_su2_rotations(self, tol):
+        theta = 1.3372
+        assert R_x(theta) == pytest.approx(spl.expm(-1j * theta/2 * qit.sx), abs=tol)
+        assert R_y(theta) == pytest.approx(spl.expm(-1j * theta/2 * qit.sy), abs=tol)
+        assert R_z(theta) == pytest.approx(spl.expm(-1j * theta/2 * qit.sz), abs=tol)
 
 
-    def assertUnitary(self, U, delta):
-        "Make sure U is unitary."
-        dim = len(U)
-        U = mat(U)
-        self.assertAlmostEqual(norm(U * U.H -eye(dim)), 0, delta=delta)
-        self.assertAlmostEqual(norm(U.H * U -eye(dim)), 0, delta=delta)
-        
-
-    def test_funcs(self):
-        "Testing the utils module."
-
+    def test_expv(self, tol):
         dim = 10
-
-        ### expv
-        A = randn_complex(dim, dim)
-        H = rand_hermitian(dim)
         v = randn_complex(dim)
-        newtol = 1e2 * tol  # use a larger tolerance here
+        tol = 1e2 * tol  # use a larger tolerance here
 
-        # arbitrary matrix with Arnoldi iteration
+        ## arbitrary matrix with Arnoldi iteration
+        A = randn_complex(dim, dim)
+        res = spl.expm(1*A) @ v
+
         w, err, hump = expv(1, A, v, m = dim // 2)
-        self.assertAlmostEqual(norm(w - dot(expm(1*A), v)), 0, delta=newtol)
-        w, err, hump = expv(1, A, v, m = dim)  # force a happy breakdown
-        self.assertAlmostEqual(norm(w - dot(expm(1*A), v)), 0, delta=newtol)
+        assert np.linalg.norm(w - res) == pytest.approx(0, abs=tol)
 
-        # Hermitian matrix with Lanczos iteration
-        w, err, hump = expv(1, H, v, m = dim // 2, iteration='lanczos')
-        self.assertAlmostEqual(norm(w - dot(expm(1*H), v)), 0, delta=newtol)
-        w, err, hump = expv(1, H, v, m = dim, iteration = 'lanczos')
-        self.assertAlmostEqual(norm(w - dot(expm(1*H), v)), 0, delta=newtol)
+        # force a happy breakdown
+        w, err, hump = expv(1, A, v, m = dim)
+        assert np.linalg.norm(w - res) == pytest.approx(0, abs=tol)
 
-        # FIXME why does Lanczos work with nonhermitian matrices?
+        ## FIXME why does Lanczos work with nonhermitian matrices?
         w, err, hump = expv(1, A, v, m = dim // 2, iteration='lanczos')
-        self.assertAlmostEqual(norm(w - dot(expm(1*A), v)), 0, delta=newtol)
+        assert np.linalg.norm(w - res) == pytest.approx(0, abs=tol)
+
+        # force a happy breakdown
         w, err, hump = expv(1, A, v, m = dim, iteration = 'lanczos')
-        self.assertAlmostEqual(norm(w - dot(expm(1*A), v)), 0, delta=newtol)
+        assert np.linalg.norm(w - res) == pytest.approx(0, abs=tol)
 
 
-        dim = 5
+        ## Hermitian matrix with Lanczos iteration
+        H = rand_hermitian(dim)
+        res = spl.expm(1*H) @ v
+
+        w, err, hump = expv(1, H, v, m = dim // 2, iteration='lanczos')
+        assert np.linalg.norm(w - res) == pytest.approx(0, abs=tol)
+
+        # force a happy breakdown
+        w, err, hump = expv(1, H, v, m = dim, iteration = 'lanczos')
+        assert np.linalg.norm(w - res) == pytest.approx(0, abs=tol)
+
+
+    def test_random_matrices(self, tol, dim):
 
         ### random matrices
         H = rand_hermitian(dim)
-        self.assertHermitian(H, delta=tol)
+        assert H.shape == (dim, dim)
+        assertHermitian(H, delta=tol)
 
         U = rand_U(dim)
-        self.assertUnitary(U, delta=tol)
+        assert U.shape == (dim, dim)
+        assertUnitary(U, delta=tol)
 
         U = rand_SU(dim)
-        self.assertUnitary(U, delta=tol)
-        self.assertAlmostEqual(det(U), 1, delta=tol) # det 1
+        assert U.shape == (dim, dim)
+        assertUnitary(U, delta=tol)
+        assert np.linalg.det(U) == pytest.approx(1, abs=tol)
 
         rho = rand_positive(dim)
-        self.assertHermitian(rho, delta=tol)
-        self.assertAlmostEqual(trace(rho), 1, delta=tol) # trace 1
-        temp = eigvalsh(rho)
-        self.assertAlmostEqual(norm(temp.imag), 0, delta=tol) # real eigenvalues
-        self.assertAlmostEqual(norm(temp - abs(temp)), 0, delta=tol) # nonnegative eigenvalues
+        assert rho.shape == (dim, dim)
+        assertHermitian(rho, delta=tol)
+        assert np.trace(rho) == pytest.approx(1, abs=tol)
+        temp = np.linalg.eigvalsh(rho)
+        assert np.linalg.norm(temp.imag) == pytest.approx(0, abs=tol) # real eigenvalues
+        assert np.linalg.norm(temp - abs(temp)) == pytest.approx(0, abs=tol) # nonnegative eigenvalues
+
+        G = rand_GL(dim)
+        assert G.shape == (dim, dim)
 
         A = rand_SL(dim)
-        self.assertAlmostEqual(det(A), 1, delta=tol) # det 1
+        assert A.shape == (dim, dim)
+        assert np.linalg.det(A) == pytest.approx(1, abs=tol)
 
-        ### superoperators
-        L = mat(rand_U(dim))
-        R = mat(rand_U(dim))
-        v = vec(array(rho))
-        self.assertAlmostEqual(norm(rho -inv_vec(v)), 0, delta=tol)
-        self.assertAlmostEqual(norm(L*rho*R -inv_vec(dot(lrmul(L, R), v))), 0, delta=tol)
-        self.assertAlmostEqual(norm(L*rho -inv_vec(dot(lmul(L), v))), 0, delta=tol)
-        self.assertAlmostEqual(norm(rho*R -inv_vec(dot(rmul(R), v))), 0, delta=tol)
+    def test_superops(self, tol, dim):
+
+        L = rand_U(dim)
+        R = rand_U(dim)
+        rho = rand_positive(dim)
+        v = vec(rho)
+
+        assert np.linalg.norm(rho -inv_vec(v)) == pytest.approx(0, abs=tol)
+        assert np.linalg.norm(L @ rho @ R -inv_vec(lrmul(L, R) @ v)) == pytest.approx(0, abs=tol)
+        assert np.linalg.norm(L @ rho -inv_vec(lmul(L) @ v)) == pytest.approx(0, abs=tol)
+        assert np.linalg.norm(rho @ R -inv_vec(rmul(R) @ v)) == pytest.approx(0, abs=tol)
 
         # superop propagators and Choi matrices are equivalent ways of propagating a state
         A = [randn_complex(dim, dim), randn_complex(dim, dim)]
-        L = expm(superop_lindblad(A))
+        L = spl.expm(superop_lindblad(A))
         C = superop_to_choi(L)
-        wire = kron(copydot(0, 2, dim).data.A, eye(dim))
-        temp = dot(dot(wire.conj().T, kron(rho, C)), wire)
-        self.assertAlmostEqual(norm(temp -inv_vec(dot(L, v))), 0, delta=tol)
+        wire = np.kron(copydot(0, 2, dim).data.A, np.eye(dim))
+        temp = (wire.conj().T @ np.kron(rho, C)) @ wire
+        assert np.linalg.norm(temp -inv_vec(L @ v)) == pytest.approx(0, abs=tol)
 
-        ### physical operators
+    def test_angular_momentum(self, tol, dim):
         J = angular_momentum(dim)
-        self.assertEqual(len(J), 3)  #  3 components
+        assert len(J) == 3
         for A in J:
-            self.assertHermitian(A, delta=tol)
-        self.assertAlmostEqual(norm(comm(J[0], J[1]) - 1j*J[2]), 0, delta=tol)  # [Jx, Jy] == i Jz
+            assertHermitian(A, delta=tol)
+        assert np.linalg.norm(comm(J[0], J[1]) - 1j * J[2]) == pytest.approx(0, abs=tol)  # [Jx, Jy] == i Jz
 
-        a = mat(boson_ladder(dim))
-        temp = comm(a, a.H)
-        self.assertAlmostEqual(norm(temp[:-1, :-1] -eye(dim-1)), 0, delta=tol)  # [a, a'] == I  (truncated, so skip the last row/col!)
+    def test_boson_ladder(self, tol, dim):
+
+        a = boson_ladder(dim)
+        temp = comm(a, a.T.conj())
+        assert np.linalg.norm(temp[:-1, :-1] -np.eye(dim-1)) == pytest.approx(0, abs=tol)  # [a, a'] == I  (truncated, so skip the last row/col!)
+
+        n = a.T.conj() @ a
+        assert np.diag(n) == pytest.approx(np.arange(dim), abs=tol)
+
+    def test_fermion_ladder(self, tol):
 
         fff = fermion_ladder(3)
         # {f_j, f_k} = 0
         # {f_j, f_k^\dagger} = I \delta_{jk}
         for f in fff:
             fp = f.conj().transpose()
-            self.assertAlmostEqual(norm(acomm(f, f)), 0, delta=tol)
-            self.assertAlmostEqual(norm(acomm(f, fp) -eye(8)), 0, delta=tol)
+            assert np.linalg.norm(acomm(f, f)) == pytest.approx(0, abs=tol)
+            assert np.linalg.norm(acomm(f, fp) -np.eye(8)) == pytest.approx(0, abs=tol)
             for j in fff:
                 if not f is j:
-                    self.assertAlmostEqual(norm(acomm(j, f)), 0, delta=tol)
-                    self.assertAlmostEqual(norm(acomm(j, fp)), 0, delta=tol)
-
-        ### SU(2) rotations
+                    assert np.linalg.norm(acomm(j, f)) == pytest.approx(0, abs=tol)
+                    assert np.linalg.norm(acomm(j, fp)) == pytest.approx(0, abs=tol)
 
 
-        ### spectral decomposition
+    def test_spectral_decomposition(self, tol, dim):
+
+        H = rand_hermitian(dim)
         E, P = spectral_decomposition(H)
         temp = 0
         for k in range(len(E)):
             temp += E[k] * P[k]
-        self.assertAlmostEqual(norm(temp -H), 0, delta=tol)
+        assert np.linalg.norm(temp -H) == pytest.approx(0, abs=tol)
 
 
         # tensor bases
@@ -156,9 +185,3 @@ class UtilsTest(unittest.TestCase):
         # op_list
 
         # plots
-
-
-
-if __name__ == '__main__':
-    print('Testing QIT version ' + version())
-    unittest.main()

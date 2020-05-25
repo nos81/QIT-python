@@ -50,7 +50,7 @@ import numpy as np
 import scipy.sparse as sparse
 
 from .lmap import lmap, tensor
-from .utils import qubits, op_list, assert_o, copy_memoize, gcd
+from .utils import qubits, op_list, copy_memoize, gcd
 
 
 __all__ = ['dist', 'id', 'phase', 'qft', 'swap', 'walsh',
@@ -89,7 +89,7 @@ def dist(A, B):
 
 
 def id(dim):
-    """Identity gate.
+    r"""Identity gate.
 
     Args:
         dim (tuple[int]): subsystem dimensions
@@ -482,18 +482,18 @@ def copydot(n_in, n_out, d=2):
 
     See :cite:`BB2011`
     """
-    # Ville Bergholm 2014-2016
+    # Ville Bergholm 2014-2020
 
     d_in  = d**n_in
     d_out = d**n_out
     C = sparse.dok_matrix((d_out, d_in))
     # compute the strides by summing up 1+d+d^2+...+d^(n-1)
-    stride_in  = (d_in -1) / (d-1)
-    stride_out = (d_out-1) / (d-1)
+    stride_in  = (d_in - 1) // (d - 1)  # exact divisibility
+    stride_out = (d_out - 1) // (d - 1)
     # loop over the sum
     for k in range(d):
-        C[k*stride_out, k*stride_in] = 1
-    return lmap(C, ((d,)*n_out, (d,)*n_in))
+        C[k * stride_out, k * stride_in] = 1
+    return lmap(C, ((d,) * n_out, (d,) * n_in))
 
 
 def plusdot(n_in, n_out, d=2):

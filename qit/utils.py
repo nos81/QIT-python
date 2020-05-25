@@ -90,7 +90,6 @@ Miscellaneous
 
 .. autosummary::
 
-   assert_o
    copy_memoize
    op_list
    cdot
@@ -100,22 +99,16 @@ Miscellaneous
    R_y
    R_z
 """
-# Ville Bergholm 2008-2018
-
-from __future__ import division, absolute_import, print_function, unicode_literals
+# Ville Bergholm 2008-2020
 
 from copy import deepcopy
 
 import numpy as np
-from numpy import (array, mat, dtype, empty, zeros, eye, prod, sqrt, exp,
-    dot, sort, diag, trace, kron, pi, r_, c_, inf, isscalar, floor, ceil, log, log10, vdot)
-from numpy.random import rand, randn
-from numpy.linalg import qr, det, eigh, eigvalsh
-from scipy.linalg import expm, norm, svd, svdvals
+import scipy.linalg as spl
 
 from .base import sx, sy, sz, tol
 
-__all__ = ['assert_o', 'copy_memoize',
+__all__ = ['copy_memoize',
            'gcd', 'lcm', 'majorize',
            'comm', 'acomm', 'mkron', 'tensorsum',
            'projector', 'eighsort', 'expv',
@@ -139,11 +132,6 @@ def _warn(s):
     """Prints a warning."""
     print('Warning: ' + s)
 
-
-def assert_o(actual, desired, tolerance):
-    """Octave-style assert."""
-    if abs(actual - desired) > tolerance:
-        raise AssertionError
 
 
 def copy_memoize(func):
@@ -171,6 +159,13 @@ def copy_memoize(func):
 def gcd(a, b):
     """Greatest common divisor.
 
+    Args:
+        a (int): integer
+        b (int): integer
+
+    Returns:
+        int: largest positive integer that divides both a and b
+
     Uses the Euclidean algorithm.
     """
     while b:
@@ -179,13 +174,30 @@ def gcd(a, b):
 
 
 def lcm(a, b):
-    """Least common multiple."""
+    """Least common multiple.
+
+    Args:
+        a (int): integer
+        b (int): integer
+
+    Returns:
+        int: smallest positive integer that is divided by both a and b
+    """
     return a * (b // gcd(a, b))
 
 
 def rank(A, tol=None):
-    """Matrix rank."""
-    s = svdvals(A)
+    """Matrix rank.
+
+    Args:
+        A (array[complex]): matrix
+        tol (float): numerical tolerance
+
+    Returns:
+        int: matrix rank of ``A``, or the number of singular values of ``A`` larger than ``tol``
+
+    """
+    s = spl.svdvals(A)
     if tol is None:
         tol = max(A.shape) * np.amax(s) * np.finfo(A.dtype).eps
     return np.sum(s > tol, dtype=int)
@@ -194,19 +206,20 @@ def rank(A, tol=None):
 def orth(A, tol=None, kernel=False, spectrum=False):
     """Construct an orthonormal basis for the range of A using SVD
 
-    Parameters
-    ----------
-    A : array, shape (M, N)
+    Args:
+        A (array[complex]): a (M, N) matrix
+        tol (float): numerical tolerance
+        kernel (bool): iff True, return a basis for the kernel of A instead of the range of A
+        spectrum (bool): iff True, also return the singular values of A
 
-    Returns
-    -------
-    Q : array, shape (M, K)
-        Orthonormal basis for the range of A.
-        K = effective rank of A, as determined by tolerance
+    Returns:
+        array[complex]: shape (M, K): orthonormal basis for the range of A
 
-    Adaptation of scipy.linalg.orth with optional absolute tolerance.
+    ``K`` is the effective rank of A, as determined by ``tol``.
+
+    Adaptation of :func:`scipy.linalg.orth` with optional absolute tolerance.
     """
-    U, s, Vh = svd(A, full_matrices=False)
+    U, s, Vh = spl.svd(A, full_matrices=False)
     if tol is None:
         tol = max(A.shape) * np.amax(s) * np.finfo(A.dtype).eps
     num = np.sum(s > tol, dtype=int)
@@ -254,27 +267,27 @@ def nullspace_hermitian(A, tol=None):
         """Represents a complex linear map in a real vector space.
         Corresponding transformation for column vectors: x_R = r_[x.real, x.imag]
         """
-        return r_[c_[C.real, -C.imag], c_[C.imag, C.real]]
+        return np.r_[np.c_[C.real, -C.imag], np.c_[C.imag, C.real]]
 
     D = A.shape[1]
-    d = int(sqrt(D))  # since A is a superop
+    d = int(np.sqrt(D))  # since A is a superop
 
     # Hermitian basis.
     # reshape uses row-major order, so technically we would need to transpose each matrix,
     # but since they're Hermitian and orthonormal either way it doesn't really matter.
     V = gellmann(d).reshape((D-1, D))
     # Add identity
-    V = c_[eye(d).flatten() / sqrt(d), V.transpose()]
-    U = r_[V.real, V.imag] # same, except now in a real vector space
+    V = np.c_[np.eye(d).flatten() / np.sqrt(d), V.transpose()]
+    U = np.r_[V.real, V.imag] # same, except now in a real vector space
 
     # find A restricted to the Hermitian (real) subspace H
-    AH = dot(to_real(A), U)
+    AH = np.dot(to_real(A), U)
 
     # solve the kernel
     Z, spectrum = nullspace(AH, tol, spectrum=True) # null space (kernel) of AH
 
     # columns of C: complex orthogonal vectors spanning the kernel (with real coefficients)
-    C = dot(V, Z)
+    C = np.dot(V, Z)
     return C, spectrum
 
 
@@ -285,7 +298,7 @@ def projector(v):
 
 def eighsort(A):
     """Returns eigenvalues and eigenvectors of a Hermitian matrix, sorted in nonincreasing order."""
-    d, v = eigh(A)
+    d, v = np.linalg.eigh(A)
     ind = d.argsort()[::-1]  # nonincreasing real part
     return d[ind], v[:, ind]
 
@@ -298,7 +311,7 @@ def comm(A, B):
     Returns:
       array: [A, B] := A*B - B*A
     """
-    return dot(A, B) - dot(B, A)
+    return A @ B - B @ A
 
 
 def acomm(A, B):
@@ -309,27 +322,29 @@ def acomm(A, B):
     Returns:
       array: {A, B} := A*B + B*A
     """
-    return dot(A, B) + dot(B, A)
+    return A @ B + B @ A
 
 
 def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
     r"""Multiply a vector by an exponentiated matrix.
 
-    :param vector   t:  vector of nondecreasing time instances >= 0
-    :param array    A:  n*n matrix (usually sparse) (as an (n,n)-shaped ndarray)
-    :param vector   v:  n-dimensional vector (as an (n,)-shaped ndarray)
-    :param float  tol:  tolerance
-    :param int      m:  Krylov subspace dimension, <= n
-    :param string iteration:  'arnoldi' or 'lanczos'. Lanczos is faster but requires a Hermitian A.
-
-    :returns tuple (W, error, hump):
-      * W:             result array, :math:`W[i,:] \approx \exp(t[i] A) v`
-      * error (float): total truncation error estimate
-      * hump (float):  :math:`\max_{s \in [0, t]}  \| \exp(s A) \|`
-
     Approximates :math:`exp(t A) v` using a Krylov subspace technique.
     Efficient for large sparse matrices.
     The basis for the Krylov subspace is constructed using either Arnoldi or Lanczos iteration.
+
+    Args:
+        t (array[float]): vector of nondecreasing time instances >= 0, ``len(t) == s``
+        A (array[complex]): n*n matrix (usually sparse)
+        v (array[complex]): n-dimensional vector
+        tol (float): tolerance
+        m (int): Krylov subspace dimension, ``m <= n``
+        iteration (str): iteration type, in ('arnoldi', 'lanczos'). Lanczos is faster but requires a Hermitian ``A``.
+
+    Returns:
+        array[complex], float, float: result vectors as a (s, n) array, total truncation error estimate, hump size
+
+    The result is :math:`W[i,:] \approx \exp(t[i] A) v`.
+    The hump size is :math:`\max_{s \in [0, t]}  \| \exp(s A) \|`
 
     Uses the sparse algorithm from :cite:`EXPOKIT`.
     """
@@ -342,13 +357,13 @@ def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
     n = A.shape[0]
     m = min(n, m)  # Krylov space dimension, m <= n
 
-    if isscalar(t):
-        tt = array([t])
+    if np.isscalar(t):
+        tt = np.array([t])
     else:
         tt = t
 
-    a_norm = norm(A, inf)
-    v_norm = norm(v)
+    a_norm = spl.norm(A, np.inf)
+    v_norm = spl.norm(v)
 
     happy_tol  = 1.0e-7  # "happy breakdown" tolerance
     min_error = a_norm * np.finfo(float).eps # due to roundoff
@@ -359,25 +374,25 @@ def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
     gamma = 0.9
     delta = 1.2
     # initial stepsize
-    fact = sqrt(2 * pi * (m + 1)) * ((m + 1) / exp(1)) ** (m + 1)
+    fact = np.sqrt(2 * np.pi * (m + 1)) * ((m + 1) / np.exp(1)) ** (m + 1)
 
     def ceil_at_nsd(x, n = 2):
-        temp = 10 ** (floor(log10(x))-n+1)
-        return ceil(x / temp) * temp
+        temp = 10 ** (np.floor(np.log10(x))-n+1)
+        return np.ceil(x / temp) * temp
 
     def update_stepsize(step, err_loc, r):
         step *= gamma  * (tol * step / err_loc) ** (1 / r)
         return ceil_at_nsd(step, 2)
 
-    dt = dtype(complex)
+    dt = np.dtype(complex)
     # TODO don't use complex matrices unless we have to: dt = result_type(t, A, v)
 
     # TODO shortcuts for Hessenberg matrix exponentiation?
-    H = zeros((m+2, m+2), dt) # upper Hessenberg matrix for the Arnoldi process + two extra rows/columns for the error estimate trick
+    H = np.zeros((m+2, m+2), dt) # upper Hessenberg matrix for the Arnoldi process + two extra rows/columns for the error estimate trick
     H[m + 1, m] = 1           # never overwritten!
-    V = zeros((n, m+1), dt)   # orthonormal basis for the Krylov subspace + one extra vector
+    V = np.zeros((n, m+1), dt)   # orthonormal basis for the Krylov subspace + one extra vector
 
-    W = empty((len(tt), len(v)), dt)  # results
+    W = np.empty((len(tt), len(v)), dt)  # results
     t = 0  # current time
     beta = v_norm
     error = 0  # error estimate
@@ -397,11 +412,11 @@ def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
             vk = (1 / beta) * v
             V[:, k] = vk  # store the now orthonormal basis vector
             # construct the next Krylov vector beta_{k+1} v_{k+1}
-            v = dot(A, vk)
-            H[k, k] = alpha = vdot(vk, v)
+            v = np.dot(A, vk)
+            H[k, k] = alpha = np.vdot(vk, v)
             v += -alpha * vk -beta * prev
             # beta_{k+1}
-            beta = norm(v)
+            beta = spl.norm(v)
             if beta < happy_tol: # "happy breakdown": iteration terminates, Krylov approximation is exact
                 return k+1, True
             if k == m-1:
@@ -419,12 +434,12 @@ def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
         """
         V[:, 0] = (1 / beta) * v  # the first basis vector v_0 is just v, normalized
         for j in range(1, m+1):
-            p = dot(A, V[:, j-1])  # construct the Krylov vector v_j
+            p = np.dot(A, V[:, j-1])  # construct the Krylov vector v_j
             # orthogonalize it with the previous ones
             for i in range(j):
-                H[i, j-1] = vdot(V[:, i], p)
+                H[i, j-1] = np.vdot(V[:, i], p)
                 p -= H[i, j-1] * V[:, i]
-            temp = norm(p)
+            temp = spl.norm(p)
             if temp < happy_tol: # "happy breakdown": iteration terminates, Krylov approximation is exact
                 return j, True
             # store the now orthonormal basis vector
@@ -456,21 +471,21 @@ def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
             # Arnoldi/Lanczos iteration, (re)builds H and V
             j, happy = iteration(v, beta)
             # now V^\dagger A V = H  (just the first m vectors, or j if we had a happy breakdown!)
-            # assert(norm(dot(dot(V[:, :m].conj().transpose(), A), V[:, :m]) -H[:m,:m]) < tol)
+            # assert(spl.norm(np.dot(np.dot(V[:, :m].conj().transpose(), A), V[:, :m]) -H[:m,:m]) < tol)
 
             # error control
             if happy:
                 # "happy breakdown", using j Krylov basis vectors
                 t_step = t_end - t  # step all the rest of the way
-                F = expm(t_step * H[:j, :j])
+                F = spl.expm(t_step * H[:j, :j])
                 err_loc = happy_tol
                 r = m
             else:
                 # no happy breakdown, we need the error estimate (using all m+1 vectors)
-                av_norm = norm(dot(A, V[:, m]))
+                av_norm = spl.norm(np.dot(A, V[:, m]))
                 # find a reasonable step size
                 for k in range(max_stepsize_changes + 1):
-                    F = expm(t_step * H)
+                    F = spl.expm(t_step * H)
                     err1 = beta * abs(F[m, 0])
                     err2 = beta * abs(F[m+1, 0]) * av_norm
                     if err1 > 10 * err2:  # quick convergence
@@ -490,8 +505,8 @@ def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
                     t_step = update_stepsize(t_step, err_loc, r)
 
             # step accepted, update v, beta, error, hump
-            v = dot(V[:, :j], beta * F[:j, 0])
-            beta = norm(v)
+            v = np.dot(V[:, :j], beta * F[:j, 0])
+            beta = spl.norm(v)
             error += max(err_loc, min_error)
             #v_norm_max = max(v_norm_max, beta)
 
@@ -501,7 +516,7 @@ def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
 
         W[kk, :] = v
 
-    hump = array(hump) / v_norm
+    hump = np.array(hump) / v_norm
     return W, error, hump
 
 
@@ -511,12 +526,15 @@ def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
 def rand_hermitian(n):
     """Random Hermitian n*n matrix.
 
-    Returns a random Hermitian matrix of size n*n.
-    NOTE: The randomness is not defined in any deeply meaningful sense.
-    """
-    # Ville Bergholm 2008-2009
+    Args:
+        n (int): matrix size
 
-    H = (rand(n, n) - 0.5) +1j*(rand(n, n) - 0.5)
+    Returns:
+        array[complex]: random Hermitian n*n matrix
+
+    .. note:: The randomness is not defined in any deeply meaningful sense.
+    """
+    H = (np.random.rand(n, n) - 0.5) +1j * (np.random.rand(n, n) - 0.5)
     return H + H.conj().transpose() # make it Hermitian
 
 
@@ -524,113 +542,129 @@ def rand_U(n):
     """Random U(n) matrix.
 
     Args:
-      n (int): dimension
+        n (int): matrix size
+
     Returns:
-      array: Random unitary n*n matrix.
+        array[complex]: random unitary n*n matrix
 
     The matrix is random with respect to the Haar measure.
     Uses the algorithm in :cite:`Mezzadri`.
     """
-    # Ville Bergholm 2005-2018
-
     # sample the Ginibre ensemble, p(Z(i,j)) == 1/pi * exp(-abs(Z(i,j))^2),
     # p(Z) == 1/pi^(n^2) * exp(-trace(Z'*Z))
-    Z = (randn(n, n) + 1j*randn(n, n)) / sqrt(2)
+    Z = (np.random.randn(n, n) + 1j*np.random.randn(n, n)) / np.sqrt(2)
 
     # QR factorization
-    Q, R = qr(Z)
+    Q, R = np.linalg.qr(Z)
 
     # eliminate multivaluedness in Q
-    P = diag(R).copy()  # TODO remove .copy() once numpy supports read/write views
+    P = np.diag(R).copy()  # TODO remove .copy() once numpy supports read/write views
     P /= abs(P)
-    return dot(Q, diag(P))
+    return np.dot(Q, np.diag(P))
 
 
 def rand_SU(n):
     """Random SU(n) matrix.
 
-    Returns a random special unitary n*n matrix.
+    Args:
+        n (int): matrix size
+
+    Returns:
+        array[complex]: random special unitary n*n matrix
+
     The matrix is random with respect to the Haar measure.
     """
-    # Ville Bergholm 2005-2009
-
     U = rand_U(n)
-    d = det(U) ** (1/n) # *exp(i*2*pi*k/n), not unique FIXME
+    d = np.linalg.det(U) ** (1/n) # *np.exp(i*2*np.pi*k/n), not unique FIXME
     return U/d
 
 
 def rand_U1(n):
     """Random diagonal unitary matrix.
 
-    Returns a random diagonal unitary n*n matrix.
+    Args:
+        n (int): matrix size
+
+    Returns:
+        array[complex]: random diagonal unitary n*n matrix
+
     The matrix is random with respect to the Haar measure.
     """
-    # Ville Bergholm 2005-2009
-
-    return diag(exp(2j * pi * rand(n)))
+    return np.diag(np.exp(2j * np.pi * np.random.rand(n)))
 
 
 def rand_pu(n):
     r"""Random n-partition of unity.
 
-    Returns the n-partition p, which is random with respect to
+    Args:
+        n (int): number of parts
+
+    Returns:
+        array[float]: n-partition, i.e. a 1d array of ``n`` nonnegative numbers that sum up to one
+
+    The n-partition is random with respect to
     the order-n Dirichlet distribution :math:`Dir(\alpha)`
     with :math:`\alpha = (1, 1, ..., 1)`.
     """
-    # Ville Bergholm 2008-2012
-
     # Sample the Dirichlet distribution using n gamma-distributed
     # random vars. The (shared) scale parameter of the gamma pdfs is irrelevant,
     # and the shape parameters correspond to the Dirichlet \alpha params.
     # Furthermore, Gamma(x; 1,1) = exp(-x), so
-    p = -log(rand(n))  # Gamma(1,1) -distributed
+    p = -np.log(np.random.rand(n))  # Gamma(1,1) -distributed
     return p / sum(p)  # Dir(1, 1, ..., 1) -distributed
 
     # TODO this would be a simpler choice, but what's the exact distribution?
-    #p = sort(rand(n-1))  # n-1 points in [0,1]
-    #d = sort(r_[p, 1] - r_[0, p])  # n deltas between points = partition of unity
+    #p = np.sort(np.random.rand(n-1))  # n-1 points in [0,1]
+    #d = np.sort(np.r_[p, 1] - np.r_[0, p])  # n deltas between points = partition of unity
 
 
 def rand_positive(n):
     """Random n*n positive semidefinite matrix.
 
-    Normalized to Tr(A) = 1.
-    Since A has all-real eigenvalues, it is Hermitian by construction.
-    """
-    # Ville Bergholm 2008-2012
+    Args:
+        n (int): matrix size
 
+    Returns:
+        array[complex]: random positive semidefinite matrix with trace 1
+
+    Since the returned matrix has all-real eigenvalues, it is Hermitian by construction.
+    """
     d = rand_pu(n) # random partition of unity
-    U = mat(rand_U(n)) # random unitary
-    A = U.H * diag(d) * U
-    return array((A + A.H) / 2)   # eliminate rounding errors
+    U = rand_U(n) # random unitary
+    A = U.T.conj() @ (np.diag(d) @ U)
+    return np.array((A + A.T.conj()) / 2)   # eliminate rounding errors
     # An alternative would be to use an inverse purification, but this would be expensive.
 
 
 def rand_GL(n):
     r"""Random GL(n, C) matrix.
 
-    Returns a random complex general linear n*n matrix, with
-    normally distributed elements.
+    Args:
+        n (int): matrix size
+
+    Returns:
+        array[complex]: random general linear n*n matrix, with normally distributed elements.
 
     The :math:`\det S \neq 0` condition is for now fulfilled only statistically,
     i.e. you almost never obtain a non-invertible matrix.
     """
-    # Ville Bergholm 2016
-
-    A = randn(n, n) +1j*randn(n, n)
+    A = np.random.randn(n, n) +1j * np.random.randn(n, n)
     return A
 
 
 def rand_SL(n):
     """Random SL(n, C) matrix.
 
-    Returns a random complex special linear n*n matrix.
-    NOTE: The randomness is not defined in any deeply meaningful sense.
-    """
-    # Ville Bergholm 2011
+    Args:
+        n (int): matrix size
 
+    Returns:
+        array[complex]: random special linear n*n matrix
+
+    .. note:: The randomness is not defined in any deeply meaningful sense.
+    """
     S = rand_GL(n)
-    d = det(S) ** (1/n)
+    d = np.linalg.det(S) ** (1/n)
     return S/d
 
 
@@ -660,7 +694,7 @@ def inv_vec(v, dim=None):
     to standard matrix representation.
 
     Args:
-      v   (vector): vector to be reshaped, len == m*n
+      v   (array): vector to be reshaped, len == m*n
       dim (Sequence[int]): (m, n) == shape of the matrix
     """
     # JDW 2009
@@ -668,11 +702,11 @@ def inv_vec(v, dim=None):
     d = v.size
     if dim is None:
         # assume a square matrix
-        n = int(sqrt(d))
+        n = int(np.sqrt(d))
         if n**2 != d:
             raise ValueError('Length of vector v is not a squared integer.')
         dim = (n, n)
-    elif prod(dim) != d:
+    elif np.prod(dim) != d:
         raise ValueError('Dimensions are not compatible with given vector.')
     return v.reshape(dim, order='F').copy()
 
@@ -690,7 +724,7 @@ def lmul(L, q=None):
     """
     if q is None:
         q = L.shape[1]  # assume target is a square matrix
-    return kron(eye(q), L)
+    return np.kron(np.eye(q), L)
 
 
 def rmul(R, p=None):
@@ -706,7 +740,7 @@ def rmul(R, p=None):
     """
     if p is None:
         p = R.shape[0]  # assume target is a square matrix
-    return kron(R.transpose(), eye(p))
+    return np.kron(R.transpose(), np.eye(p))
 
 
 def lrmul(L, R):
@@ -721,7 +755,7 @@ def lrmul(L, R):
       array: superoperator that implements left multiplication by the matrix L and right multiplication by the matrix R of a vectorized matrix :math:`\rho`
     """
     # L and R fix the shape of rho completely
-    return kron(R.transpose(), L)
+    return np.kron(R.transpose(), L)
 
 
 def superop_lindblad(A, H=None):
@@ -747,10 +781,10 @@ def superop_lindblad(A, H=None):
         sh = H.shape
         iH = 1j * H
 
-    L = zeros(array(sh) ** 2, complex)
-    ac = zeros(sh, complex)
+    L = np.zeros(np.array(sh) ** 2, dtype=complex)
+    ac = np.zeros(sh, dtype=complex)
     for k in A:
-        ac += 0.5 * dot(k.conj().transpose(), k)
+        ac += 0.5 * np.dot(k.conj().transpose(), k)
         L += lrmul(k, k.conj().transpose())
 
     L += lmul(-ac -iH) +rmul(-ac +iH)
@@ -800,7 +834,7 @@ def superop_fp(L, tol=None):
     # Ville Bergholm 2011-2012
 
     # Hilbert space dimension
-    d = int(sqrt(L.shape[1]))
+    d = int(np.sqrt(L.shape[1]))
 
     # Get the kernel of L, restricted to vec-mapped Hermitian matrices.
     # columns of A: complex orthogonal vectors A_i spanning the kernel (with real coefficients)
@@ -811,20 +845,20 @@ def superop_fp(L, tol=None):
     # <X, Y> := trace(X' * Y) = vec(X)' * vec(Y)
 
     # With this inner product, trace(A) = <eye(d), A>.
-    temp = vec(eye(d, d))
-    a = dot(temp, A)  # a_i = trace(A_i)
+    temp = vec(np.eye(d, d))
+    a = np.dot(temp, A)  # a_i = trace(A_i)
 
     # Construct the shortest linear combination of A_i which has tr = 1.
     # This is simply (1/d) * eye(d) _iff_ it belongs to span(A_i).
-    core = dot(A, (a / norm(a)**2))  # trace-1
+    core = np.dot(A, (a / spl.norm(a)**2))  # trace-1
 
     # Remove the component parallel to core from all A_i.
-    temp = core / norm(core) # normalized
-    A = A -np.outer(temp, dot(temp.conj(), A))
+    temp = core / spl.norm(core) # normalized
+    A = A -np.outer(temp, np.dot(temp.conj(), A))
 
     # Re-orthonormalize the vectors, add the core
     ttt = orth(A, 1e-6)
-    A = c_[core, ttt]  # TODO tolerance?
+    A = np.c_[core, ttt]  # TODO tolerance?
 
     N = A.shape[1]
     for k in range(N):
@@ -834,7 +868,7 @@ def superop_fp(L, tol=None):
     # TODO intersect with positive ops
 
     #[u,t] = schur(L)
-    #unnormality = norm(t, 'fro')^2 -norm(diag(t))^2
+    #unnormality = spl.norm(t, 'fro')^2 -spl.norm(np.diag(t))^2
     #[us, ts] = ordschur(u, t, 'udi')
     #E = ordeig(t)
     # TODO eigendecomposition, find orthogonal complement to span(v) = ker(v').
@@ -856,13 +890,11 @@ def superop_to_choi(L):
     Returns:
       array: corresponding Choi matrix, shape == (a*b, a*b)
     """
-    # Ville Bergholm 2015-2016
-
     # input and output Hilbert space dimensions
-    dim = sqrt(L.shape)
-    A = dim[1]
-    B = dim[0]
-    D = A*B
+    dim = np.sqrt(L.shape)
+    A = int(round(dim[1]))
+    B = int(round(dim[0]))
+    D = A * B
 
     # reshape uses little-endian ordering, whereas we use big-endian
     temp = L.reshape((B, B, A, A))
@@ -900,16 +932,16 @@ def angular_momentum(d):
     j = (d - 1) / 2 # angular momentum quantum number, d == 2*j + 1
     # raising operator in subspace J^2 = j*(j+1)
     m = j
-    Jplus = zeros((d, d))
+    Jplus = np.zeros((d, d))
     for k in range(d-1):
         m -= 1
-        Jplus[k, k+1] = sqrt(j*(j+1) -m*(m+1))
+        Jplus[k, k+1] = np.sqrt(j*(j+1) -m*(m+1))
 
     # lowering operator
     Jminus = Jplus.conj().transpose()
     # Jplus  = Jx + i*Jy
     # Jminus = Jx - i*Jy
-    return (0.5*(Jplus + Jminus), 0.5j*(Jminus - Jplus), diag(np.arange(j, -j-1, -1)))
+    return (0.5*(Jplus + Jminus), 0.5j*(Jminus - Jplus), np.diag(np.arange(j, -j-1, -1)))
 
 
 @copy_memoize
@@ -930,7 +962,7 @@ def boson_ladder(d):
     :math:`[b, b^\dagger] = \I`. Due to the d-dimensional basis truncation,
     this does not hold for the last dimension of the b matrices returned by this function.
     """
-    return diag(sqrt(range(1, d)), 1)
+    return np.diag(np.sqrt(range(1, d)), 1)
 
 
 @copy_memoize
@@ -940,7 +972,7 @@ def fermion_ladder(n):
     Args:
       n (int): number of fermionic modes
     Returns:
-      vector[object]: fermionic annihilation operators :math:`(f_1, f_2, \ldots, f_n)`
+      array[object]: fermionic annihilation operators :math:`(f_1, f_2, \ldots, f_n)`
 
     Returns the fermionic annihilation operators for a
     system of n fermionic modes in the second quantization.
@@ -972,16 +1004,16 @@ def fermion_ladder(n):
        \{f_j, f_k^\dagger\} &= \I \delta_{jk},\\
        f_k^\dagger f_k &= n_k.
     """
-    s = array([[0, 1], [0, 0]]) # single annihilation op
+    s = np.array([[0, 1], [0, 0]]) # single annihilation op
     temp = 1
 
     # empty array for the annihilation operators
-    f = empty(n, object)
+    f = np.empty(n, dtype='object')
 
     # Jordan-Wigner transform
     for k in range(n):
-        f[k] = mkron(temp, s, eye(2 ** (n-k-1)))
-        temp = kron(temp, sz)
+        f[k] = mkron(temp, s, np.eye(2 ** (n-k-1)))
+        temp = np.kron(temp, sz)
 
     return f
 
@@ -999,9 +1031,9 @@ def R_nmr(theta, phi):
       theta (float): rotation angle
       phi   (float): angle between the rotation axis and the positive x axis
     Returns:
-      array: rotation matrix
+      array[complex]: rotation matrix
     """
-    return expm(-1j * theta/2 * (np.cos(phi) * sx + np.sin(phi) * sy))
+    return spl.expm(-1j * theta/2 * (np.cos(phi) * sx + np.sin(phi) * sy))
 
 
 def R_x(theta):
@@ -1012,9 +1044,12 @@ def R_x(theta):
     Args:
       theta (float): rotation angle
     Returns:
-      array: rotation matrix :math:`e^{-i \sigma_x \theta/2}`
+      array[complex]: rotation matrix :math:`e^{-i \sigma_x \theta/2}`
     """
-    return expm(-1j * theta/2 * sx)
+    t = theta / 2
+    c = np.cos(t)
+    _js = -1j * np.sin(t)
+    return np.array([[c, _js], [_js, c]])
 
 
 def R_y(theta):
@@ -1025,9 +1060,12 @@ def R_y(theta):
     Args:
       theta (float): rotation angle
     Returns:
-      array: rotation matrix :math:`e^{-i \sigma_y \theta/2}`
+      array[complex]: rotation matrix :math:`e^{-i \sigma_y \theta/2}`
     """
-    return expm(-1j * theta/2 * sy)
+    t = theta / 2
+    c = np.cos(t)
+    s = np.sin(t)
+    return np.array([[c, -s], [s, c]])
 
 
 def R_z(theta):
@@ -1038,9 +1076,9 @@ def R_z(theta):
     Args:
       theta (float): rotation angle
     Returns:
-      array: rotation matrix :math:`e^{-i \sigma_z \theta/2}`
+      array[complex]: rotation matrix :math:`e^{-i \sigma_z \theta/2}`
     """
-    return array([[exp(-1j * theta/2), 0], [0, exp(1j * theta/2)]])
+    return np.array([[np.exp(-1j * theta/2), 0], [0, np.exp(1j * theta/2)]])
 
 
 
@@ -1069,7 +1107,7 @@ def spectral_decomposition(A):
         else:
             # same eigenvalue, extend current P
             P[-1] += temp
-    return array(a), P
+    return np.array(a), P
 
 
 
@@ -1079,23 +1117,28 @@ def spectral_decomposition(A):
 def gellmann(d):
     r"""Gell-Mann matrices.
 
-    Returns the d**2 - 1 (traceless, Hermitian) Gell-Mann matrices of dimension d,
-    normalized such that :math:`\mathrm{Tr}(G_i^\dagger G_j) = \delta_{ij}`.
-    They form an orthonormal basis for the real vector space of d*d traceless Hermitian matrices.
+    Args:
+        d (int): dimension
 
-    The matrices are returned in the array A, arranged such that the n:th Gell-Mann matrix is A[n,:,:].
+    Returns:
+        array[complex]: the ``d**2 - 1`` (traceless, Hermitian) Gell-Mann matrices of dimension d
+
+    The Gell-Mann matrices are normalized such that :math:`\mathrm{Tr}(G_i^\dagger G_j) = \delta_{ij}`.
+    They form an orthonormal basis for the real vector space of ``d*d`` traceless Hermitian matrices.
+
+    The matrices are returned in a 3d array ``A``, arranged such that the n:th Gell-Mann matrix is ``A[n,:,:]``.
     """
     # Ville Bergholm 2006-2014
 
     if d < 1:
         raise ValueError('Dimension must be >= 1.')
 
-    G = zeros((d**2 - 1, d, d), dtype=complex)
+    G = np.zeros((d**2 - 1, d, d), dtype=complex)
 
     # diagonal
-    ddd = zeros(d)
+    ddd = np.zeros(d)
     ddd[0] = 1
-    x = 1 / sqrt(2)
+    x = 1 / np.sqrt(2)
     # iterate through the lower triangle
     n = 0
     for k in range(1, d):
@@ -1109,7 +1152,7 @@ def gellmann(d):
             G[n, j, k] = -1j * x
             n += 1
         ddd[k] = -sum(ddd)
-        G[n, :, :] = diag(ddd) / norm(ddd)
+        G[n, :, :] = np.diag(ddd) / spl.norm(ddd)
         ddd[k] = 1
         n += 1
 
@@ -1229,7 +1272,7 @@ def op_list(G, dim):
 
     Args:
       G     (list): list of k-local operator terms
-      dim (vector): vector of subsystem dimensions
+      dim (array[int]): vector of subsystem dimensions
     Returns:
       array: matrix defined by G
 
@@ -1259,8 +1302,8 @@ def op_list(G, dim):
     # Ville Bergholm 2009-2017
 
     # TODO we could try to infer dim from the operators
-    D = prod(dim)
-    H = zeros((D, D), complex)
+    D = np.prod(dim)
+    H = np.zeros((D, D), complex)
     for k, spec in enumerate(G):
         a = -1  # last subsystem taken care of
         term = 1
@@ -1276,16 +1319,16 @@ def op_list(G, dim):
             if op[0].shape[1] != dim[b]:
                 raise ValueError('The dimension of operator {0} in spec {1} does not match dim.'.format(j, k))
 
-            term = mkron(term, eye(int(prod(dim[a+1:b]))), op[0])
+            term = mkron(term, np.eye(int(np.prod(dim[a+1:b]))), op[0])
             a = b
         # final identity
-        term = mkron(term, eye(int(prod(dim[a+1:]))))
+        term = mkron(term, np.eye(int(np.prod(dim[a+1:]))))
         H += term
     return H
 
 
 def cdot(v, A):
-    """Real dot product of a vector and a tuple of operators.
+    r"""Real dot product of a vector and a tuple of operators.
 
     Args:
       v (array): vector
@@ -1323,7 +1366,7 @@ def majorize(x, y):
     :math:`x \preceq y` if and only if x is in the convex hull of all the coordinate permutations of y.
 
     Args:
-      x, y (vector[float]): real vectors, equal length
+      x, y (array[float]): real vectors, equal length
     Returns:
       bool: :math:`x \preceq y`
     """
@@ -1333,8 +1376,8 @@ def majorize(x, y):
     if len(x) != len(y):
         raise ValueError('The vectors must be of equal length.')
 
-    x = np.cumsum(sort(x)[::-1])
-    y = np.cumsum(sort(y)[::-1])
+    x = np.cumsum(np.sort(x)[::-1])
+    y = np.cumsum(np.sort(y)[::-1])
 
     if abs(x[-1] -y[-1]) <= tol:
         # exact majorization
@@ -1355,7 +1398,7 @@ def mkron(*arg):
     """
     X = 1
     for A in arg:
-        X = kron(X, A)
+        X = np.kron(X, A)
     return X
 
 
@@ -1367,7 +1410,7 @@ def tensorsum(*arg):
     Returns:
       array: tensor sum of the input arrays
     """
-    #c = log(kron(exp(a), exp(b))) # a perverted way of doing it, the exp overflows...
+    #c = np.log(np.kron(np.exp(a), np.exp(b))) # a perverted way of doing it, the exp overflows...
     A = np.asarray(arg[0])
     for B in arg[1:]:
         B = np.asarray(B)

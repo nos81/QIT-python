@@ -35,11 +35,10 @@ from functools import wraps
 
 import numpy as np
 
-import mpl_toolkits.mplot3d as mplot3
+import mpl_toolkits.mplot3d as mplot3d
 from mpl_toolkits.mplot3d import Axes3D  # required to make 3d plotting work for some reason!
-from matplotlib.pyplot import figure
-from matplotlib.gridspec import GridSpec
-from matplotlib.colors import Normalize
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 
 from .state import *
 from .utils import copy_memoize, eighsort
@@ -57,7 +56,6 @@ def set_plotstyle(ax):
     TODO FIXME
     """
     # TODO matplotlib.style.use()
-    # Ville Bergholm 2012
     set(ax, 'FontSize',18); #, 'FontName','Bitstream Vera Sans');
     set(get(ax, 'Parent'), 'DefaultLineLineWidth',2); # apparently not an axes property(!)
 
@@ -72,7 +70,7 @@ def sphere(n=15):
     Args:
       n (int): number of vertices in the theta direction (2*n in phi)
     Returns:
-      array, array, array: X, Y, Z coordinate meshes
+      array[float], array[float], array[float]: X, Y, Z coordinate meshes
     """
     theta = np.linspace(0, np.pi, n)
     phi = np.linspace(0, 2*np.pi, 2*n)
@@ -85,8 +83,8 @@ def sphere(n=15):
 def adiabatic_evolution(t, st, H_func, n=4):
     """Adiabatic evolution plot.
 
-    Plots the energies of the eigenstates of H_func(t[k]) as a function of t[k],
-    and the overlap of st[k] with the n lowest final Hamiltonian eigenstates.
+    Plots the energies of the eigenstates of ``H_func(t[k])`` as a function of ``t[k]``,
+    and the overlap of ``st[k]`` with the ``n`` lowest final Hamiltonian eigenstates.
     Useful for illustrating adiabatic evolution.
 
     Args:
@@ -94,6 +92,7 @@ def adiabatic_evolution(t, st, H_func, n=4):
       st (Sequence[state]): states corresponding to the times
       H_func (callable): time-dependant Hamiltonian function, float -> array
       n  (int): how many lowest eigenstates of the final Hamiltonian to include in the overlap plot
+
     Returns:
       Figure: the plots
     """
@@ -124,7 +123,7 @@ def adiabatic_evolution(t, st, H_func, n=4):
         for j in range(n):
             overlaps[k, j] = lowest[j].fidelity(st[k]) ** 2 # squared overlap with lowest final states
 
-    fig = figure()
+    fig = plt.figure()
     ax = fig.add_subplot(2, 1, 1)
     ax.plot(t/T, energies)
     ax.grid(True)
@@ -149,7 +148,7 @@ def adiabatic_evolution(t, st, H_func, n=4):
     return fig
 
 
-def bloch_sphere(ax=None, equator=False):
+def bloch_sphere(ax=None, equator=True):
     r"""Bloch sphere plot.
 
     Plots a Bloch sphere, a geometrical representation of the state space of a single qubit.
@@ -165,7 +164,7 @@ def bloch_sphere(ax=None, equator=False):
     # Ville Bergholm  2005-2012
     # James Whitfield 2010
     if ax is None:
-        fig = figure()
+        fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
 
     # surface
@@ -206,7 +205,7 @@ def correlation_simplex(ax=None, labels='diagonal'):
       Axes, list[int]: axes containing the plot, list of the three linear indices denoting the correlations corresponding to the three axes
     """
     if ax is None:
-        fig = figure()
+        fig = plt.figure()
         ax = fig.add_subplot(111, projection='3d')
 
     ax.grid(True)
@@ -217,7 +216,7 @@ def correlation_simplex(ax=None, labels='diagonal'):
     v = np.array([[-1, -1, -1], [-1, 1, 1], [1, -1, 1], [1, 1, -1]])
     f = [[0, 1, 2], [0, 2, 3], [0, 3, 1], [3, 2, 1]]
     polys = [v[k, :] for k in f]
-    polyc = mplot3.art3d.Poly3DCollection(polys, alpha=0.2, facecolor='g', edgecolor='k')
+    polyc = mplot3d.art3d.Poly3DCollection(polys, alpha=0.2, facecolor='g', edgecolor='k')
     ax.add_collection(polyc)
     ax.set_xlim3d(-1, 1)
     ax.set_ylim3d(-1, 1)
@@ -270,7 +269,7 @@ def correlation_simplex(ax=None, labels='diagonal'):
     return ax, ind
 
 
-def state_trajectory(traj, reset=True, ax=None, color='b', marker=''):
+def state_trajectory(traj, reset=True, fig=None, color='b', marker=''):
     """Plot a state trajectory in the correlation representation.
 
     * For a single-qubit system, plots the trajectory in the Bloch sphere.
@@ -284,7 +283,10 @@ def state_trajectory(traj, reset=True, ax=None, color='b', marker=''):
     Args:
       traj (list[array], array): generalized Bloch vector of the quantum state, or a list of them representing a trajectory
       reset (bool):  if False, adds another trajectory to the axes without erasing .
-      ax (Axes):
+      fig (Figure): figure to plot in, or None in which case a new figure is created
+
+    Returns:
+      Figure: figure containing the plot
 
     Example 1: Trajectory of the state `s` under the Hamiltonian `H`::
 
@@ -295,9 +297,8 @@ def state_trajectory(traj, reset=True, ax=None, color='b', marker=''):
 
       state_trajectory(s.bloch_vector())
     """
-    if ax is None:
-        fig = figure()
-        ax = fig.add_subplot(111, projection='3d')
+    if fig is None:
+        fig = plt.figure()
 
     def plot_traj(ax, A, ind):
         """Plots the trajectory formed by the correlations given in ind."""
@@ -316,11 +317,12 @@ def state_trajectory(traj, reset=True, ax=None, color='b', marker=''):
         d = traj.size
     A = np.array(traj).reshape((-1, d), order='F')  # list index becomes the first dimension
 
-    fig = ax.get_figure()
     if A.shape[1] == 4:
         # single qubit
         if reset:
+            ax = fig.add_subplot(111, projection='3d')
             bloch_sphere(ax)
+        ax = fig.gca()
         plot_traj(ax, A, [1, 2, 3])
 
     elif A.shape[1] == 16:
@@ -329,7 +331,7 @@ def state_trajectory(traj, reset=True, ax=None, color='b', marker=''):
         # TODO split ax into subplots...
         #fig.delaxes(ax)
         if reset:
-            gs = GridSpec(2, 3)
+            gs = mpl.gridspec.GridSpec(2, 3)
 
             ax = fig.add_subplot(gs[0, 0], projection = '3d')
             bloch_sphere(ax)
@@ -371,11 +373,12 @@ def pcolor(ax, W, x, y, clim=(0, 1), cmap=None):
       W (array[float]): discretized 2D function to be plotted
       x, y (array[float]): quad midpoint coordinate vectors that define the coordinate grid
       clim (tuple[float]): 2-tuple defining the color limits
+
     Returns:
       Axes: the plot
     """
     if ax is None:
-        fig = figure()
+        fig = plt.figure()
         ax = fig.gca()
 
     # x and y are quad midpoint coordinates but pcolor wants quad vertices, so
@@ -385,8 +388,8 @@ def pcolor(ax, W, x, y, clim=(0, 1), cmap=None):
 
     if cmap is None:
         cmap = asongoficeandfire()
-    #q = ax.pcolor(to_quad(x), to_quad(y), W, norm=Normalize(clim[0], clim[1]), cmap=cmap)
-    q = ax.pcolormesh(to_quad(x), to_quad(y), W, norm=Normalize(clim[0], clim[1]), cmap=cmap)
+    #q = ax.pcolor(to_quad(x), to_quad(y), W, norm=mpl.colors.Normalize(clim[0], clim[1]), cmap=cmap)
+    q = ax.pcolormesh(to_quad(x), to_quad(y), W, norm=mpl.colors.Normalize(clim[0], clim[1]), cmap=cmap)
     ax.axis('equal')
     ax.axis('tight')
     #ax.shading('interp')
@@ -410,9 +413,9 @@ def asongoficeandfire(n=127):
     p = np.linspace(-1, 1, n)
     # negative values: reds
     x = p[p < 0]
-    c = np.c_[1 -((1+x) ** d), 0.5*(tanh(4*(-x -0.5)) + 1), (-x) ** d]
+    c = np.c_[1 - ((1 + x) ** d), 0.5 * (np.tanh(4 * (-x -0.5)) + 1), (-x) ** d]
     # positive values: blues
     x = p[p >= 0]
-    c = np.r_[c, np.c_[x ** d, 0.5*(tanh(4*(x -0.5)) + 1), 1 -((1-x) ** d)]]
+    c = np.r_[c, np.c_[x ** d, 0.5 * (np.tanh(4 * (x -0.5)) + 1), 1 - ((1 - x) ** d)]]
     return colors.ListedColormap(c, name='asongoficeandfire')
     # TODO colors.LinearSegmentedColormap(name, segmentdata, N=256, gamma=1.0)
