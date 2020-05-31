@@ -1,5 +1,6 @@
-# -*- coding: utf-8 -*-
-"Unit tests for qit.utils"
+"""
+Unit tests for qit.utils
+"""
 # Ville Bergholm 2009-2020
 
 import pytest
@@ -8,15 +9,9 @@ import numpy as np
 import scipy.linalg as spl
 
 import qit
-from qit.base  import tol
 from qit.utils import *
 from qit.gate  import copydot
 
-
-@pytest.fixture(scope="session")
-def tol():
-    """Numerical tolerance."""
-    return qit.tol
 
 @pytest.fixture(scope="session")
 def dim():
@@ -28,16 +23,16 @@ def randn_complex(*arg):
     "Returns an array of random complex numbers, normally distributed."
     return np.random.randn(*arg) +1j*np.random.randn(*arg)
 
-def assertHermitian(H, delta):
+def assertHermitian(H, tol):
     "Make sure H is hermitian."
-    assert H == pytest.approx(H.T.conj(), abs=delta)
+    assert H == pytest.approx(H.T.conj(), abs=tol)
 
-def assertUnitary(U, delta):
+def assertUnitary(U, tol):
     "Make sure U is unitary."
     I = np.eye(len(U))
     temp = U.T.conj()
-    assert np.linalg.norm(U @ temp -I) == pytest.approx(0, abs=delta)
-    assert np.linalg.norm(temp @ U -I) == pytest.approx(0, abs=delta)
+    assert np.linalg.norm(U @ temp -I) == pytest.approx(0, abs=tol)
+    assert np.linalg.norm(temp @ U -I) == pytest.approx(0, abs=tol)
 
 
 class TestUtils:
@@ -90,20 +85,20 @@ class TestUtils:
         ### random matrices
         H = rand_hermitian(dim)
         assert H.shape == (dim, dim)
-        assertHermitian(H, delta=tol)
+        assertHermitian(H, tol=tol)
 
         U = rand_U(dim)
         assert U.shape == (dim, dim)
-        assertUnitary(U, delta=tol)
+        assertUnitary(U, tol=tol)
 
         U = rand_SU(dim)
         assert U.shape == (dim, dim)
-        assertUnitary(U, delta=tol)
+        assertUnitary(U, tol=tol)
         assert np.linalg.det(U) == pytest.approx(1, abs=tol)
 
         rho = rand_positive(dim)
         assert rho.shape == (dim, dim)
-        assertHermitian(rho, delta=tol)
+        assertHermitian(rho, tol=tol)
         assert np.trace(rho) == pytest.approx(1, abs=tol)
         temp = np.linalg.eigvalsh(rho)
         assert np.linalg.norm(temp.imag) == pytest.approx(0, abs=tol) # real eigenvalues
@@ -140,7 +135,7 @@ class TestUtils:
         J = angular_momentum(dim)
         assert len(J) == 3
         for A in J:
-            assertHermitian(A, delta=tol)
+            assertHermitian(A, tol=tol)
         assert np.linalg.norm(comm(J[0], J[1]) - 1j * J[2]) == pytest.approx(0, abs=tol)  # [Jx, Jy] == i Jz
 
     def test_boson_ladder(self, tol, dim):
