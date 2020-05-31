@@ -1,9 +1,8 @@
 """Unit tests for qit.markov"""
-# Ville Bergholm 2009-2016
+# Ville Bergholm 2009-2020
 
 import pytest
 import numpy as np
-from numpy.random import rand, randn
 from numpy.linalg import norm
 
 import qit

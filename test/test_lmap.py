@@ -1,22 +1,30 @@
-# -*- coding: utf-8 -*-
-"Unit tests for qit.lmap"
-# Ville Bergholm 2009-2016
+"""
+Unit tests for qit.lmap
+"""
+# Ville Bergholm 2009-2020
 
-import unittest
+import pytest
+
+import numpy as np
 from numpy.random import rand, randn
 from numpy.linalg import norm
 
-# HACK to import the module in this source distribution, not the installed one!
-import sys, os
-sys.path.insert(0, os.path.abspath('.'))
-
-from qit import version
-from qit.base  import tol
 from qit.lmap  import lmap, tensor
 from qit.utils import mkron, rand_GL
 
 
-class LmapConstructorTest(unittest.TestCase):
+@pytest.fixture(scope="session")
+def lmaps():
+    # generate some random lmaps
+    idim = (2, 5, 3)
+    odim = (4, 3, 2)
+    L = []
+    for i, o in zip(idim, odim):
+        L.append(lmap(rand(o, i)))
+    return L
+
+
+class TestLmap:
     def test_constructor(self):
         "Test lmap.__init__"
 
@@ -36,41 +44,29 @@ class LmapConstructorTest(unittest.TestCase):
         s = lmap(temp, ((1, 4), None))   # input dims kept
 
         # bad inputs
-        self.assertRaises(ValueError, lmap, rand(2,3), ((2,), (2, 3)))  # dimension mismatch
-        self.assertRaises(ValueError, lmap, rand(2, 2, 2)) # bad array dimesion (3)
+        with pytest.raises(ValueError, match='Dimensions of the array do not match the combined dimensions of the subsystems.'):
+            lmap(rand(2,3), ((2,), (2, 3)))  # dimension mismatch
+        with pytest.raises(ValueError, match='Array dimension must be <= 2.'):
+            lmap(rand(2, 2, 2)) # bad array dimesion (3)
 
 
-
-class LmapMethodTest(unittest.TestCase):
-    def setUp(self):
-        # generate some random lmaps
-        self.idim = (2, 5, 3)
-        self.odim = (4, 3, 2)
-        self.L = []
-        for i,o in zip(self.idim, self.odim):
-            self.L.append(lmap(rand(o, i)))
-
-
-    def test_methods(self):
-        ### reorder, tensor product
+    def test_reorder(self, lmaps, tol):
+        L = lmaps
         # build a rank-1 tensor out of the "local" lmaps
-        T1 = tensor(*tuple(self.L))
+        T1 = tensor(*L)
         # permute them
         perms = [(2, 0, 1), (1, 0, 2), (2, 1, 0)]
         for p in perms:
             T2 = T1.reorder((p, p))
-            tup = (self.L[i] for i in p)
-            self.assertAlmostEqual((tensor(*tup) -T2).norm(), 0, delta=tol)
+            tup = (L[i] for i in p)
+            assert (tensor(*tup) -T2).norm() == pytest.approx(0, abs=tol)
+
+
+    def test_tensorpow(self, lmaps, tol):
 
         ### tensorpow
         n = 3
-        for A in self.L:
+        for A in lmaps:
             # tensorpow and tensor product must give the same result
             tup = n * (A,)
-            self.assertAlmostEqual((A.tensorpow(n) -tensor(*tup)).norm(), 0, delta=tol)
-
-
-
-if __name__ == '__main__':
-    print('Testing QIT version ' + version())
-    unittest.main()
+            assert (A.tensorpow(n) -tensor(*tup)).norm() == pytest.approx(0, abs=tol)

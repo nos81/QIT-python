@@ -1,32 +1,43 @@
-# -*- coding: utf-8 -*-
-"Unit tests for qit.state"
-# Ville Bergholm 2008-2016
+"""
+Unit tests for qit.state
+"""
+# Ville Bergholm 2008-2020
 
-from __future__ import division, absolute_import, print_function, unicode_literals
 
-import unittest
-from numpy import array, prod, sqrt, log2, kron
+import pytest
+
+import numpy as np
 from numpy.random import rand, randn
 from numpy.linalg import norm
 
-# HACK to import the module in this source distribution, not the installed one!
-import sys, os
-sys.path.insert(0, os.path.abspath('.'))
-
-from qit import version
-from qit.base  import tol
+import qit
 from qit.lmap  import lmap
-from qit.state import state
+from qit.state import state, fidelity, trace_dist
 from qit.utils import rand_positive, rand_U, mkron
 
+dim = (2, 5, 3)
+bipartitions = [0, [0, 2]]
 
-class StateConstructorTest(unittest.TestCase):
+@pytest.fixture(scope="session")
+def rho():
+    """Mixed state."""
+    return state(rand_positive(np.prod(dim)), dim)
+
+@pytest.fixture(scope="session")
+def psi():
+    """Pure ket state."""
+    return state(0, dim).u_propagate(rand_U(np.prod(dim)))
+
+
+
+class TestState:
     def test_constructor(self):
         "Test state.__init__"
 
         # copy constructor
         temp = lmap(randn(4, 4), ((4,), (4,)))
         s = state(temp, (2, 2))
+
         # strings
         s = state('10011')
         s = state('2014', (3, 2, 3, 5))
@@ -34,131 +45,131 @@ class StateConstructorTest(unittest.TestCase):
         s = state('GHZ', (3, 2, 3))
         s = state('W', (2, 3, 2))
         s = state('Bell2')
+
         # basis kets
         s = state(4, 6)
         s = state(11, (3, 5, 2))
+
         # kets and state ops
         s = state(rand(5))
         s = state(rand(6), (3, 2))
         s = state(rand(3, 3))
         s = state(rand(4, 4), (2, 2))
+
         # bad inputs
         temp = lmap(randn(2, 3), ((2,), (3,)))
-        self.assertRaises(ValueError, state, temp)          # nonsquare lmap
-        self.assertRaises(ValueError, state, 'rubbish')     # unknown state name
-        self.assertRaises(ValueError, state, 0)             # missing dimension
-        self.assertRaises(ValueError, state, 2, 2)          # ket number too high
-        self.assertRaises(ValueError, state, [])            # bad array dimension (0)
-        self.assertRaises(ValueError, state, rand(2, 2, 2)) # bad array dimension (3)
-        self.assertRaises(ValueError, state, randn(3, 4))   # nonsquare array
+        with pytest.raises(ValueError, match='State operator must be square.'):
+            state(temp)          # nonsquare lmap
+        with pytest.raises(ValueError, match="Unknown named state 'rubbish'"):
+            state('rubbish')     # unknown state name
+        with pytest.raises(ValueError, match='Need system dimension.'):
+            state(0)             # missing dimension
+        with pytest.raises(ValueError, match='Invalid basis ket.'):
+            state(2, 2)          # ket number too high
+        #with pytest.raises(ValueError, match='sss'):
+        #    state([])            # bad array dimension (0)
+        with pytest.raises(ValueError, match='State must be given as a state vector or a state operator.'):
+            state(rand(2, 2, 2)) # bad array dimension (3)
+        with pytest.raises(ValueError, match='State operator matrix must be square.'):
+            state(randn(3, 4))   # nonsquare array
 
-    def test_named_states(self):
-        ps = array([0, 0.1, 1])
-        dims = array([2, 3, 4])
+    def test_named_states(self, tol):
+        ps = np.array([0, 0.1, 1])
+        dims = np.array([2, 3, 4])
         for d in dims:
             for p in ps:
                 s = state.werner(p, d)
                 t = state.isotropic((2*p-1)/d, d)
                 #s.check()
                 #t.check()
-                #self.assertAlmostEqual(s.trace(), 1, delta=tol)
-                #self.assertAlmostEqual(t.trace(), 1, delta=tol)
-                self.assertAlmostEqual((s -t.ptranspose(0)).norm(), 0, delta=tol)
+                #assert s.trace() == pytest.approx(1, abs=tol)
+                #assert t.trace() == pytest.approx(1, abs=tol)
+                assert (s -t.ptranspose(0)).norm() == pytest.approx(0, abs=tol)
 
 
-class StateMethodTest(unittest.TestCase):
-    def setUp(self):
-        dim = (2, 5, 3)
-        self.dim = dim
-        # mixed state
-        self.rho = state(rand_positive(prod(dim)), dim)
-        # pure state
-        self.psi = state(0, dim).u_propagate(rand_U(prod(dim)))
-        # random unitary
-        self.U = rand_U(prod(dim))
-
-    def test_methods(self):
+    def test_methods(self, rho, tol):
         # TODO concurrence, fix_phase, kraus_propagate, locc_convertible, lognegativity, measure,
         # negativity,
 
-        D = prod(self.dim)
-        bipartitions = [0, [0, 2]]
+        D = np.prod(dim)
+
 
         ### generalized Bloch vectors.
 
-        temp = self.rho.bloch_vector()
+        temp = rho.bloch_vector()
         # round trip
-        self.assertAlmostEqual((state.bloch_state(temp) -self.rho).norm(), 0, delta=tol)
+        assert (state.bloch_state(temp) -rho).norm() == pytest.approx(0, abs=tol)
         # correlation tensor is real
-        self.assertAlmostEqual(norm(temp.imag), 0, delta=tol)
+        assert norm(temp.imag) == pytest.approx(0, abs=tol)
         # state purity limits the Frobenius norm
-        self.assertTrue(norm(temp.flat) -sqrt(D) <= tol)
+        assert norm(temp.flat) -np.sqrt(D) <= tol
         # state normalization
-        self.assertAlmostEqual(temp.flat[0], 1, delta=tol)
+        assert temp.flat[0] == pytest.approx(1, abs=tol)
 
 
-        ### entropy
+    def test_entropy(self, rho, psi, tol):
 
-        temp = self.rho.entropy()
+        D = np.prod(dim)
+        U = rand_U(np.prod(dim))  # random unitary
+
+        temp = rho.entropy()
         # zero for pure states
-        self.assertAlmostEqual(self.psi.entropy(), 0, delta=tol)
+        assert psi.entropy() == pytest.approx(0, abs=tol)
         # nonnegative
-        self.assertTrue(temp >= -tol)
+        assert temp >= -tol
         # upper limit is log2(D)
-        self.assertTrue(temp <= log2(D) +tol)
+        assert temp <= np.log2(D) +tol
         # invariant under unitary transformations
-        self.assertAlmostEqual(temp, self.rho.u_propagate(self.U).entropy(), delta=tol)
+        assert temp == pytest.approx(rho.u_propagate(U).entropy(), abs=tol)
 
 
-        ### ptrace, ptranspose
+    def test_ptrace(self, rho, tol):
 
-        temp = self.rho.trace()
+        temp = rho.trace()
         for sys in bipartitions:
-            rho_A = self.rho.ptrace(sys)
+            rho_A = rho.ptrace(sys)
             # trace of partial trace equals total trace
-            self.assertAlmostEqual(temp, rho_A.trace(), delta=tol)
+            assert temp == pytest.approx(rho_A.trace(), abs=tol)
         # partial trace over all subsystems equals total trace
-        self.assertAlmostEqual(temp, self.rho.ptrace(range(self.rho.subsystems())).trace(), delta=tol)
+        assert temp == pytest.approx(rho.ptrace(range(rho.subsystems())).trace(), abs=tol)
 
+    def test_ptranspose(self, rho, tol):
+
+        temp = rho.trace()
         for sys in bipartitions:
-            rho_T = self.rho.ptranspose(sys)
+            rho_T = rho.ptranspose(sys)
             # two ptransposes cancel
-            self.assertAlmostEqual((self.rho -rho_T.ptranspose(sys)).norm(), 0, delta=tol)
+            assert (rho -rho_T.ptranspose(sys)).norm() == pytest.approx(0, abs=tol)
             # ptranspose preserves trace
-            self.assertAlmostEqual(temp, rho_T.trace(), delta=tol)
+            assert temp == pytest.approx(rho_T.trace(), abs=tol)
 
-        ### schmidt
+    def test_schmidt(self, tol):
         return
         # FIXME svdvals causes a crash in schmidt! see if fixed in scipy 0.13.0.
         for sys in bipartitions:
-            lambda1, u, v = self.psi.schmidt(sys, full=True)
-            lambda2 = self.psi.schmidt(self.psi.invert_selection(sys))
+            lambda1, u, v = psi.schmidt(sys, full=True)
+            lambda2 = psi.schmidt(psi.invert_selection(sys))
             # squares of schmidt coefficients sum up to unity
-            self.assertAlmostEqual(norm(lambda1), 1, delta=tol)
+            assert norm(lambda1) == pytest.approx(1, abs=tol)
             # both subdivisions have identical schmidt coefficients
-            self.assertAlmostEqual(norm(lambda1 -lambda2), 0, delta=tol)
+            assert norm(lambda1 -lambda2) == pytest.approx(0, abs=tol)
 
             # decomposition is equal to the original matrix
             temp = 0
             for k in range(len(lambda1)):
                 temp += kron(lambda1[k] * u[:, k], v[:, k])
-            self.assertAlmostEqual(norm(self.psi.data.ravel() -temp), 0, delta=tol)
+            assert norm(psi.data.ravel() -temp) == pytest.approx(0, abs=tol)
 
         # squared schmidt coefficients equal eigenvalues of partial trace
         #r = state(randn(30) + 1j*randn(30), [5, 6]).normalize()
         #x = r.schmidt([0]) ** 2  # FIXME crashes ipython!
         #temp = r.ptrace([1])
         #y, dummy = eighsort(temp.data)
-        #self.assertAlmostEqual(norm(x-y), 0, delta=tol)
+        #assert norm(x-y) == pytest.approx(0, abs=tol)
 
 
 
-class StateMethod2Test(unittest.TestCase):
-    def setUp(self):
-        pass
-
-    def test_methods(self):
-        ### reorder
+    def test_reorder(self, tol):
 
         dim = (2, 5, 1)
         A = rand(dim[0], dim[0])
@@ -167,58 +178,48 @@ class StateMethod2Test(unittest.TestCase):
 
         T1 = state(mkron(A, B, C), dim)
         T2 = T1.reorder([2, 0, 1])
-        self.assertAlmostEqual(norm(mkron(C, A, B) - T2.data), 0, delta=tol)
+        assert norm(mkron(C, A, B) - T2.data) == pytest.approx(0, abs=tol)
         T2 = T1.reorder([1, 0, 2])
-        self.assertAlmostEqual(norm(mkron(B, A, C) - T2.data), 0, delta=tol)
+        assert norm(mkron(B, A, C) - T2.data) == pytest.approx(0, abs=tol)
         T2 = T1.reorder([2, 1, 0])
-        self.assertAlmostEqual(norm(mkron(C, B, A) - T2.data), 0, delta=tol)
+        assert norm(mkron(C, B, A) - T2.data) == pytest.approx(0, abs=tol)
 
 
+class TestStateBinaryFuncs:
+    def test_distance_funcs(self, tol):
 
-class StateBinaryFuncTest(unittest.TestCase):
-    def setUp(self):
         dim = (2, 3)
         # two mixed states
-        self.rho1 = state(rand_positive(prod(dim)), dim)
-        self.rho2 = state(rand_positive(prod(dim)), dim)
+        rho1 = state(rand_positive(np.prod(dim)), dim)
+        rho2 = state(rand_positive(np.prod(dim)), dim)
         # two pure states
         p = state(0, dim)
-        self.p1 = p.u_propagate(rand_U(prod(dim)))
-        self.p2 = p.u_propagate(rand_U(prod(dim)))
+        self.p1 = p.u_propagate(rand_U(np.prod(dim)))
+        self.p2 = p.u_propagate(rand_U(np.prod(dim)))
         # random unitary
-        self.U = rand_U(prod(dim))
+        U = rand_U(np.prod(dim))
 
-    def test_binary_funcs(self):
-        from qit.state import fidelity, trace_dist
-
-        fid = fidelity(self.rho1, self.rho2)
-        trd = trace_dist(self.rho1, self.rho2)
+        fid = fidelity(rho1, rho2)
+        trd = trace_dist(rho1, rho2)
 
         # symmetry
-        self.assertAlmostEqual(fid, fidelity(self.rho2, self.rho1), delta=tol)
-        self.assertAlmostEqual(trd, trace_dist(self.rho2, self.rho1), delta=tol)
+        assert fid == pytest.approx(fidelity(rho2, rho1), abs=tol)
+        assert trd == pytest.approx(trace_dist(rho2, rho1), abs=tol)
 
         # fidelity with self, distance from self
-        self.assertAlmostEqual(fidelity(self.rho1, self.rho1), 1, delta=tol)
-        self.assertAlmostEqual(trace_dist(self.rho1, self.rho1), 0, delta=tol)
+        assert fidelity(rho1, rho1) == pytest.approx(1, abs=tol)
+        assert trace_dist(rho1, rho1) == pytest.approx(0, abs=tol)
 
         # unaffected by unitary transformations
-        self.assertAlmostEqual(fid, fidelity(self.rho1.u_propagate(self.U), self.rho2.u_propagate(self.U)), delta=tol)
-        self.assertAlmostEqual(trd, trace_dist(self.rho1.u_propagate(self.U), self.rho2.u_propagate(self.U)), delta=tol)
+        assert fid == pytest.approx(fidelity(rho1.u_propagate(U), rho2.u_propagate(U)), abs=tol)
+        assert trd == pytest.approx(trace_dist(rho1.u_propagate(U), rho2.u_propagate(U)), abs=tol)
 
         # for pure states trace_dist and fidelity are equivalent
-        self.assertAlmostEqual(trace_dist(self.p1, self.p2) ** 2 +fidelity(self.p1, self.p2) ** 2, 1, delta=tol)
+        assert trace_dist(self.p1, self.p2) ** 2 +fidelity(self.p1, self.p2) ** 2 == pytest.approx(1, abs=tol)
 
         # for mixed states, these inequalities hold
-        self.assertTrue(sqrt(1 -fid ** 2) -trd >= -tol)
-        self.assertTrue(1 -fid -trd <= tol)
+        assert np.sqrt(1 -fid ** 2) -trd >= -tol
+        assert 1 -fid -trd <= tol
 
         # for a pure and a mixed state we get this inequality
-        self.assertTrue(1 -fidelity(self.rho1, self.p1) ** 2 -trace_dist(self.rho1, self.p1) <= tol)
-
-
-
-if __name__ == '__main__':
-    #print(sys.path)
-    print('Testing QIT version ' + version())
-    unittest.main()
+        assert 1 -fidelity(rho1, self.p1) ** 2 -trace_dist(rho1, self.p1) <= tol
