@@ -45,7 +45,7 @@ needs_sphinx = '3.0'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
-    'sphinx.ext.imgmath',
+    'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
     'sphinx.ext.todo',
     'sphinxcontrib.bibtex',
@@ -143,10 +143,21 @@ autodoc_member_order = 'bysource'
 autoclass_content = 'both'
 
 # latex macros
-imgmath_latex_preamble = ''
-with open('macros.tex', 'r') as f:
-    for macro in f:
-        # used when building latex and pdf versions
-        latex_elements['preamble'] += macro + '\n'
-        # used when building html version
-        imgmath_latex_preamble += macro + '\n'
+mathjax_config = {
+    'TeX': {
+        'Macros': {
+            'ket': [r'\left| #1 \right\rangle', 1],
+            'bra': [r'\left\langle #1 \right|', 1],
+            're': r'\mathrm{Re}',
+            'im': r'\mathrm{Im}',
+            'trace': r'\mathrm{Tr}',
+            'tr': r'\mathrm{Tr}',
+            'diag': r'\mathrm{diag}',
+            'braket': [r'\langle #1 \rangle', 1],
+            'expect': [r'\langle #1 \rangle', 1],
+            'hc': r'\text{h.c.}',  # hermitian conjugate
+            'cc': r'\text{c.c.}',  # complex conjugate
+            'I': r'\mathrm{I}',   # identity operator
+        }
+    }
+}
