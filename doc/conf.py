@@ -148,8 +148,8 @@ mathjax_config = {
         'Macros': {
             'ket': [r'\left| #1 \right\rangle', 1],
             'bra': [r'\left\langle #1 \right|', 1],
-            're': r'\mathrm{Re}',
-            'im': r'\mathrm{Im}',
+            're': [r'\mathrm{Re} \: #1', 1],
+            'im': [r'\mathrm{Im} \: #1', 1],
             'trace': r'\mathrm{Tr}',
             'tr': r'\mathrm{Tr}',
             'diag': r'\mathrm{diag}',
