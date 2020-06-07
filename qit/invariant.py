@@ -28,7 +28,7 @@ import numpy.linalg as npl
 import matplotlib.pyplot as plt
 
 from .base import sy, Q_Bell
-from .lmap import lmap, tensor
+from .lmap import Lmap, tensor
 from .utils import tensorbasis, majorize
 
 

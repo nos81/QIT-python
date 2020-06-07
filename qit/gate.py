@@ -49,7 +49,7 @@ import itertools
 import numpy as np
 import scipy.sparse as sparse
 
-from .lmap import lmap, tensor
+from .lmap import Lmap, tensor
 from .utils import qubits, op_list, copy_memoize, gcd
 
 

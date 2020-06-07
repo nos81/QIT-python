@@ -2,14 +2,14 @@
 Linear maps (:mod:`qit.lmap`)
 =============================
 
-Bounded finite-dimensional linear maps are represented using :class:`lmap` class instances.
+Bounded finite-dimensional linear maps are represented using :class:`Lmap` class instances.
 In addition to the matrix representing the map, they contain
 the dimension vectors of the domain and codomain vector spaces.
 All the usual scalar-map and map-map arithmetic operators are
 provided, including the exponentiation of maps by integers.
 
 
-.. currentmodule:: qit.lmap.lmap
+.. currentmodule:: qit.lmap.Lmap
 
 
 Utilities
@@ -55,11 +55,11 @@ import scipy.sparse.linalg
 from .base import tol
 
 
-__all__ = ['numstr_to_array', 'array_to_numstr', 'lmap', 'tensor']
+__all__ = ['numstr_to_array', 'array_to_numstr', 'Lmap', 'tensor']
 
 
 # TODO sparse matrix support: np.kron -> sparse.kron, norm, probably other funcs as well
-# TODO FIXME ndarray data ownership: views vs copies, vs the semantics of lmap operations. .real(), .conj(), __mul__ etc
+# TODO FIXME ndarray data ownership: views vs copies, vs the semantics of Lmap operations. .real(), .conj(), __mul__ etc
 
 
 def numstr_to_array(s):
@@ -117,13 +117,13 @@ def format_ket(ind, dim, is_ket=True):
 
 
 
-class lmap:
+class Lmap:
     """Bounded linear maps between tensor products of finite-dimensional Hilbert spaces.
 
     Contains both the order-2 tensor and the dimensional information.
     Base class of :class:`~qit.state.state`.
 
-    .. todo:: Another possible interpretation of lmap would be to
+    .. todo:: Another possible interpretation of Lmap would be to
       treat each subsystem as an index, with the subsystems within dim[0] and dim[1]
       corresponding to contravariant and covariant indices, respectively?
     """
@@ -134,7 +134,7 @@ class lmap:
     def __init__(self, s, dim=None):
         """
         Args:
-          s (array_like, lmap): Linear map. If an lmap instance is given, a copy is made.
+          s (array_like, Lmap): Linear map. If an Lmap instance is given, a copy is made.
           dim (tuple, None): 2-tuple containing the output and input subsystem dimensions
               stored in tuples:  dim == (out, in).
               If dim, out or in is None, the corresponding dimensions are inferred from s.
@@ -143,25 +143,25 @@ class lmap:
 
           calling syntax                      resulting dim
           ==============                      =============
-          lmap(rand(a))                       ((a,), (1,))      1D array default: ket vector
-          lmap(rand(a), ((1,), None))         ((1,), (a,))      bra vector given as a 1D array
-          lmap(rand(a, b))                    ((a,), (b,))      2D array, all dims inferred
-          lmap(rand(4, b), ((2, 2), None))    ((2, 2), (b,))    2D array, output: two qubits
-          lmap(rand(a, 6), (None, (3, 2)))    ((a,), (3, 2))    2D array, input: qutrit+qubit
-          lmap(rand(6, 6), ((3, 2), (2, 3)))  ((3, 2), (2, 3))  2D array, all dims given
+          Lmap(rand(a))                       ((a,), (1,))      1D array default: ket vector
+          Lmap(rand(a), ((1,), None))         ((1,), (a,))      bra vector given as a 1D array
+          Lmap(rand(a, b))                    ((a,), (b,))      2D array, all dims inferred
+          Lmap(rand(4, b), ((2, 2), None))    ((2, 2), (b,))    2D array, output: two qubits
+          Lmap(rand(a, 6), (None, (3, 2)))    ((a,), (3, 2))    2D array, input: qutrit+qubit
+          Lmap(rand(6, 6), ((3, 2), (2, 3)))  ((3, 2), (2, 3))  2D array, all dims given
 
-          lmap(A)             (A is an lmap) copy constructor
-          lmap(A, dim)        (A is an lmap) copy constructor, redefine the dimensions
+          Lmap(A)             (A is an Lmap) copy constructor
+          Lmap(A, dim)        (A is an Lmap) copy constructor, redefine the dimensions
         """
         # initialize the ndarray part
-        if isinstance(s, lmap):
+        if isinstance(s, Lmap):
             # copy constructor
             #: array: linear map data
             self.data = copy.deepcopy(s.data)
             defdim = s.dim  # copy the dimensions too, unless redefined
         else:
             if sparse.isspmatrix(s):
-                # TODO lmap constructor, mul/add, tensor funcs must be able to handle both dense and sparse arrays.
+                # TODO Lmap constructor, mul/add, tensor funcs must be able to handle both dense and sparse arrays.
                 self.data = s
             else:
                 # valid array initializer
@@ -206,7 +206,7 @@ class lmap:
 
 
     def __repr__(self):
-        """Display the lmap in a neat format."""
+        """Display the Lmap in a neat format."""
 
         def format_scalar(x):
             "Print a complex scalar."
@@ -250,7 +250,7 @@ class lmap:
                     printed += 1
                     out += format_scalar(x)
                     out += format_ket(ind, dim, is_ket)
-                    # sanity check, do not display lmaps with hundreds of terms
+                    # sanity check, do not display Lmaps with hundreds of terms
                     if printed >= 20:
                         out += ' ...'
                         break
@@ -285,7 +285,7 @@ class lmap:
             inplace (bool): iff True perform the operation in place
 
         Returns:
-            lmap: iff inplace is True the object itself, otherwise a deep copy
+            Lmap: iff inplace is True the object itself, otherwise a deep copy
 
         Functions using this should begin with ``s = self._inplacer(inplace)``
         and end with ``return s``
@@ -311,19 +311,19 @@ class lmap:
 
 
     def is_compatible(self, t):
-        """True iff the lmaps have equal dimensions and can thus be added."""
-        if not isinstance(t, lmap):
-            raise TypeError('t is not an lmap.')
+        """True iff the Lmaps have equal dimensions and can thus be added."""
+        if not isinstance(t, Lmap):
+            raise TypeError('t is not an Lmap.')
         return self.dim == t.dim
 
 
     def is_ket(self):
-        """True if the lmap is a ket."""
+        """True if the Lmap is a ket."""
         return self.data.shape[1] == 1
 
 
     def is_sparse(self):
-        """True if the lmap is internally represented as a sparse array."""
+        """True if the Lmap is internally represented as a sparse array."""
         return sparse.isspmatrix(self.data)
 
 
@@ -362,7 +362,7 @@ class lmap:
         return s
 
     def __mul__(self, t):
-        """Multiplication of lmaps by scalars."""
+        """Multiplication of Lmaps by scalars."""
         # must be able to handle sparse data
         if not np.isscalar(t):
             raise TypeError('The * operator is for scalar multiplication only.')
@@ -373,14 +373,14 @@ class lmap:
         return s
 
     def __rmul__(self, t):
-        """Multiplication of lmaps by scalars, reverse."""
-        # scalars commute, lmaps already handled by __mul__
+        """Multiplication of Lmaps by scalars, reverse."""
+        # scalars commute, Lmaps already handled by __mul__
         return self.__mul__(t)
 
     def __matmul__(self, t):
-        """Concatenation (matrix multiplication) of lmaps."""
+        """Concatenation (matrix multiplication) of Lmaps."""
         # must be able to handle sparse data
-        if isinstance(t, lmap):
+        if isinstance(t, Lmap):
             if self.dim[1] != t.dim[0]:
                 raise ValueError('The input and output dimensions do not match.')
 
@@ -390,10 +390,10 @@ class lmap:
             s.data = self.data @ t.data
             return s
 
-        raise TypeError('The @ operator is for lmap concatenation only.')
+        raise TypeError('The @ operator is for Lmap concatenation only.')
 
     def __truediv__(self, t):
-        """Division of lmaps by scalars from the right."""
+        """Division of Lmaps by scalars from the right."""
         if not np.isscalar(t):
             raise TypeError('The / operator is for scalar division only.')
         s = copy.copy(self)
@@ -401,23 +401,23 @@ class lmap:
         return s
 
     def __add__(self, t):
-        """Addition of lmaps."""
+        """Addition of Lmaps."""
         if not self.is_compatible(t):
-            raise ValueError('The lmaps are not compatible.')
+            raise ValueError('The Lmaps are not compatible.')
         s = copy.copy(self)
         s.data = self.data + t.data
         return s
 
     def __sub__(self, t):
-        """Subtraction of lmaps."""
+        """Subtraction of Lmaps."""
         if not self.is_compatible(t):
-            raise ValueError('The lmaps are not compatible.')
+            raise ValueError('The Lmaps are not compatible.')
         s = copy.copy(self)
         s.data = self.data - t.data
         return s
 
     def __pow__(self, n):
-        """Exponentiation of lmaps by integer scalars."""
+        """Exponentiation of Lmaps by integer scalars."""
         if self.dim[0] != self.dim[1]:
             raise ValueError('The input and output dimensions do not match.')
         s = copy.copy(self)
@@ -426,7 +426,7 @@ class lmap:
 
 
     def __imul__(self, t):
-        """In-place multiplication of lmaps by scalars from the right."""
+        """In-place multiplication of Lmaps by scalars from the right."""
         if not np.isscalar(t):
             raise TypeError('The * operator is for scalar multiplication only.')
 
@@ -435,7 +435,7 @@ class lmap:
 
 
     def __itruediv__(self, t):
-        """In-place division of lmaps by scalars from the right."""
+        """In-place division of Lmaps by scalars from the right."""
         if not np.isscalar(t):
             raise TypeError('The / operator is for scalar division only.')
 
@@ -444,23 +444,23 @@ class lmap:
 
 
     def __iadd__(self, t):
-        """In-place addition of lmaps."""
+        """In-place addition of Lmaps."""
         if not self.is_compatible(t):
-            raise ValueError('The lmaps are not compatible.')
+            raise ValueError('The Lmaps are not compatible.')
         self.data += t.data
         return self
 
 
     def __isub__(self, t):
-        """In-place subtraction of lmaps."""
+        """In-place subtraction of Lmaps."""
         if not self.is_compatible(t):
-            raise ValueError('The lmaps are not compatible.')
+            raise ValueError('The Lmaps are not compatible.')
         self.data -= t.data
         return self
 
 
     def trace(self):
-        """Trace of the lmap.
+        """Trace of the Lmap.
 
         The trace is only properly defined if self.dim[0] == self.dim[1].
         """
@@ -471,20 +471,20 @@ class lmap:
 
 
     def norm(self):
-        """Frobenius matrix norm of the lmap."""
+        """Frobenius matrix norm of the Lmap."""
         if self.is_sparse():
             return sparse.linalg.norm(self.data, 'fro')
         return np.linalg.norm(self.data, 'fro')
 
 
     def tensorpow(self, n):
-        """Tensor power of the lmap.
+        """Tensor power of the Lmap.
 
         Args:
-            n (int): number of copies of the lmap to tensor together
+            n (int): number of copies of the Lmap to tensor together
 
         Returns:
-            lmap: :math:`U^{\otimes n}`.
+            Lmap: :math:`U^{\otimes n}`.
         """
         if n < 1:
             raise ValueError('Only positive integer tensor powers are allowed.')
@@ -501,11 +501,11 @@ class lmap:
 # subsystem ordering
 
     def reorder_legs(self, perm, inplace=False):
-        """Arbitrary reordering of lmap input/output subsystems (tensor legs).
+        """Arbitrary reordering of Lmap input/output subsystems (tensor legs).
 
-        Returns a copy of the lmap with permuted subsystem order.
+        Returns a copy of the Lmap with permuted subsystem order.
 
-        perm is (t_1, t_2, ...) where t_i are sequences of nonnegative integers, one for each lmap index (normally two).
+        perm is (t_1, t_2, ...) where t_i are sequences of nonnegative integers, one for each Lmap index (normally two).
         Concatenated together the t_i must form a full permutation.
         """
         s = self._inplacer(inplace)
@@ -541,7 +541,7 @@ class lmap:
         Args:
           perm (tuple[Sequence[int]]): 2-tuple of permutations of subsystem indices, (perm_out, perm_in)
         Returns:
-          lmap: Copy of the lmap with permuted subsystem order.
+          Lmap: Copy of the Lmap with permuted subsystem order.
 
         A permutation can be either None (identity/do nothing), a pair (a, b) of subsystems to be swapped,
         or a tuple containing a full permutation of the subsystems.
@@ -611,7 +611,7 @@ class lmap:
 
 
 def tensor(*arg):
-    """Tensor product of lmaps."""
+    """Tensor product of Lmaps."""
     data = 1
     dout = []
     din  = []
@@ -628,5 +628,5 @@ def tensor(*arg):
         # kronecker product of the data
         data = kron(data, k.data)
 
-    s = lmap(data, (tuple(dout), tuple(din)))
+    s = Lmap(data, (tuple(dout), tuple(din)))
     return s

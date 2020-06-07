@@ -10,120 +10,120 @@ from numpy.random import rand, randn
 from numpy.linalg import norm
 import scipy.sparse as sparse
 
-from qit.lmap  import lmap, tensor
+from qit.lmap  import Lmap, tensor
 from qit.utils import mkron, rand_GL
 
 
 @pytest.fixture(scope="session")
 def lmaps():
-    # generate some random lmaps
+    # generate some random Lmaps
     idim = (2, 5, 3)
     odim = (4, 3, 2)
     L = []
     for i, o in zip(idim, odim):
-        L.append(lmap(rand(o, i)))
+        L.append(Lmap(rand(o, i)))
     return L
 
 
 class TestLmap:
     def test_constructor(self):
-        "Test lmap.__init__"
+        "Test Lmap.__init__"
 
         # scalar
-        s = lmap(randn())
+        s = Lmap(randn())
         assert s.dim == ((1,), (1,))
 
         # 1D
-        s = lmap(randn(4))                # ket vector as 1D array
+        s = Lmap(randn(4))                # ket vector as 1D array
         assert s.dim == ((4,), (1,))
-        s = lmap(randn(4, 1))             # ket vector
+        s = Lmap(randn(4, 1))             # ket vector
         assert s.dim == ((4,), (1,))
 
-        s = lmap(randn(3), ((1,), None))  # bra vector as 1D array
+        s = Lmap(randn(3), ((1,), None))  # bra vector as 1D array
         assert s.dim == ((1,), (3,))
-        s = lmap(randn(1, 3))             # bra vector
+        s = Lmap(randn(1, 3))             # bra vector
         assert s.dim == ((1,), (3,))
 
         # 2D
-        s = lmap(randn(4, 5), ((2, 2), None))    # input dims inferred
+        s = Lmap(randn(4, 5), ((2, 2), None))    # input dims inferred
         assert s.dim == ((2, 2), (5,))
-        s = lmap(randn(3, 6), (None, (3, 2)))    # output dims inferred
+        s = Lmap(randn(3, 6), (None, (3, 2)))    # output dims inferred
         assert s.dim == ((3,), (3, 2))
-        s = lmap(randn(6, 6), ((2, 3), (3, 2)))  # all dims given
+        s = Lmap(randn(6, 6), ((2, 3), (3, 2)))  # all dims given
         assert s.dim == ((2, 3,), (3, 2))
-        s = lmap(randn(4, 4))                  # both dims inferred
+        s = Lmap(randn(4, 4))                  # both dims inferred
         assert s.dim == ((4,), (4,))
         temp = s
 
         # copy constructor
-        s = lmap(temp, ((1, 4), (2, 2))) # dims reinterpreted
+        s = Lmap(temp, ((1, 4), (2, 2))) # dims reinterpreted
         assert s.dim == ((1, 4), (2, 2))
-        s = lmap(temp, ((1, 4), None))   # input dims kept
+        s = Lmap(temp, ((1, 4), None))   # input dims kept
         assert s.dim == ((1, 4), (4,))
 
-        # sparse lmaps
-        s = lmap(sparse.eye(3, 2))    # input dims inferred
+        # sparse Lmaps
+        s = Lmap(sparse.eye(3, 2))    # input dims inferred
         assert s.dim == ((3,), (2,))
-        s = lmap(sparse.eye(3, 4), (None, (2, 2)))    # input dims inferred
+        s = Lmap(sparse.eye(3, 4), (None, (2, 2)))    # input dims inferred
         assert s.dim == ((3,), (2, 2))
 
         # bad inputs
         with pytest.raises(ValueError, match='Dimensions of the array do not match the combined dimensions of the subsystems.'):
-            lmap(rand(2, 3), ((2,), (2, 3)))  # dimension mismatch
+            Lmap(rand(2, 3), ((2,), (2, 3)))  # dimension mismatch
         with pytest.raises(ValueError, match='Array dimension must be <= 2.'):
-            lmap(rand(2, 2, 2))  # bad array dimension (3)
+            Lmap(rand(2, 2, 2))  # bad array dimension (3)
 
 
     def test_utilities(self):
-        """lmap utilities."""
+        """Lmap utilities."""
 
-        s = lmap(randn(4), ((1, 1, 2, 1, 2, 1), (1,)))
+        s = Lmap(randn(4), ((1, 1, 2, 1, 2, 1), (1,)))
         assert s.dim == ((1, 1, 2, 1, 2, 1), (1,))
         s.remove_singletons()
         assert s.dim == ((2, 2), (1,))
 
-        t = lmap(randn(4), ((4,), (1,)))
-        u = lmap(randn(4), ((2, 2), (1,)))
+        t = Lmap(randn(4), ((4,), (1,)))
+        u = Lmap(randn(4), ((2, 2), (1,)))
         assert s.is_compatible(s)
         assert not s.is_compatible(t)
         assert s.is_compatible(u)
-        with pytest.raises(TypeError, match='is not an lmap'):
+        with pytest.raises(TypeError, match='is not an Lmap'):
             assert s.is_compatible(randn(4))
 
         assert s.is_ket()
-        t = lmap(randn(4), ((1,), None))
+        t = Lmap(randn(4), ((1,), None))
         assert not t.is_ket()
-        t = lmap(randn(4, 4))
+        t = Lmap(randn(4, 4))
         assert not t.is_ket()
 
 
     def test_algebra(self):
-        """Algebraic operations on lmaps."""
+        """Algebraic operations on Lmaps."""
 
-        s = lmap(randn(4, 2))
-        t = lmap(randn(2, 3))
-        u = lmap(randn(3, 3))
+        s = Lmap(randn(4, 2))
+        t = Lmap(randn(2, 3))
+        u = Lmap(randn(3, 3))
 
         # addition
         r = s + s
-        with pytest.raises(ValueError, match='lmaps are not compatible'):
+        with pytest.raises(ValueError, match='Lmaps are not compatible'):
             r = s + t
-        with pytest.raises(TypeError, match='is not an lmap'):
+        with pytest.raises(TypeError, match='is not an Lmap'):
             r = s + 1.2
 
         s += s
-        with pytest.raises(TypeError, match='is not an lmap'):
+        with pytest.raises(TypeError, match='is not an Lmap'):
             s += 0.4
 
         # subtraction
         r = s - s
-        with pytest.raises(ValueError, match='lmaps are not compatible'):
+        with pytest.raises(ValueError, match='Lmaps are not compatible'):
             r = s - t
-        with pytest.raises(TypeError, match='is not an lmap'):
+        with pytest.raises(TypeError, match='is not an Lmap'):
             r = s - 1.2
 
         s -= s
-        with pytest.raises(TypeError, match='is not an lmap'):
+        with pytest.raises(TypeError, match='is not an Lmap'):
             s -= 0.4
 
         # scalar multiplication
@@ -150,7 +150,7 @@ class TestLmap:
         assert r.dim == ((4,), (3,))
         with pytest.raises(ValueError, match='dimensions do not match'):
             r = t @ s
-        with pytest.raises(TypeError, match='@ operator is for lmap concatenation only'):
+        with pytest.raises(TypeError, match='@ operator is for Lmap concatenation only'):
             r = s @ 3.0
         with pytest.raises(TypeError, match='unsupported operand'):
             # we haven't defined __rmatmul__
@@ -166,23 +166,23 @@ class TestLmap:
 
 
     def test_trace(self):
-        s = lmap(randn(4, 4), ((2, 2), (2, 2)))
-        t = lmap(s, ((2, 2), (4,)))
+        s = Lmap(randn(4, 4), ((2, 2), (2, 2)))
+        t = Lmap(s, ((2, 2), (4,)))
         r = s.trace()
         with pytest.raises(ValueError, match='Trace not defined for non-endomorphisms'):
             r = t.trace()
 
 
     def test_norm(self):
-        s = lmap(randn(4, 3), ((2, 2), (3,)))
+        s = Lmap(randn(4, 3), ((2, 2), (3,)))
         r = s.norm()
-        s = lmap(sparse.eye(4, 3), ((2, 2), (3,)))
+        s = Lmap(sparse.eye(4, 3), ((2, 2), (3,)))
         r = s.norm()
 
 
     def test_reorder(self, lmaps, tol):
         L = lmaps
-        # build a rank-1 tensor out of the "local" lmaps
+        # build a rank-1 tensor out of the "local" Lmaps
         T1 = tensor(*L)
         # permute them
         perms = [(2, 0, 1), (1, 0, 2), (2, 1, 0)]
@@ -200,9 +200,9 @@ class TestLmap:
             assert (A.tensorpow(n) -tensor(*tup)).norm() == pytest.approx(0, abs=tol)
 
     def test_tensor(self, lmaps):
-        u = lmap(randn(4, 3))
-        t = lmap(randn(3))
-        s = lmap(sparse.eye(4, 3), ((2, 2), (3,)))
+        u = Lmap(randn(4, 3))
+        t = Lmap(randn(3))
+        s = Lmap(sparse.eye(4, 3), ((2, 2), (3,)))
 
         r = tensor(u)
         r = tensor(u, t)
