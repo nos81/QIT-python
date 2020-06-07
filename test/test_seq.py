@@ -1,59 +1,90 @@
-# -*- coding: utf-8 -*-
-"Unit tests for qit.seq"
+"""
+Unit tests for qit.seq
+"""
 # Ville Bergholm 2011-2016
 
-import unittest
-from numpy import pi
+import pytest
+
+import numpy as np
+
 from numpy.random import rand, randn
 from numpy.linalg import norm
 
-# HACK to import the module in this source distribution, not the installed one!
-import sys, os
-sys.path.insert(0, os.path.abspath('.'))
-
-from qit import version
-from qit.base import sx, sy, tol
-from qit.state import state
+import qit
+from qit.base import sx, sy, sz
 from qit.utils import rand_positive
-from qit.seq import *
+import qit.seq as seq
 
 
 
-class SeqTest(unittest.TestCase):
-    def test_funcs(self):
-        """Testing the control sequences module."""
+class TestSeq:
+    def test_seq_class(self):
+        """Sequence construction."""
+        s = seq.Seq()
+        assert len(s) == 0
 
-        s = nmr([[3, 2], [1, 2], [-1, 0.3]])
+        s = seq.Seq([1, 2], [[0.1, 0.2], [0.3, 0.4]])
+        assert len(s) == 2
+        s.A = -1j * sz
+
+        G = s.generator(0)
+        assert G.shape == (2, 2)
+
+    def test_nmr(self, tol):
+        """NMR rotations"""
+
+        s = seq.nmr([[3, 2], [1, 2], [-1, 0.3]])
 
         # pi rotation
-        U = nmr([[pi, 0]]).to_prop()
-        self.assertAlmostEqual(norm(U +1j*sx), 0, delta=tol)
-        U = nmr([[pi, pi/2]]).to_prop()
-        self.assertAlmostEqual(norm(U +1j*sy), 0, delta=tol)
+        U = seq.nmr([[np.pi, 0]]).to_prop()
+        assert norm(U + 1j * sx) == pytest.approx(0, abs=tol)
+        U = seq.nmr([[np.pi, np.pi/2]]).to_prop()
+        assert norm(U + 1j * sy) == pytest.approx(0, abs=tol)
+
+    def test_correction_sequences(self, tol):
 
         # rotation sequences in the absence of errors
-        theta = pi * rand()
-        phi = 2*pi * rand()
-        U = nmr([[theta, phi]]).to_prop()
-        V = bb1(theta, phi, location = rand()).to_prop()
-        self.assertAlmostEqual(norm(U-V), 0, delta=tol)
-        V = corpse(theta, phi).to_prop()
-        self.assertAlmostEqual(norm(U-V), 0, delta=tol)
-        V = scrofulous(theta, phi).to_prop()
-        self.assertAlmostEqual(norm(U-V), 0, delta=tol)
+        theta = np.pi * rand()
+        phi = 2 * np.pi * rand()
+        U = seq.nmr([[theta, phi]]).to_prop()
 
-        s = dd('cpmg', 2.0)
+        V = seq.bb1(theta, phi, location=rand()).to_prop()
+        assert norm(U - V) == pytest.approx(0, abs=tol)
 
-        # equivalent propagations
-        s = state(rand_positive(2))
-        seq = scrofulous(pi*rand(), 2*pi*rand())
-        s1 = s.u_propagate(seq.to_prop())
-        out, t = propagate(s, seq, base_dt=1)
-        s2 = out[-1]
-        self.assertAlmostEqual((s1-s2).norm(), 0, delta=tol)
+        V = seq.corpse(theta, phi).to_prop()
+        assert norm(U - V) == pytest.approx(0, abs=tol)
 
+        V = seq.scrofulous(theta, phi).to_prop()
+        assert norm(U - V) == pytest.approx(0, abs=tol)
 
+        #import pdb;pdb.set_trace()
+        # pi pulses only
+        phi = 0
+        U = qit.utils.R_z(-np.pi / 3) @ seq.nmr([[-np.pi, phi]]).to_prop()
+        V = seq.knill(phi).to_prop()
+        assert norm(U - V) == pytest.approx(0, abs=tol)
 
-if __name__ == '__main__':
-    print('Testing QIT version ' + version())
-    unittest.main()
+        # decoupling
+        V = seq.dd('wait', 2.0).to_prop()
+        assert norm(qit.I - V) == pytest.approx(0, abs=tol)
+        V = seq.dd('hahn', 2.0).to_prop()
+        assert norm(-1j * qit.sx - V) == pytest.approx(0, abs=tol)
+        V = seq.dd('cpmg', 2.0).to_prop()
+        assert norm(-qit.I - V) == pytest.approx(0, abs=tol)
+        V = seq.dd('uhrig', 2.0, n=3).to_prop()
+        assert norm(1j * qit.sx - V) == pytest.approx(0, abs=tol)
+        V = seq.dd('xy4', 2.0).to_prop()
+        assert norm(-qit.I - V) == pytest.approx(0, abs=tol)
+
+    def test_propagation(self, tol):
+        """Equivalent propagation using two different methods."""
+
+        theta = np.pi * rand()
+        phi = 2 * np.pi * rand()
+
+        rho = qit.state(rand_positive(2))
+        s = seq.scrofulous(theta, phi)
+        rho1 = rho.u_propagate(s.to_prop())
+        out, t = seq.propagate(rho, s, base_dt=1)
+        rho2 = out[-1]
+        assert (rho1 - rho2).norm() == pytest.approx(0, abs=tol)
