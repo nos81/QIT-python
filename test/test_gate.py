@@ -97,14 +97,14 @@ class TestGate:
     def test_swap(self, tol):
         """Swap gate.
         """
-        I = gate.id(dim)
+        I1 = gate.id(dim)
+        I2 = gate.id(dim[::-1])  # subsystem order reversed
         S = gate.swap(*dim)
         # swap' * swap = I
-        # FIXME with scipy 0.16 we'll have norm for sparse arrays
-        assert norm((S.ctranspose() @ S -I).data.A) == pytest.approx(0, abs=tol)
+        assert (S.ctranspose() @ S - I1).norm() == pytest.approx(0, abs=tol)
+        assert (S @ S.ctranspose() - I2).norm() == pytest.approx(0, abs=tol)
 
 
-    @pytest.mark.skip
     def test_dots(self, tol):
         """Copydot and plusdot linear maps.
         """
@@ -114,5 +114,6 @@ class TestGate:
         C = gate.copydot(n_in, n_out, d)
         P = gate.plusdot(n_in, n_out, d)
         Q = gate.qft(d)
-        temp = Q.tensorpow(n_out) * C * Q.tensorpow(n_in)
+        # duality transformation using QFT
+        temp = Q.tensorpow(n_out) @ C @ Q.tensorpow(n_in)
         assert (temp -P).norm() == pytest.approx(0, abs=tol)

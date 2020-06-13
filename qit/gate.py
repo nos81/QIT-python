@@ -470,7 +470,16 @@ def two(B, t, d_in):
 
 
 def copydot(n_in, n_out, d=2):
-    """Copy dot.
+    r"""Copy dot.
+
+    A copy dot is a tensor that copies any computational basis state,
+    in the sense that connecting :math`\ket{k}` to any of its legs
+    breaks it up into :math:`n_\text{in} + n_\text{out} - 1`
+    unconnected copies of :math`\ket{k}` and :math`\bra{k}`.
+
+    .. math::
+
+       \mathrm{COPY}^{n_\text{in} \to n_\text{out}} = \sum_{k=0}^{d-1} \ketbra{\underbrace{k \cdots k}_{n_\text{out}}}{\underbrace{k \cdots k}_{n_\text{in}}}.
 
     Args:
         n_in (int): number of input legs
@@ -497,7 +506,18 @@ def copydot(n_in, n_out, d=2):
 
 
 def plusdot(n_in, n_out, d=2):
-    """Plus dot.
+    r"""Plus dot.
+
+    The dual of :func:`copydot`. Connecting computational basis
+    states to all of its legs causes it to vanish unless the sum
+    of the basis state labels is zero (mod d).
+
+    .. math::
+
+       \mathrm{PLUS}^{n_\text{in} \to n_\text{out}} = \frac{1}{d^{(m+n-2)/2}}
+       \sum_{\substack{r_1 \cdots r_{n_\text{in}} \\ s_1 \cdots s_{n_\text{out}}}}
+       \delta_{\left(\sum_i r_i \oplus \sum_j s_j\right), 0}
+       \ket{s_1 \cdots s_{n_\text{out}}} \bra{r_1 \cdots r_{n_\text{in}}},
 
     Args:
         n_in (int): number of input legs
@@ -509,34 +529,34 @@ def plusdot(n_in, n_out, d=2):
 
     See :cite:`BB2011`
     """
-    # Ville Bergholm 2014-2016
+    # Ville Bergholm 2014-2020
 
-    # TODO this implementation has small numerical errors from qft, we can do better
-    #U = copydot(n_in, n_out, d)
-    #Q = qft(d)
-    #return Q.tensorpow(n_out) * U * Q.tensorpow(n_in)
+    # this implementation has small numerical errors from qft, we can do better
+    # C = copydot(n_in, n_out, d)
+    # Q = qft(d)
+    # P = Q.tensorpow(n_out) @ C @ Q.tensorpow(n_in)
 
     dim_in  = (d,) * n_in
     dim_out = (d,) * n_out
     d_in  = d ** n_in
     d_out = d ** n_out
     P = sparse.dok_matrix((d_out, d_in))
-    x = d ** (-(n_in +n_out -2)/2)
+    x = d ** (-(n_in +n_out -2) / 2)
 
     # TODO if scipy could reshape sparse matrices this would be easy... build a n_in==0 plusdot and then reshape it.
     if n_in == 0:
         # loop over all output indices except the last one
-        for j in range(int(d_out / d)):
+        for j in range(d_out // d):
             temp = np.sum(np.unravel_index(k, dim_out[1:]))  # sum of subsystem indices
             last = -temp % d  # the last index must take this value for the sum to be 0 (mod d)
             P[j, d*j +last] = x
     else:
         for j in range(d_out):
             temp = np.sum(np.unravel_index(j, dim_out))
-            for k in range(int(d_in / d)):
+            for k in range(d_in // d):
                 temp2 = np.sum(np.unravel_index(k, dim_in[1:]))
                 last = -(temp +temp2) % d
-            P[j, d*k +last] = x
+                P[j, d*k +last] = x
     return Lmap(P, (dim_out, dim_in))
 
 

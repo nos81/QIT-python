@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Utilities (:mod:`qit.utils`)
 ============================
@@ -955,7 +954,7 @@ def boson_ladder(d):
 
     Returns the d-dimensional approximation of the bosonic
     annihilation operator :math:`b` for a single bosonic mode in the
-    number basis :math:`\{|0\rangle, |1\rangle, ..., |d-1\rangle\}`.
+    number basis :math:`\{\ket{0}, \ket{1}, ..., \ket{d-1}\}`.
 
     The corresponding creation operator is :math:`b^\dagger`.
     The (infinite-dimensional) bosonic annihilation and creation operators fulfill the commutation relation
@@ -986,7 +985,7 @@ def fermion_ladder(n):
 
       \sigma^- &:= (\sigma_x + i \sigma_y)/2,\\
       n &:= \sigma^+ \sigma^- = (\I-\sigma_z)/2,\\
-      &\sigma^-|0\rangle = 0, \quad \sigma^-|1\rangle = |0\rangle, \quad n|k\rangle = k|k\rangle.
+      &\sigma^-\ket{0} = 0, \quad \sigma^-\ket{1} = \ket{0}, \quad n\ket{k} = k\ket{k}.
 
     Then define a phase operator to keep track of sign changes when
     permuting the order of the operators: :math:`\phi_k := \sum_{j=1}^{k-1} n_j`.

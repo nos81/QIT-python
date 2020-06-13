@@ -566,6 +566,10 @@ class Lmap:
         """
         s = self._inplacer(inplace)
 
+        # sparse matrices cannot be reshaped to more than 2 dimensions
+        if sparse.isspmatrix(s.data):
+            s.data = s.data.toarray()
+
         orig_d = s.data.shape  # original dimensions
         total_d = []
         total_perm = []
