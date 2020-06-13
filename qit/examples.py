@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Demos and examples (:mod:`qit.examples`)
 ========================================
@@ -42,9 +41,7 @@ General-purpose quantum algorithms
    phase_estimation
    find_order
 """
-# Ville Bergholm 2011-2018
-
-from __future__ import division, absolute_import, print_function, unicode_literals
+# Ville Bergholm 2011-2020
 
 from operator import mod
 from copy import deepcopy
@@ -61,9 +58,9 @@ from mpl_toolkits.mplot3d import Axes3D   # FIXME makes buggy 3d plotting work f
 
 
 from .base import sx, sy, sz, p0, p1, tol
-from .lmap import lmap, tensor, numstr_to_array
+from .lmap import Lmap, tensor, numstr_to_array
 from .utils import gcd, lcm, qubits, R_y, rand_U, rand_SU, mkron, boson_ladder
-from .state import state, fidelity
+from .state import State, fidelity
 from . import gate, ho, plot
 
 
@@ -209,7 +206,6 @@ def adiabatic_qc(H0, H1, s0, tmax=50):
         print('Which is not a solution!')
         if np.min(H1) > 0:
             print("(In this problem instance there aren't any.)")
-
 
 
 def bb84(n=50):
@@ -883,7 +879,7 @@ def quantum_walk(steps=8, n=21, p=0.05, n_coin=2):
     s = coin.tensor(walker).to_op(inplace=True)
 
     # translation operators (wrapping)
-    left  = gate.mod_inc(-1, n).data.todense()
+    left  = gate.mod_inc(-1, n).data.toarray()
     right = left.conj().T
     stay = eye(n)
 

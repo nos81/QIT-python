@@ -38,7 +38,7 @@ import scipy.special as sps
 import scipy.linalg as spl
 
 from .base import tol
-from .state import state
+from .state import State
 from .utils import boson_ladder, comm
 
 __all__ = ['coherent_state', 'displace', 'squeeze', 'rotate',
@@ -75,9 +75,9 @@ def coherent_state(alpha, n=default_n):
 
     k = np.arange(n)
     ket = (alpha ** k) / np.sqrt(sps.factorial(k))
-    return state(ket, n).normalize()
-    #s = state(0, n).u_propagate(spl.expm(alpha * boson_ladder(n).T.conj()))
-    #s = state(0, n).u_propagate(displace(alpha, n))
+    return State(ket, n).normalize()
+    #s = State(0, n).u_propagate(spl.expm(alpha * boson_ladder(n).T.conj()))
+    #s = State(0, n).u_propagate(displace(alpha, n))
     #s *= exp(-abs(alpha) ** 2 / 2) # normalization
 
 
@@ -307,7 +307,7 @@ def position_state(q, n=default_n):
     for k in range(2, n):
         ket[k] = temp / np.sqrt(k) * ket[k - 1] - np.sqrt((k-1) / k) * ket[k - 2]
     ket /= spl.norm(ket)
-    return state(ket, n)
+    return State(ket, n)
 
 
 def momentum_state(p, n=default_n):
@@ -341,14 +341,14 @@ def momentum_state(p, n=default_n):
     for k in range(2, n):
         ket[k] = temp / np.sqrt(k) * ket[k - 1] + np.sqrt((k-1) / k) * ket[k - 2]
     ket /= spl.norm(ket)
-    return state(ket, n)
+    return State(ket, n)
 
 
 def husimi(rho, alpha=None, z=0, *, res=(40, 40), lim=(-2, 2, -2, 2)):
     r"""Husimi probability distribution.
 
     Args:
-        rho (~qit.state.state): harmonic oscillator state (truncated)
+        rho (State): harmonic oscillator state (truncated)
         alpha (array[complex]): displacement parameters of the reference state
         z (complex): squeezing parameter of the reference state
         res (tuple[int]): if ``alpha is None``: number of points in the alpha grid, (nx, ny)
@@ -384,7 +384,7 @@ def husimi(rho, alpha=None, z=0, *, res=(40, 40), lim=(-2, 2, -2, 2)):
 
     # reference state
     n = np.prod(rho.dims())
-    ref = state(0, n).u_propagate(squeeze(z, n))
+    ref = State(0, n).u_propagate(squeeze(z, n))
     ref /= np.sqrt(np.pi) # normalization included for convenience
 
     H = np.empty(alpha.shape)
@@ -401,7 +401,7 @@ def wigner(rho, alpha=None, *, res=(20, 20), lim=(-2, 2, -2, 2), method=0):
     r"""Wigner quasi-probability distribution.
 
     Args:
-      rho (~qit.state.state): harmonic oscillator state
+      rho (State): harmonic oscillator state
       alpha (array[complex]): phase space points for which to compute the Wigner function
       res (tuple[int]): if ``alpha is None``: number of points in the alpha grid, (nx, ny)
       lim (tuple[float]): if ``alpha is None``: limits of the alpha grid, (xmin, xmax, ymin, ymax)
@@ -447,7 +447,7 @@ def wigner(rho, alpha=None, *, res=(20, 20), lim=(-2, 2, -2, 2), method=0):
             for y in range(n):
                 for w in range(n):
                     temp[y] = xxxx(y, w, -c) * s.data[w,0]
-            temp = state(temp)
+            temp = State(temp)
             W.flat[k] = np.sum(P * temp.prob().real)
 
     if return_ab:
@@ -461,7 +461,7 @@ def koe(n,m):
     z = np.linspace(0,2,100)
     res = np.zeros(z.shape, dtype=complex)
     res2 = np.zeros(z.shape, dtype=complex)
-    s = state(n,d)
+    s = State(n,d)
     for k, c in enumerate(z):
         temp = s.u_propagate(displace(c, d))
         res[k] = temp.data[m,0]

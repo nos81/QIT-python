@@ -82,7 +82,7 @@ class TestSeq:
         theta = np.pi * rand()
         phi = 2 * np.pi * rand()
 
-        rho = qit.state(rand_positive(2))
+        rho = qit.State(rand_positive(2))
         s = seq.scrofulous(theta, phi)
         rho1 = rho.u_propagate(s.to_prop())
         out, t = seq.propagate(rho, s, base_dt=1)

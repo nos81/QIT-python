@@ -18,7 +18,7 @@ def randc():
     return np.random.randn() + 1j * np.random.randn()
 
 n = 35  # truncation dimension
-s0 = qit.state(0, n)
+s0 = qit.State(0, n)
 
 
 

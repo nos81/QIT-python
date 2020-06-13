@@ -4,7 +4,7 @@ Quantum gates (:mod:`qit.gate`)
 ===============================
 
 This module implements many common types of quantum gates (and some
-other useful linear maps). The returned gates are represented as :class:`lmap` instances.
+other useful linear maps). The returned gates are represented as :class:`Lmap` instances.
 The data type is float unless complex entries are actually needed.
 
 .. currentmodule:: qit.gate
@@ -61,15 +61,15 @@ __all__ = ['dist', 'id', 'phase', 'qft', 'swap', 'walsh',
 # TODO reshape will cause problems for sparse matrices!
 # TODO utils.op_list too!
 # TODO which one is faster in element assignment -style init, dok or lil?
-# TODO make input interface consistent, do we want arrays or lmaps?
+# TODO make input interface consistent, do we want arrays or Lmaps?
 
 
 def dist(A, B):
-    r"""Distance between two unitary lmaps.
+    r"""Distance between two unitary Lmaps.
 
     Args:
-      A (lmap): unitary operator
-      B (lmap): unitary operator
+      A (Lmap): unitary operator
+      B (Lmap): unitary operator
 
     Returns:
       float: squared Frobenius norm distance between the unitaries, disregarding global phase
@@ -81,9 +81,9 @@ def dist(A, B):
     # Ville Bergholm 2007-2010
 
     if not A.is_compatible(B):
-        raise ValueError('The lmaps have different dimensions.')
+        raise ValueError('The Lmaps have different dimensions.')
 
-    temp = A.ctranspose() * B
+    temp = A.ctranspose() @ B
     return 2 * (np.prod(temp.dim[0]) - abs(np.trace(temp.data)))
 
 
@@ -95,11 +95,11 @@ def id(dim):
         dim (tuple[int]): subsystem dimensions
 
     Returns:
-        lmap: identity gate :math:`\I` for the specified system
+        Lmap: identity gate :math:`\I` for the specified system
     """
     if np.isscalar(dim):
         dim = (dim,)  # scalar into a tuple
-    return lmap(sparse.eye(np.prod(dim)), (dim, dim))
+    return Lmap(sparse.eye(np.prod(dim)), (dim, dim))
 
 
 def mod_add(dim1, dim2, N=None):
@@ -111,7 +111,7 @@ def mod_add(dim1, dim2, N=None):
         N (int): cutoff dimension, default is ``prod(dim2)``
 
     Returns:
-        lmap: modular adder gate U
+        Lmap: modular adder gate U
 
     .. math::
        U: \ket{x, y} \mapsto \ket{x, y+x (\mod N)}
@@ -147,7 +147,7 @@ def mod_add(dim1, dim2, N=None):
             U[x, y] = 1
 
     dim = (dim1, dim2)
-    return lmap(U.tocsr(), (dim, dim))
+    return Lmap(U.tocsr(), (dim, dim))
 
 
 def mod_inc(x, dim, N=None):
@@ -159,7 +159,7 @@ def mod_inc(x, dim, N=None):
         N (int): cutoff dimension, default is ``prod(dim)``
 
     Returns:
-        lmap: modular incrementation gate U
+        Lmap: modular incrementation gate U
 
     .. math::
        U: \ket{y} \mapsto \ket{y+x (mod N)}
@@ -183,7 +183,7 @@ def mod_inc(x, dim, N=None):
     for y in range(N, d):
         U[y, y] = 1
 
-    return lmap(U.tocsr(), (dim, dim))
+    return Lmap(U.tocsr(), (dim, dim))
 
 
 def mod_mul(x, dim, N=None):
@@ -195,7 +195,7 @@ def mod_mul(x, dim, N=None):
         N (int): cutoff dimension, default is ``prod(dim)``
 
     Returns:
-        lmap: modular multiplication gate U
+        Lmap: modular multiplication gate U
 
     .. math::
        U: \ket{y} \mapsto \ket{x*y (mod N)}
@@ -227,7 +227,7 @@ def mod_mul(x, dim, N=None):
     for y in range(N, d):
         U[y, y] = 1
 
-    return lmap(U.tocsr(), (dim, dim))
+    return Lmap(U.tocsr(), (dim, dim))
 
 
 def phase(theta, dim=None):
@@ -238,7 +238,7 @@ def phase(theta, dim=None):
         dim (tuple[int]): register dimensions, default is ``len(theta),``
 
     Returns:
-        lmap: the (diagonal) phase shift gate ``diag(exp(i*theta))``
+        Lmap: the (diagonal) phase shift gate ``diag(exp(i*theta))``
     """
     # Ville Bergholm 2011
 
@@ -251,7 +251,7 @@ def phase(theta, dim=None):
     if d != n:
         raise ValueError('Dimension mismatch.')
 
-    return lmap(sparse.diags(np.exp(1j * theta), 0) , (dim, dim))
+    return Lmap(sparse.diags(np.exp(1j * theta), 0) , (dim, dim))
 
 
 @copy_memoize
@@ -262,10 +262,10 @@ def qft(dim):
         dim (tuple[int]): register dimensions
 
     Returns:
-        lmap: QFT
+        Lmap: QFT
 
     Returns the quantum Fourier transform gate for the specified system.
-    The returned lmap is dense.
+    The returned Lmap is dense.
     """
     # Ville Bergholm 2004-2011
 
@@ -276,7 +276,7 @@ def qft(dim):
     for j in range(N):
         for k in range(N):
             U[j, k] = np.exp(2j * np.pi * j * k / N) / np.sqrt(N)
-    return lmap(U, (dim, dim))
+    return Lmap(U, (dim, dim))
 
 
 def swap(d1, d2):
@@ -287,7 +287,7 @@ def swap(d1, d2):
         d2 (int): subsystem 2 dimension
 
     Returns:
-        lmap: SWAP gate which swaps the order of two subsystems with dimensions [d1, d2].
+        Lmap: SWAP gate which swaps the order of two subsystems with dimensions [d1, d2].
 
     .. math::
 
@@ -305,7 +305,7 @@ def swap(d1, d2):
     for x in range(d1):
         for y in range(d2):
             U[d1*y + x, d2*x + y] = 1
-    return lmap(U.tocsr(), ((d2, d1), (d1, d2)))
+    return Lmap(U.tocsr(), ((d2, d1), (d1, d2)))
 
 
 def walsh(n):
@@ -315,9 +315,9 @@ def walsh(n):
         n (int): number of qubits
 
     Returns:
-        lmap: Walsh-Hadamard gate for n qubits
+        Lmap: Walsh-Hadamard gate for n qubits
 
-    The returned lmap is dense.
+    The returned Lmap is dense.
     """
     # Ville Bergholm 2009-2010
 
@@ -327,19 +327,19 @@ def walsh(n):
     for _ in range(n):
         U = np.kron(U, H)
     dim = qubits(n)
-    return lmap(U, (dim, dim))
+    return Lmap(U, (dim, dim))
 
 
 def controlled(U, ctrl=(1,), dim=None):
     r"""Controlled gate.
 
     Args:
-        U (array[complex], lmap): unitary operator
+        U (array[complex], Lmap): unitary operator
         ctrl (vector[int]): control nodes
         dim (tuple[int]): control subsystem dimensions
 
     Returns:
-        lmap: controlled-U gate
+        Lmap: controlled-U gate
 
     Returns the ``(t+1)``-qudit controlled-U gate, where ``t == len(ctrl)``.
 
@@ -383,7 +383,7 @@ def controlled(U, ctrl=(1,), dim=None):
     T = np.prod(dim)
     dim = list(dim)
 
-    if isinstance(U, lmap):
+    if isinstance(U, Lmap):
         d1 = dim + list(U.dim[0])
         d2 = dim + list(U.dim[1])
         U = U.data
@@ -394,24 +394,24 @@ def controlled(U, ctrl=(1,), dim=None):
     # controlled gates only make sense for square matrices U (we need an identity transformation for the 'no' cases!)
     U_dim = U.shape[0]
     out = sparse.diags(np.kron(no, np.ones(U_dim)), 0) +sparse.kron(sparse.diags(yes, 0), U)
-    return lmap(out, (d1, d2))
+    return Lmap(out, (d1, d2))
 
 
 def single(L, t, d_in):
     """Single-qudit operator.
 
     Args:
-        L (lmap, array): local (one-subsystem) operator
+        L (Lmap, array): local (one-subsystem) operator
         t (int): subsystem to which L is applied
         d_in (tuple[int]): input dimensions for the constructed operator
 
     Returns:
-        lmap: L applied to subsystem t (and identity applied to the remaining subsystems)
+        Lmap: L applied to subsystem t (and identity applied to the remaining subsystems)
     """
     # James Whitfield 2010
     # Ville Bergholm 2010
 
-    if isinstance(L, lmap):
+    if isinstance(L, Lmap):
         L = L.data  # into ndarray
 
     d_in = list(d_in)
@@ -419,19 +419,19 @@ def single(L, t, d_in):
         raise ValueError('Input dimensions do not match.')
     d_out = d_in
     d_out[t] = L.shape[0]
-    return lmap(op_list([[[L, t]]], d_in), (d_out, d_in))
+    return Lmap(op_list([[[L, t]]], d_in), (d_out, d_in))
 
 
 def two(B, t, d_in):
     """Two-qudit operator.
 
     Args:
-        B (lmap, array): two-subsystem operator
+        B (Lmap, array): two-subsystem operator
         t (tuple[int]): two subsystems to which B is applied
         d_in (tuple[int]): input dimensions for the constructed operator
 
     Returns:
-        lmap: B applied to subsystems t (and identity applied to the remaining subsystems)
+        Lmap: B applied to subsystems t (and identity applied to the remaining subsystems)
     """
     # James Whitfield 2010
     # Ville Bergholm 2010-2011
@@ -460,13 +460,13 @@ def two(B, t, d_in):
         p = [0, 2, 1]
     else:
         p = [1, 2, 0]
-    U = tensor(B, lmap(np.eye(inbetween))).reorder((p, p), inplace = True)
-    U = tensor(lmap(sparse.eye(before)), U, lmap(sparse.eye(after)))
+    U = tensor(B, Lmap(np.eye(inbetween))).reorder((p, p), inplace = True)
+    U = tensor(Lmap(sparse.eye(before)), U, Lmap(sparse.eye(after)))
 
     # restore dimensions
     d_out = d_in.copy()
     d_out[t] = B.dim[0]
-    return lmap(U, (d_out, d_in))
+    return Lmap(U, (d_out, d_in))
 
 
 def copydot(n_in, n_out, d=2):
@@ -478,7 +478,7 @@ def copydot(n_in, n_out, d=2):
         d (int): leg dimension
 
     Returns:
-        lmap: copy dot
+        Lmap: copy dot
 
     See :cite:`BB2011`
     """
@@ -493,7 +493,7 @@ def copydot(n_in, n_out, d=2):
     # loop over the sum
     for k in range(d):
         C[k * stride_out, k * stride_in] = 1
-    return lmap(C, ((d,) * n_out, (d,) * n_in))
+    return Lmap(C, ((d,) * n_out, (d,) * n_in))
 
 
 def plusdot(n_in, n_out, d=2):
@@ -505,7 +505,7 @@ def plusdot(n_in, n_out, d=2):
         d (int): leg dimension
 
     Returns:
-        lmap: plus dot
+        Lmap: plus dot
 
     See :cite:`BB2011`
     """
@@ -537,7 +537,7 @@ def plusdot(n_in, n_out, d=2):
                 temp2 = np.sum(np.unravel_index(k, dim_in[1:]))
                 last = -(temp +temp2) % d
             P[j, d*k +last] = x
-    return lmap(P, (dim_out, dim_in))
+    return Lmap(P, (dim_out, dim_in))
 
 
 def epsilon(n):
@@ -547,7 +547,7 @@ def epsilon(n):
         n (int): dimension
 
     Returns:
-        lmap: the fully antisymmetric Levi-Civita symbol in ``n`` dimensions,
+        Lmap: the fully antisymmetric Levi-Civita symbol in ``n`` dimensions,
             a tensor with ``n`` ``n``-dimensional subsystems
     """
     # Ville Bergholm 2016
@@ -579,4 +579,4 @@ def epsilon(n):
     for k in p:
         ind = np.ravel_multi_index(k, dim)
         U[ind,0] = signum(k)
-    return lmap(U, (dim, (1,)))
+    return Lmap(U, (dim, (1,)))

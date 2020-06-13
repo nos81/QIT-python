@@ -1,14 +1,13 @@
-# -*- coding: utf-8 -*-
 """
 Quantum states (:mod:`qit.state`)
 =================================
 
 
-In QIT, quantum states are represented by the :class:`state` class,
+In QIT, quantum states are represented by the :class:`State` class,
 defined in this module.
 
 
-.. currentmodule:: qit.state.state
+.. currentmodule:: qit.state.State
 
 
 Utilities
@@ -44,7 +43,7 @@ Physics
    propagate
    kraus_propagate
    measure
-   
+
 
 Quantum information
 -------------------
@@ -77,32 +76,28 @@ Named states
    werner
    isotropic
 """
-# Ville Bergholm 2008-2018
-
-from __future__ import division, absolute_import, print_function, unicode_literals
+# Ville Bergholm 2008-2020
 
 import collections
 import numbers
-import types
 from copy import deepcopy
 
 import numpy as np
-from numpy import (array, asarray, empty, diag, sort, prod, cumsum, cumprod, exp, sqrt, trace,
-    dot, vdot, roll, zeros, ones, r_, kron, isscalar, nonzero, ix_, linspace, meshgrid)
 from numpy.random import rand, randn
 import scipy as sp
 import scipy.sparse as sparse
+import scipy.integrate
 from scipy.linalg import norm, eigh, eigvalsh, sqrtm, svd, svdvals, det
-from scipy.integrate import ode
+
 
 from .base import sy, Q_Bell, tol
-from .lmap import tensor as lmap_tensor
-from .lmap import numstr_to_array, array_to_numstr, lmap
+from .lmap import numstr_to_array, array_to_numstr, Lmap
 from .utils import (_warn, vec, inv_vec, qubits, expv, rand_U, rand_SU, rand_positive, mkron, tensorsum,
-    eighsort, spectral_decomposition, majorize, tensorbasis, assert_o)
+    eighsort, spectral_decomposition, majorize, tensorbasis)
 from .gate import id, swap, copydot
 
-__all__ = ['equal_dims', 'index_muls', 'state', 'fidelity', 'trace_dist']
+
+__all__ = ['equal_dims', 'index_muls', 'State', 'fidelity', 'trace_dist']
 
 
 
@@ -115,68 +110,72 @@ def index_muls(dim):
     """Index multipliers for C-ordered data.
 
     Args:
-      dim (vector[int]): dimension vector
+        dim (array[int]): dimension vector
     Returns:
-      vector[int]: index multiplier vector
+        array[int]: index multiplier vector
 
     .. code-block:: python
 
-      ravel_multi_index(s, dim) == dot(index_muls(dim), s)
+      ravel_multi_index(s, dim) == index_muls(dim) @ s
     """
     if len(dim) == 0:
-        return array(())
-    muls = roll(cumprod(dim[::-1]), 1)[::-1]
+        return np.array(())
+    muls = np.roll(np.cumprod(dim[::-1]), 1)[::-1]
     muls[-1] = 1  # muls == [d_{n-1}*...*d_1, d_{n-1}*...*d_2, ..., d_{n-1}, 1]
     return muls
 
 
 
-class state(lmap):
+class State(Lmap):
     """Class for quantum states.
 
     Describes the state (pure or mixed) of a discrete, possibly composite quantum system.
-    The subsystem dimensions can be obtained with :func:`dims` (big-endian ordering).
+    The subsystem dimensions can be obtained with :meth:`dims` (big-endian ordering).
 
-    State class instances are special cases of lmaps. They have exactly two indices.
+    State class instances are special cases of :class:`Lmap`. They have exactly two indices.
     If self.dim[1] == (1,), it is a ket representing a pure state.
     Otherwise both indices must have equal dimensions and the object represents a state operator.
 
     Does not require the state to be physical (it does not have to be trace-1, Hermitian, or nonnegative).
-    """
-    # by default, all state methods leave self unchanged 
 
-    def __init__(self, s, dim=None):
-        """
-        .. code-block:: python
+    By default, all :class:`State` methods leave the object unchanged and instead return a modified copy.
+
+    Args:
+        s (str, int, array[complex], State): state description, see below
+        dim (Sequence[int], None): Dimensions of the subsystems comprising the state.
+            If ``dim`` is None, the dimensions are inferred from ``s``.
+
+    .. code-block:: python
 
           calling syntax            result
           ==============            ======
-          state('00101')            standard basis ket |00101> in a five-qubit system
-          state('02', (2, 3))       standard basis ket |02> in a qubit+qutrit system
-          state(k, (2, 3))          linearized standard basis ket |k> in a qubit+qutrit system, k must be a nonnegative integer
-          state(rand(4))            ket, infer dim[0] == (4,)
-          state(rand(4), (2, 2))    ket, two qubits
-          state(rand(4,4))          state operator, infer dim[0] == (4,)
-          state(rand(6,6), (3, 2))  state operator, qutrit+qubit
-          state('GHZ', (2, 2, 2))   named states (in this case the three-qubit GHZ state)
+          State('00101')            standard basis ket |00101> in a five-qubit system
+          State('02', (2, 3))       standard basis ket |02> in a qubit+qutrit system
+          State('GHZ', (2, 2, 2))   named states (in this case the three-qubit GHZ state)
+          State(k, (2, 3))          linearized standard basis ket |k> in a qubit+qutrit system, k must be a nonnegative integer
+          State(rand(4))            ket, infer dim = (4,)
+          State(rand(4), (2, 2))    ket, two qubits
+          State(rand(4,4))          state operator, infer dim = (4,)
+          State(rand(6,6), (3, 2))  state operator, qutrit+qubit
 
-          state(s)                  (s is a state) copy constructor
-          state(s, dim)             (s is a state) copy constructor, redefine the dimensions
+          State(s)                  (s is a State) copy constructor
+          State(s, dim)             (s is a State) copy constructor, redefine the dimensions
 
-        The currently supported named states are
-          GHZ (Greenberger-Horne-Zeilinger),
-          W,
-          Bell1, Bell2, Bell3, Bell4 
-        """
-        from six import string_types
-
+    The currently supported named states are
+        GHZ (Greenberger-Horne-Zeilinger),
+        W,
+        Bell1, Bell2, Bell3, Bell4
+    """
+    def __init__(self, s, dim=None):
         # we want a tuple for dim
-        if isinstance(dim, collections.Iterable):
+        if isinstance(dim, collections.abc.Iterable):
             dim = tuple(dim)
-        elif isscalar(dim):
+            if not dim:
+                dim = (1,)
+        elif np.isscalar(dim):
             dim = (dim,)
 
-        if isinstance(s, lmap):
+        if isinstance(s, Lmap):
             # copy constructor
             # state vector or operator? (also works with dim == None)
             if s.is_ket():
@@ -185,22 +184,17 @@ class state(lmap):
                 if s.dim[0] != s.dim[1]:
                     raise ValueError('State operator must be square.')
                 dim = (dim, dim)
-            # call the lmap copy constructor
-            super(state, self).__init__(s, dim)
+            super().__init__(s, dim)
             return
 
-        elif isinstance(s, string_types):
-            # string
-
+        elif isinstance(s, str):
             if s[0].isalpha():
                 # named state
                 name = s.lower()
-
                 if dim is None:
                     dim = (2, 2, 2) # default: three-qubit state
-
                 n = len(dim) # subsystems
-                s = zeros(prod(dim)) # ket
+                s = np.zeros(np.prod(dim)) # ket
                 dmin = min(dim)
 
                 if name in ('bell1', 'bell2', 'bell3', 'bell4'):
@@ -218,10 +212,10 @@ class state(lmap):
                         s[ind * (dim[k] - 1)] = 1
                         ind *= dim[k]
                 else:
-                    raise ValueError("Unknown named state '{0}'.".format(name))
+                    raise ValueError("Unknown named state '{}'.".format(name))
 
                 s /= norm(s) # normalize
-      
+
             else:
                 # number string defining a standard basis ket
                 if dim is None:
@@ -234,29 +228,28 @@ class state(lmap):
                     raise ValueError('Invalid basis ket.')
 
                 ind = np.ravel_multi_index(s, dim)
-                s = zeros(prod(dim)) # ket
+                s = np.zeros(np.prod(dim)) # ket
                 s[ind] = 1
 
             dim = (dim, (1,))  # ket
 
-        elif isinstance(s, (numbers.Number, np.number)):
-            # FIXME when numpy number hierarchy inherits the Python one
+        elif isinstance(s, numbers.Integral):
             # integer defining a standard basis ket
             if dim is None:
                 raise ValueError('Need system dimension.')
 
             ind = s
-            temp = prod(dim)  # total number of states
+            temp = np.prod(dim)  # total number of states
             if ind >= temp:
                 raise ValueError('Invalid basis ket.')
 
-            s = zeros(prod(dim)) # ket
+            s = np.zeros(temp) # ket
             s[ind] = 1
             dim = (dim, (1,))  # ket
 
         else:
             # valid ndarray initializer representing a state vector or a state op
-            s = array(s)
+            s = np.array(s)
             if not 1 <= s.ndim <= 2:
                 raise ValueError('State must be given as a state vector or a state operator.')
 
@@ -269,8 +262,8 @@ class state(lmap):
                 dim = (dim, (1,))  # ket
 
         # now s is an ndarray
-        # call the lmap constructor
-        super(state, self).__init__(s, dim)
+        # call the Lmap constructor
+        super().__init__(s, dim)
 
 # utility methods
 # TODO design issue: for valid states, lots of these funcs should return reals (marked with a commented-out .real). should we just drop the imaginary part? what about if the state is invalid, how will the user know? what about numerical errors?
@@ -302,7 +295,7 @@ class state(lmap):
         """Number of subsystems in the state.
 
         Returns:
-          int: number of subsystems
+            int: number of subsystems
         """
         return len(self.dim[0])
 
@@ -311,39 +304,44 @@ class state(lmap):
         """Dimensions of the subsystems of the state.
 
         Returns:
-          tuple[int]: dimensions of the subsystems
+            tuple[int]: dimensions of the subsystems
         """
         return self.dim[0] # dims of the other index must be equal (or 1)
 
 
     def clean_selection(self, sys):
-        """Make a subsystem set unique and sorted, return it as an array.
+        """Make a subsystem set unique and sorted.
+
+        Args:
+            sys (Iterable[int]): set of subsystem indices
+
+        Returns:
+            array[int]: same set made unique and sorted, invalid indices removed
         """
-        if not isinstance(sys, collections.Iterable) and isscalar(sys):
+        if not isinstance(sys, collections.abc.Iterable) and np.isscalar(sys):
             sys = [sys]
         temp = set(range(self.subsystems())).intersection(sys)
-        return array(list(temp), int)
+        return np.array(list(temp), dtype=int)
 
 
     def invert_selection(self, sys):
-        """Invert and sort a subsystem set."""
-        return array(list(set(range(self.subsystems())).difference(sys)), int)
+        """Invert and sort a subsystem index set."""
+        return np.array(list(set(range(self.subsystems())).difference(sys)), dtype=int)
 
 
     def fix_phase(self, inplace=False):
         """Apply a global phase convention to a ket state.
 
         Returns:
-          state: Copy of the state. If the state is represented with
-          a ket, the copy has a global phase such that the first nonzero element in the
-          state vector is real and positive.
+            State: Copy of the state. If the state is represented with
+                a ket, the copy has a global phase such that the first nonzero element in the
+                state vector is real and positive.
         """
         s = self._inplacer(inplace)
         if s.is_ket():
             # apply the phase convention: first nonzero element in state vector is real, positive
             v = s.data
-            for k in range(v.size):
-                temp = v.flat[k]
+            for temp in v.flat:
                 if abs(temp) > tol:
                     phase = temp / abs(temp)
                     v /= phase
@@ -355,13 +353,13 @@ class state(lmap):
         """Normalize the state to unity.
 
         Returns:
-          state: Copy of the state normalized to unity.
+            State: Copy of the state normalized to unity.
         """
         s = self._inplacer(inplace)
         if s.is_ket():
             s.data /= norm(s.data)
         else:
-            s.data /= trace(s.data)
+            s.data /= np.trace(s.data)
         return s
 
 
@@ -369,22 +367,25 @@ class state(lmap):
         r"""Purity of the state.
 
         Returns:
-          float: Purity of a normalized state, :math:`p = \mathrm{Tr}(\rho^2)`.
-                 Equivalent to linear entropy, :math:`S_l = 1-p`.
+            float: Purity of a normalized state, :math:`p = \mathrm{Tr}(\rho^2)`.
+                Equivalent to linear entropy, :math:`S_l = 1-p`.
         """
         if self.is_ket():
             return 1
         else:
             # rho is hermitian so purity should be real
-            return trace(dot(self.data, self.data)) # .real
+            return np.trace(self.data @ self.data) # .real
 
 
     def to_ket(self, inplace=False):
         """Convert the state representation into a ket (if possible).
 
         Returns:
-          state: If the state is pure, returns a copy for which the
-          internal representation (self.data) is a ket vector, otherwise raises ValueError. 
+            State: If the state is pure, returns a copy for which the
+                internal representation (self.data) is a ket vector.
+
+        Raises:
+            ValueError: state is not pure
         """
         s = self._inplacer(inplace)
         if not s.is_ket():
@@ -396,7 +397,6 @@ class state(lmap):
             s.data = v[:, [0]]  # corresponds to the highest eigenvalue, i.e. 1
             s.fix_phase(inplace = True)  # clean up global phase
             s.dim = (s.dim[0], (1,))
-
         return s
 
 
@@ -404,14 +404,13 @@ class state(lmap):
         """Convert state representation into a state operator.
 
         Returns:
-          state: Copy of the state for which the internal representation (self.data) is a state operator.
+            State: Copy of the state for which the internal representation (self.data) is a state operator.
         """
         # slight inefficiency when self.is_ket() and inplace==False: the ket data is copied for no reason
         s = self._inplacer(inplace)
         if s.is_ket():
             s.data = np.outer(s.data, s.data.conj())
             s.dim = (s.dim[0], s.dim[0])
-
         return s
 
 
@@ -419,22 +418,22 @@ class state(lmap):
         """Trace of the state operator.
 
         Returns:
-          float: Trace of the state operator. For a pure state this is equal to the squared norm of the state vector.
+            float: Trace of the state operator. For a pure state this is equal to the squared norm of the state vector.
         """
         if self.is_ket():
             # squared norm, thus always real
-            return vdot(self.data, self.data).real
+            return np.vdot(self.data, self.data).real
         else:
-            return trace(self.data)  # .real
+            return np.trace(self.data)  # .real
 
 
     def ptrace(self, sys, inplace=False):
         """Partial trace.
 
         Args:
-          sys (Sequence[int]): subsystems over which to take a partial trace
+            sys (Sequence[int]): subsystems over which to take a partial trace
         Returns:
-          state: Partial trace of the state over the given subsystems.
+            State: Partial trace of the state over the given subsystems.
         """
         s = self.to_op(inplace)
         dim = s.dims()
@@ -450,23 +449,23 @@ class state(lmap):
             muls = index_muls(d)  # muls == [d_{n-1}*...*d_1, d_{n-1}*...*d_2, ..., d_{n-1}, 1]
 
             # build the index "stencil"
-            inds = array([0])
+            inds = np.array([0])
             for k in range(n):
                 if k != j:
-                    inds = tensorsum(inds, r_[0 : muls[k] * d[k] : muls[k]])
+                    inds = tensorsum(inds, np.r_[0 : muls[k] * d[k] : muls[k]])
                     # np.arange(d[k]) * muls[k]
 
             stride = muls[j] # stride for moving the stencil while summing
             temp = len(inds)
-            res = zeros((temp, temp), complex) # result
+            res = np.zeros((temp, temp), complex) # result
             for k in range(d[j]):
                 temp = inds + stride * k
-                res += s.data[ix_(temp, temp)]
+                res += s.data[np.ix_(temp, temp)]
 
             s.data = res # replace data
             d[j] = 1  # remove traced-over dimension.
 
-        dim = tuple(array(dim)[keep]) # remove traced-over dimensions for good
+        dim = tuple(np.array(dim)[keep]) # remove traced-over dimensions for good
         if len(dim) == 0:
             dim = (1,) # full trace gives a scalar
 
@@ -479,9 +478,9 @@ class state(lmap):
         """Partial transpose.
 
         Args:
-          sys (Sequence[int]): subsystems wrt. which to take a partial transpose
+            sys (Sequence[int]): subsystems wrt. which to take a partial transpose
         Returns:
-          state: Partial transpose of the state wrt. the given subsystems.
+            State: Partial transpose of the state wrt. the given subsystems.
         """
         if sparse.isspmatrix(self.data):
             self.data = self.data.toarray()
@@ -500,7 +499,7 @@ class state(lmap):
 
         # swap the transposed dimensions
         perm = np.arange(2 * n)  # identity permutation
-        perm[r_[sys, sys + n]] = perm[r_[sys + n, sys]]
+        perm[np.r_[sys, sys + n]] = perm[np.r_[sys + n, sys]]
 
         # flat matrix into tensor, partial transpose, back into a flat matrix
         s.data = s.data.reshape(dim + dim).transpose(perm).reshape(orig_d)
@@ -509,24 +508,26 @@ class state(lmap):
 
     def reorder(self, perm, inplace=False):
         """Change the relative order of subsystems in a state.
-        ::
+
+        .. code-block:: python
 
           reorder([2, 1, 0])    reverse the order of three subsystems
           reorder([2, 5])       swap subsystems 2 and 5
 
         Args:
-          perm (vector[int]): permutation vector,
-            may consist of either exactly two subsystem indices
-            (to be swapped), or a full permutation of subsystem indices.
+            perm (array[int]): permutation vector,
+                may consist of either exactly two subsystem indices
+                (to be swapped), or a full permutation of subsystem indices.
+
         Returns:
-          state: The state with the subsystems in the given order.
+            State: The state with the subsystems in the given order.
         """
-        # this is just an adapter for lmap.reorder
+        # this is just an adapter for Lmap.reorder
         if self.is_ket():
             perm = (perm, None)
         else:
             perm = (perm, perm)
-        return super(state, self).reorder(perm, inplace = inplace)
+        return super().reorder(perm, inplace = inplace)
 
 
 # physics methods
@@ -535,17 +536,17 @@ class state(lmap):
         """Expectation value of an observable in the state.
 
         Args:
-          A (array): hermitian observable
+            A (array): hermitian observable
         Returns:
-          float: expectation value of the observable A in the state
+            float: expectation value of the observable A in the state
         """
         # TODO for diagonal A, self.ev(A) == sum(A * self.prob())
         if self.is_ket():
             # state vector
-            x = vdot(self.data, dot(A, self.data))
+            x = np.vdot(self.data, A @ self.data)
         else:
             # state operator
-            x = trace(dot(A, self.data))
+            x = np.trace(A @ self.data)
         return x.real # .real for a Hermitian observable and valid state
 
 
@@ -553,24 +554,24 @@ class state(lmap):
         """Variance of an observable in the state.
 
         Args:
-          A (array): hermitian observable
+            A (array): hermitian observable
         Returns:
-          float: variance of the observable A in the state
+            float: variance of the observable A in the state
         """
-        return self.ev(A**2) - self.ev(A)**2
+        return self.ev(A @ A) - self.ev(A) ** 2
 
 
     def prob(self):
         """Measurement probabilities of the state in the computational basis.
 
         Returns:
-          vector[float]: vector of probabilities of finding a system in each of the different states of the computational basis
+            array[float]: vector of probabilities of finding a system in each of the different states of the computational basis
         """
         if self.is_ket():
             temp = self.data.ravel() # into 1D array
             return (temp * temp.conj()).real  # == np.absolute(self.data) ** 2
         else:
-            return diag(self.data).real # .real
+            return np.diag(self.data).real # .real
 
 
     def projector(self):
@@ -582,35 +583,37 @@ class state(lmap):
             raise ValueError('The state is not pure, and thus does not correspond to a projector.')
 
         s = self.to_op()
-        return lmap(s)
+        return Lmap(s)
 
 
     def u_propagate(self, U):
         """Propagate the state using a unitary.
 
-        Propagates the state using the unitary propagator U,
-        returns the resulting state.
-        """
-        # Ville Bergholm 2009-2010
+        Args:
+            U (array, Lmap): unitary propagator
 
-        if isinstance(U, lmap):
+        Returns:
+            State: propagated state
+        """
+        if isinstance(U, Lmap):
             if self.is_ket():
-                return state(U * self)
+                return State(U @ self)
             else:
-                return state(U * self * U.ctranspose())
+                return State((U @ self) @ U.ctranspose())
         elif isinstance(U, np.ndarray):
-            # U is a matrix, dims do not change. could also construct an lmap here...
+            # U is a matrix, dims do not change. could also construct an Lmap here...
             if self.is_ket():
-                return state(dot(U, self.data), self.dims())
+                return State(U @ self.data, self.dims())
             else:
-                return state(dot(dot(U, self.data), U.conj().transpose()), self.dims())
+                return State((U @ self.data) @ U.conj().transpose(), self.dims())
         else:
-            raise TypeError('States can only be propagated using lmaps and arrays.')
+            raise TypeError('States can only be propagated using Lmaps and arrays.')
 
 
     def propagate(self, G, t, out_func=lambda x, h: deepcopy(x), **kwargs):
         r"""Propagate the state continuously in time.
-        ::
+
+        .. code-block:: python
 
           propagate(H, t)                     Hamiltonian
           propagate(L, t)                     Liouvillian
@@ -619,34 +622,37 @@ class state(lmap):
         Propagates the state using the generator G for the time t,
         returns the resulting state.
 
+        Args:
+            G (array, callable, list[array]): generator, see below
+            t (float, array[float]): single time duration, or a vector of increasing time instants
+            out_func (callable): if given, for each time instance t return out_func(s(t), G(t)).
+
+        Keyword args are passed on to the ODE solver.
+
+        Returns:
+            State, list[State]: propagated state for each time instant given in t
+
         The generator G can either be a
 
         * Hamiltonian H: :math:`\text{out} = \exp(-i H t) \ket{s}` (or :math:`\exp(-i H t) \rho_s \exp(+i H t)`)
         * Liouvillian superoperator L: :math:`\text{out} = \text{inv\_vec}(\exp(L t) \text{vec}(\rho_s))`
         * list consisting of a Hamiltonian followed by Lindblad operators.
-        
+
         For time-dependent cases, G can be a function G(t) which takes a time instance t
         as input and returns the corresponding generator(s).
-
-        If t is a vector of increasing time instances, returns a list
-        containing the propagated state for each time given in t.
-
-        Optional parameters:
-        out_func: If given, for each time instance t returns out_func(s(t), G(t)).
-        Any unrecognized keyword args are passed on to the ODE solver.
         """
         # Ville Bergholm 2008-2011
         # James Whitfield 2009
 
         s = self._inplacer(False)
-        if isscalar(t):
+        if np.isscalar(t):
             t = [t]
-        t = asarray(t)
+        t = np.asarray(t)
         n = len(t) # number of time instances we are interested in
         out = []
         dim = s.data.shape[0]  # system dimension
 
-        if isinstance(G, types.FunctionType):
+        if callable(G):
             # time dependent
             t_dependent = True
             F = G
@@ -663,7 +669,7 @@ class state(lmap):
                 gen = 'H'  # Hamiltonian
             elif dim_H == dim ** 2:
                 gen = 'L'  # Liouvillian
-                s.to_op(inplace = True)
+                s.to_op(inplace=True)
             else:
                 raise ValueError('Dimension of the generator does not match the dimension of the state.')
         elif isinstance(H, list):
@@ -675,7 +681,7 @@ class state(lmap):
 
                 # HACK, in this case we use an ODE solver anyway
                 if not t_dependent:
-                    t_dependent = True 
+                    t_dependent = True
                     F = lambda t: H  # ops stay constant
             else:
                 raise ValueError('Dimension of the Lindblad ops does not match the dimension of the state.')
@@ -692,7 +698,7 @@ class state(lmap):
             # H, ket
             def pure_fun(t, y, F):
                 "Derivative of a pure state, Hamiltonian."
-                return -1j * dot(F(t), y)
+                return -1j * (F(t) @ y)
             def pure_jac(t, y, F):
                 "Jacobian of a pure state, Hamiltonian."
                 return -1j * F(t)
@@ -703,19 +709,19 @@ class state(lmap):
                 H = -1j * F(t)
                 if y.ndim == 1:
                     rho = inv_vec(y, dim)  # into a matrix
-                    return vec(dot(H, rho) - dot(rho, H)) # back into a vector
+                    return vec(H @ rho - rho @ H) # back into a vector
                 else:
-                    # vectorization, rows of y 
-                    d = empty(y.shape, complex)
+                    # vectorization, rows of y
+                    d = np.empty(y.shape, complex)
                     for k in range(len(y)):
                         rho = inv_vec(y[k], dim) # into a matrix
-                        d[k] = vec(dot(H, rho) - dot(rho, H)) # back into a vector
+                        d[k] = vec(H @ rho - rho @ H) # back into a vector
                     return d
 
             # L, state op, same as the H/ket ones, only without the -1j
             def liouvillian_fun(t, y, F):
                 "Derivative of a state, Liouvillian."
-                return dot(F(t), y)
+                return F(t) @ y
             def liouvillian_jac(t, y, F):
                 "Jacobian of a state, Liouvillian."
                 return F(t)
@@ -728,20 +734,20 @@ class state(lmap):
                 Lind = X[1:]   # Lindblad ops
                 if y.ndim == 1:
                     rho = inv_vec(y, dim)  # into a matrix
-                    temp = dot(H, rho) - dot(rho, H)
+                    temp = H @ rho - rho @ H
                     for A in Lind:
-                        ac = 0.5 * dot(A.conj().transpose(), A)
-                        temp += dot(dot(A, rho), A.conj().transpose()) -dot(ac, rho) -dot(rho, ac)
+                        ac = 0.5 * (A.conj().transpose() @ A)
+                        temp += (A @ rho) @ A.conj().transpose() -ac @ rho -rho @ ac
                     return vec(temp) # back into a vector
                 else:
                     # vectorization, rows of y
-                    d = empty(y.shape, complex)
+                    d = np.empty(y.shape, complex)
                     for k in range(len(y)):
                         rho = inv_vec(y[k], dim)  # into a matrix
-                        temp = dot(H, rho) - dot(rho, H)
+                        temp = H @ rho - rho @ H
                         for A in Lind:
-                            ac = 0.5 * dot(A.conj().transpose(), A)
-                            temp += dot(dot(A, rho), A.conj().transpose()) -dot(ac, rho) -dot(rho, ac)
+                            ac = 0.5 * (A.conj().transpose() @ A)
+                            temp += (A @ rho) @ A.conj().transpose() -ac @ rho -rho @ ac
                         d[k] = vec(temp)  # back into a vector
                     return d
 
@@ -769,7 +775,7 @@ class state(lmap):
             odeopts.update(kwargs) # user options
 
             # run the solver
-            r = ode(func, jac).set_integrator('zvode', **odeopts)
+            r = sp.integrate.ode(func, jac).set_integrator('zvode', **odeopts)
             r.set_initial_value(vec(s.data), 0.0).set_f_params(F).set_jac_params(F)
             for k in t:
                 r.integrate(k)  # times must be in increasing order, NOT include zero(!)
@@ -786,7 +792,7 @@ class state(lmap):
                     d, v = eigh(H)
                     for k in t:
                         # propagator
-                        U = dot(dot(v, diag(exp(-1j * k * d))), v.conj().transpose())
+                        U = (v @ np.diag(np.exp(-1j * k * d))) @ v.conj().transpose()
                         out.append(out_func(s.u_propagate(U), H))
                 else:
                     # Krylov subspace method
@@ -824,7 +830,7 @@ class state(lmap):
             "Check if E represents a physical quantum operation."
             temp = 0
             for k in E:
-                temp += dot(k.conj().transpose(), k)
+                temp += k.conj().transpose() @ k
             if norm(temp.data - np.eye(temp.shape)) > tol:
                 _warn('Unphysical quantum operation.')
 
@@ -833,7 +839,7 @@ class state(lmap):
                 return self.u_propagate(E[0]) # remains a pure state
 
         s = self.to_op()
-        q = state(zeros(s.data.shape, complex), s.dims())
+        q = state(np.zeros(s.data.shape, complex), s.dims())
         for k in E:
             q += s.u_propagate(k)
         return q
@@ -874,13 +880,13 @@ class state(lmap):
 
         (p, res) = measure(...) additionally returns the index of the result of the
         measurement, res, chosen at random from the probability distribution p.
- 
+
         (p, res, c) = measure(..., do='C') additionally gives c, the collapsed state
         corresponding to the measurement result res.
         """
         def rand_measure(p):
             """Result of a random measurement using the prob. distribution p."""
-            return nonzero(rand() <= cumsum(p))[0][0]
+            return np.nonzero(rand() <= np.cumsum(p))[0][0]
 
         perform = True
         collapse = False
@@ -894,19 +900,19 @@ class state(lmap):
 
         if M is None:
             # full measurement in the computational basis
-            p = self.prob()  # probabilities 
+            p = self.prob()  # probabilities
             if perform:
                 res = rand_measure(p)
                 if collapse:
                     s = state(res, d) # collapsed state
 
         elif isinstance(M, np.ndarray):
-            # M is a matrix TODO lmap?
+            # M is a matrix TODO Lmap?
             # measure the given Hermitian observable
             a, P = spectral_decomposition(M)
             m = len(a)  # number of possible results
 
-            p = zeros((m, 2))
+            p = np.zeros((m, 2))
             for k in range(m):
                 p[k, 0] = self.ev(P[k])  # probabilities
             p[:, 1] = a  # corresponding measurement results
@@ -918,15 +924,15 @@ class state(lmap):
                     ppp = P[res]  # Hermitian projector
                     s = deepcopy(self)
                     if self.is_ket():
-                        s.data = dot(ppp, s.data) / sqrt(p[res, 0])
+                        s.data = (ppp @ s.data) / np.sqrt(p[res, 0])
                     else:
-                        s.data = dot(dot(ppp, s.data), ppp) / p[res, 0]
+                        s.data = ((ppp @ s.data) @ ppp) / p[res, 0]
 
         elif isinstance(M, (list, tuple)):
             if isinstance(M[0], numbers.Number):
                 # measure a set of subsystems in the computational basis
                 sys = self.clean_selection(M)
-                d = array(d)
+                d = np.array(d)
 
                 # dimensions of selected subsystems and identity ops between them
                 # TODO sequential measured subsystems could be concatenated as well
@@ -934,33 +940,33 @@ class state(lmap):
                 pdims = []
                 start = 0  # first sys not yet included
                 for k in sys:
-                    pdims.append(prod(d[start:k])) # identity
+                    pdims.append(np.prod(d[start:k])) # identity
                     pdims.append(d[k]) # selected subsys
                     start = k+1
 
-                pdims.append(prod(d[start:])) # last identity
+                pdims.append(np.prod(d[start:])) # last identity
 
-                # index multipliers 
+                # index multipliers
                 muls = index_muls(d[sys])
                 # now muls == [..., d_s{q-1}*d_s{q}, d_s{q}, 1]
 
-                m = muls[0] * d[sys][0] # number of possible results == prod(d[sys])
+                m = muls[0] * d[sys][0] # number of possible results == np.prod(d[sys])
 
                 def build_stencil(j, q, pdims, muls):
                     """Projector to state j (diagonal because we project into the computational basis)"""
-                    stencil = ones(pdims[0]) # first identity
+                    stencil = np.ones(pdims[0]) # first identity
                     for k in range(q):
                         # projector for system k
-                        temp = zeros(pdims[2*k + 1])
+                        temp = np.zeros(pdims[2*k + 1])
                         temp[int(j / muls[k]) % pdims[2*k + 1]] = 1
-                        stencil = kron(kron(stencil, temp), ones(pdims[2*k + 2])) # temp + next identity
+                        stencil = np.kron(np.kron(stencil, temp), np.ones(pdims[2*k + 2])) # temp + next identity
                     return stencil
 
                 # sum the probabilities
-                p = zeros(m)
+                p = np.zeros(m)
                 born = self.prob()
                 for j in range(m):
-                    p[j] = dot(build_stencil(j, q, pdims, muls), born)
+                    p[j] = build_stencil(j, q, pdims, muls) @ born
 
                 if perform:
                     res = rand_measure(p)
@@ -973,16 +979,16 @@ class state(lmap):
                             # discard the measured subsystems from s
                             d = np.delete(d, sys)
                             keep = (R == 1)  # indices of elements to keep
-        
+
                             if self.is_ket():
-                                s.data = s.data[keep] / sqrt(p[res])
+                                s.data = s.data[keep] / np.sqrt(p[res])
                             else:
                                 s.data = s.data[:, keep][keep, :] / p[res]
 
-                            s = state(s.data, d)
+                            s = State(s.data, d)
                         else:
                             if self.is_ket():
-                                s.data = R.reshape(-1, 1) * s.data / sqrt(p[res]) # collapsed state
+                                s.data = R.reshape(-1, 1) * s.data / np.sqrt(p[res]) # collapsed state
                             else:
                                 s.data = np.outer(R, R) * s.data / p[res] # collapsed state, HACK
             else:
@@ -990,21 +996,21 @@ class state(lmap):
                 m = len(M)
 
                 # probabilities
-                p = zeros(m)
+                p = np.zeros(m)
                 for k in range(m):
-                    p[k] = self.ev(dot(M[k].conj().transpose(), M[k]))  #  M^\dagger M  is Hermitian
+                    p[k] = self.ev(M[k].conj().transpose() @ M[k])  #  M^\dagger M  is Hermitian
                     # TODO for kets, this is slightly faster:
-                    #temp = dot(M[k], self.data)
-                    #p[k] = vdot(temp, temp)
+                    #temp = M[k] @ self.data
+                    #p[k] = np.vdot(temp, temp)
 
                 if perform:
                     res = rand_measure(p)
                     if collapse:
                         s = deepcopy(self)
                         if self.is_ket():
-                            s.data = dot(M[res], s.data) / sqrt(p[res])
+                            s.data = (M[res] @ s.data) / np.sqrt(p[res])
                         else:
-                            s.data = dot(dot(M[res], s.data), M[res].conj().transpose()) / p[res]
+                            s.data = ((M[res] @ s.data) @ M[res].conj().transpose()) / p[res]
         else:
             raise ValueError('Unsupported input type.')
         if collapse:
@@ -1029,6 +1035,8 @@ class state(lmap):
 
         .. todo:: Uhlmann's theorem, Bures metric, monotonicity under TP maps
 
+        .. todo:: quantiki defines fidelity as NC-fidelity^2
+
         Args:
           r (state): another state
         Returns:
@@ -1036,20 +1044,20 @@ class state(lmap):
         References:
           :cite:`NC`, chapter 9.2.2.
         """
-        if not isinstance(r, state):
+        if not isinstance(r, State):
             raise TypeError('Not a state.')
 
         if self.is_ket():
             if r.is_ket():
-                return abs(vdot(self.data, r.data))
+                return abs(np.vdot(self.data, r.data))
             else:
-                return sqrt(vdot(self.data, dot(r.data, self.data)).real)
+                return np.sqrt(np.vdot(self.data, r.data @ self.data).real)
         else:
             if r.is_ket():
-                return sqrt(vdot(r.data, dot(self.data, r.data)).real)
+                return np.sqrt(np.vdot(r.data, self.data @ r.data).real)
             else:
                 temp = sqrtm(self.data)
-                return trace(sqrtm(dot(dot(temp, r.data), temp))).real
+                return np.trace(sqrtm((temp @ r.data) @ temp)).real
 
 
     def trace_dist(self, r):
@@ -1064,13 +1072,15 @@ class state(lmap):
         .. todo:: stuff in NC
 
         Args:
-          r (state): another state
+            r (state): another state
+
         Returns:
-          float: Trace distance between r and the state itself.
+            float: Trace distance between r and the state itself.
+
         References:
-          :cite:`NC`, chapter 9.2.1.
+            :cite:`NC`, chapter 9.2.1.
         """
-        if not isinstance(r, state):
+        if not isinstance(r, State):
             raise TypeError('Not a state.')
 
         # avoid copying state ops since we just do read-only stuff here
@@ -1079,7 +1089,7 @@ class state(lmap):
 
         A = R.data - S.data
         return 0.5 * sum(abs(eigvalsh(A)))
-        #return 0.5*trace(sqrtm(A'*A))
+        #return 0.5*np.trace(sqrtm(A'*A))
 
 
 
@@ -1105,11 +1115,11 @@ class state(lmap):
           sys (Sequence[int]): subsystem indices
           full (bool): if True, returns also the Schmidt bases u and v
         Returns:
-          vector[float]: Schmidt coefficients
+          array[float]: Schmidt coefficients
         References:
           :cite:`NC`, chapter 2.5.
         """
-        dim = array(self.dims())
+        dim = np.array(self.dims())
         n = self.subsystems()
 
         if sys is None:
@@ -1127,9 +1137,9 @@ class state(lmap):
         # complement of sys, dimensions of the partitions
         sys = s.clean_selection(sys)
         compl = s.invert_selection(sys)
-        d1 = prod(dim[sys])
-        d2 = prod(dim[compl])
-        perm = r_[sys, compl]
+        d1 = np.prod(dim[sys])
+        d2 = np.prod(dim[compl])
+        perm = np.r_[sys, compl]
 
         if all(perm == range(n)):
             # nothing to do
@@ -1179,7 +1189,7 @@ class state(lmap):
         else:
             # Von Neumann entropy
             p[p == 0] = 1   # avoid trouble with the logarithm
-            return -dot(p, np.log2(p))
+            return -p @ np.log2(p)
 
 
     def concurrence(self, sys=None):
@@ -1209,33 +1219,33 @@ class state(lmap):
             # pure state
             #n = len(dim)
             rho_A = self.ptrace(self.invert_selection(sys)) # trace over everything but sys
-            return 2 * sqrt(det(rho_A.data).real) # = sqrt(2*(1-real(trace(temp*temp)))), .real
+            return 2 * np.sqrt(det(rho_A.data).real) # = np.sqrt(2*(1-real(trace(temp*temp)))), .real
 
         # concurrence between two qubits
-        if self.subsystems() != 2 or any(dim != array([2, 2])):
+        if self.subsystems() != 2 or any(dim != np.array([2, 2])):
             # not a two-qubit state
             raise ValueError('Not a two-qubit state.')
 
-        X = kron(sy, sy)
+        W = np.kron(sy, sy)
         p = self.data
         if self.is_ket():
             # ket
-            return abs(dot(dot(p.transpose(), X), p))
+            return abs((p.transpose() @ W) @ p)
 
             # find the coefficients a of the state ket in the magic base
             # phi+-, psi+-,  = triplet,singlet
-            #bell = [1 i 0 0 0 0 i 1 0 0 i -1 1 -i 0 0]/sqrt(2)
+            #bell = [1 i 0 0 0 0 i 1 0 0 i -1 1 -i 0 0]/np.sqrt(2)
             #a = bell'*p
             #C = abs(sum(a ** 2))
         else:
             # state operator
-            temp = dot(p, X)  # X.conj() == X so this works
-            temp = dot(temp, temp.conj())  # == p * X * conj(p) * X
+            temp = p @ W  # W.conj() == W so this works
+            temp = temp @ temp.conj()  # == p * W * conj(p) * W
             if abs(self.purity() - 1) > tol:
-                L = sqrt(sort(np.linalg.eigvals(temp).real)[::-1]).real  # .real?
+                L = np.sqrt(np.sort(np.linalg.eigvals(temp).real)[::-1]).real  # .real?
                 return max(0, L[1] -L[2] -L[3] -L[4])
             else:
-                return sqrt(trace(temp).real) # same formula as for state vecs, .real?
+                return np.sqrt(np.trace(temp).real) # same formula as for state vecs, .real?
 
 
     def negativity(self, sys):
@@ -1270,7 +1280,7 @@ class state(lmap):
         Args:
           m (int): partition size
         Returns:
-          vector[float]: Terms of the Scott entanglement measure of the system for the given partition size.
+          array[float]: Terms of the Scott entanglement measure of the system for the given partition size.
           When m = 1 this is coincides with the Meyer-Wallach entanglement measure.
         References:
           :cite:`Love`, :cite:`Scott`, :cite:`MW`.
@@ -1290,13 +1300,13 @@ class state(lmap):
         N = sp.misc.comb(n, m, exact=True)
         C = (D**m / (D**m - 1)) / N  # normalization
 
-        Q = empty((N,))
+        Q = np.empty((N,))
         # Loop over all m-combinations of n subsystems, trace over everything except them.
         # reversed() fixes the order since we are actually looping over the complements.
         for k, sys in enumerate(reversed(list(itertools.combinations(range(n), n-m)))):
             temp = self.ptrace(sys)  # trace over everything except S_k
             # NOTE: For pure states, tr(\rho_S^2) == tr(\rho_{\bar{S}}^2)
-            temp = 1 - trace(np.linalg.matrix_power(temp.data, 2))
+            temp = 1 - np.trace(np.linalg.matrix_power(temp.data, 2))
             Q[k] = C * temp.real
         return Q
 
@@ -1331,7 +1341,7 @@ class state(lmap):
 
 
 
-    def plot(self, symbols=3):
+    def plot(self, fig=None, symbols=3):
         """State tomography plot.
 
         Plots the probabilities of finding a system in this state
@@ -1340,7 +1350,10 @@ class state(lmap):
 
         If the state is nonpure, also plots the coherences using a 3D bar plot.
 
+        .. todo:: Matplotlib 2.0 handles 2d and 3d axes differently, so just passing an Axes instance won't work, hence Figure
+
         Args:
+          fig (Figure): figure to plot the state into
           symbols (int): how many subsystem labels to show in the tickmarks
         Returns:
           Axes, Axes3D: the plot
@@ -1354,20 +1367,17 @@ class state(lmap):
         # prepare labels
         m = min(n, symbols)  # at most three symbols
         d = dim[:m]
-        nd = prod(d)
+        nd = np.prod(d)
         rest = '0' * (n-m) # the rest is all zeros
         ticklabels = []
         for k in range(nd):
             temp = array_to_numstr(np.unravel_index(k, d))
             ticklabels.append(temp + rest)
 
-        ntot = prod(dim)
+        ntot = np.prod(dim)
         skip = ntot / nd  # only every skip'th state gets a label to avoid clutter
-        ticks = r_[0 : ntot : skip]
-
+        ticks = np.r_[0 : ntot : skip]
         N = self.data.shape[0]
-        fig = plt.gcf()
-        fig.clf() # clear the figure
 
         # color normalization
         nn = colors.Normalize(vmin=-1, vmax=1, clip=True)
@@ -1390,12 +1400,12 @@ class state(lmap):
                 bars[b].set_facecolor(colormapper.to_rgba(c[b]))
 
             # add a colorbar
-            cb = fig.colorbar(colormapper, ax = ax, ticks = linspace(-1, 1, 5))
+            cb = fig.colorbar(colormapper, ax = ax, ticks = np.linspace(-1, 1, 5))
             cb.ax.set_yticklabels([r'$-\pi$', r'$-\pi/2$', '0', r'$\pi/2$', r'$\pi$'])
 
             # the way it should work (using np.broadcast, ScalarMappable)
             #bars = ax.bar(range(N), s.prob(), color=c, cmap=cm.hsv, norm=whatever, align='center')
-            #cb = fig.colorbar(bars, ax = ax, ticks = linspace(-1, 1, 5))
+            #cb = fig.colorbar(bars, ax = ax, ticks = np.linspace(-1, 1, 5))
 
             ax.set_xlabel('Basis state')
             ax.set_ylabel('Probability')
@@ -1410,20 +1420,20 @@ class state(lmap):
 
             width = 0.6  # bar width
             temp = np.arange(-width/2, N-1) # center the labels
-            x, y = meshgrid(temp, temp[::-1])
+            x, y = np.meshgrid(temp, temp[::-1])
             x = x.ravel()
             y = y.ravel()
             z = abs(self.data.ravel())
             pcol = ax.bar3d(x, y, 0, width, width, z, edgecolors='k', norm=nn, cmap=cm.hsv)
             # now the colors
-            pcol.set_array(kron(c.ravel(), (1,)*6))  # six faces per bar
+            pcol.set_array(np.kron(c.ravel(), (1,)*6))  # six faces per bar
 
             # the way it should work (using np.broadcast, ScalarMappable)
-            #x, y = meshgrid(temp, temp)
+            #x, y = np.meshgrid(temp, temp)
             #pcol = ax.bar3d(x, y, 0, width, width, abs(self.data), color=c, cmap=cm.hsv, norm=whatever, align='center')
 
             # add a colorbar
-            cb = fig.colorbar(pcol, ax = ax, ticks = linspace(-1, 1, 5))
+            cb = fig.colorbar(pcol, ax = ax, ticks = np.linspace(-1, 1, 5))
             cb.ax.set_yticklabels([r'$-\pi$', r'$-\pi/2$', '0', r'$\pi/2$', r'$\pi$'])
 
             ax.set_xlabel('Col state')
@@ -1469,9 +1479,9 @@ class state(lmap):
         a = []
         for g in G:
             a.append(self.ev(g))
-        a = array(a) * sqrt(prod(dim)) # to match the usual Bloch vector normalization
+        a = np.array(a) * np.sqrt(np.prod(dim)) # to match the usual Bloch vector normalization
         # into an array, one dimension per subsystem
-        return a.reshape(array(dim) ** 2)
+        return a.reshape(np.array(dim) ** 2)
 
 
 
@@ -1495,7 +1505,7 @@ class state(lmap):
                 temp.append(k.to_op())
             arg = temp
 
-        return state(lmap_tensor(*arg))
+        return State(lmap.tensor(*arg))
 
 
     @staticmethod
@@ -1519,16 +1529,16 @@ class state(lmap):
         where D = prod(dim). For valid states norm(A, 'fro') <= sqrt(D).
         """
         if dim is None:
-            dim = tuple(sqrt(A.shape).astype(int))  # s == dim ** 2
+            dim = tuple(np.sqrt(A.shape).astype(int))  # s == dim ** 2
 
         G = tensorbasis(dim)
-        d = prod(dim)
-        rho = zeros((d, d), complex)
+        d = np.prod(dim)
+        rho = np.zeros((d, d), dtype=complex)
         for k, a in enumerate(A.flat):
             rho += a * G[k]
 
-        C = 1/sqrt(d) # to match the usual Bloch vector normalization
-        return state(C * rho, dim)
+        C = 1/np.sqrt(d) # to match the usual Bloch vector normalization
+        return State(C * rho, dim)
 
 
 # named states
@@ -1575,7 +1585,7 @@ class state(lmap):
         #alpha = (d*temp +1) / (temp +d)
         #rho = (I -alpha*S) / (d * (d -alpha))
         rho = p * (I+S)/(d*(d+1)) +(1-p) * (I-S)/(d*(d-1))
-        return state(rho)
+        return State(rho)
 
 
     @staticmethod
@@ -1609,11 +1619,11 @@ class state(lmap):
         Isotropic states are partial-transpose dual to :func:`Werner states<werner>`.
         """
         cup = copydot(0, 2, d)
-        cup_proj = cup * cup.ctranspose() / d
+        cup_proj = cup @ cup.ctranspose() / d
         I = id([d, d])
 
         rho = p * cup_proj +(1-p) * (I -cup_proj) / (d**2 -1)
-        return state(rho)
+        return State(rho)
 
 
 # wrappers

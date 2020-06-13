@@ -101,7 +101,7 @@ class TestGate:
         S = gate.swap(*dim)
         # swap' * swap = I
         # FIXME with scipy 0.16 we'll have norm for sparse arrays
-        assert norm((S.ctranspose() * S -I).data.A) == pytest.approx(0, abs=tol)
+        assert norm((S.ctranspose() @ S -I).data.A) == pytest.approx(0, abs=tol)
 
 
     @pytest.mark.skip

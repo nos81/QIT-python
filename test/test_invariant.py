@@ -13,7 +13,7 @@ from qit.base import sx
 from qit.utils import rand_U, rand_positive, rand_GL
 import qit.gate as gate
 import qit.invariant as qi
-from qit.state import state
+from qit.state import State
 
 
 @pytest.fixture(scope="module")
@@ -65,7 +65,7 @@ class TestInvariants:
     def test_LU(self, tol, L):
         """Local unitary invariants of states.
         """
-        rho = state(rand_positive(4), dim)
+        rho = State(rand_positive(4), dim)
         assert qi.LU(rho, 2, [(), ()]) == pytest.approx(1, abs=tol)  # trace of the state
         # invariance under LU maps
         perms = [(), (1,0)]
