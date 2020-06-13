@@ -60,7 +60,7 @@ class TestSeq:
         #import pdb;pdb.set_trace()
         # pi pulses only
         phi = 0
-        U = qit.utils.R_z(-np.pi / 3) @ seq.nmr([[-np.pi, phi]]).to_prop()
+        U = qit.utils.Rz(-np.pi / 3) @ seq.nmr([[-np.pi, phi]]).to_prop()
         V = seq.knill(phi).to_prop()
         assert norm(U - V) == pytest.approx(0, abs=tol)
 

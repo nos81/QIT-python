@@ -94,9 +94,9 @@ Miscellaneous
    cdot
    qubits
    R_nmr
-   R_x
-   R_y
-   R_z
+   Rx
+   Ry
+   Rz
 """
 # Ville Bergholm 2008-2020
 
@@ -117,7 +117,7 @@ __all__ = ['copy_memoize',
            'angular_momentum', 'boson_ladder', 'fermion_ladder',
            'spectral_decomposition',
            'gellmann', 'tensorbasis',
-           'R_nmr', 'R_x', 'R_y', 'R_z',
+           'R_nmr', 'Rx', 'Ry', 'Rz',
            'op_list', 'cdot',
            'qubits']
 
@@ -1035,7 +1035,7 @@ def R_nmr(theta, phi):
     return spl.expm(-1j * theta/2 * (np.cos(phi) * sx + np.sin(phi) * sy))
 
 
-def R_x(theta):
+def Rx(theta):
     r"""SU(2) x-rotation.
 
     One-qubit rotation about the x axis by the angle theta.
@@ -1051,7 +1051,7 @@ def R_x(theta):
     return np.array([[c, _js], [_js, c]])
 
 
-def R_y(theta):
+def Ry(theta):
     r"""SU(2) y-rotation.
 
     One-qubit rotation about the y axis by the angle theta.
@@ -1067,7 +1067,7 @@ def R_y(theta):
     return np.array([[c, -s], [s, c]])
 
 
-def R_z(theta):
+def Rz(theta):
     r"""SU(2) z-rotation.
 
     One-qubit rotation about the z axis by the angle theta.

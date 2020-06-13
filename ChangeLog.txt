@@ -136,3 +136,4 @@ b bugfix
               * unit tests now use pytest, more unit tests
               * Docstrings now use sphinx.ext.napoleon, math in the docs is rendered using MathJax
               * Classes renamed such that class names start with a capital letter
+              * SU(2) rotations renamed to Rx, Ry, Rz

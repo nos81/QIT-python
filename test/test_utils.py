@@ -38,9 +38,9 @@ def assertUnitary(U, tol):
 class TestUtils:
     def test_su2_rotations(self, tol):
         theta = 1.3372
-        assert R_x(theta) == pytest.approx(spl.expm(-1j * theta/2 * qit.sx), abs=tol)
-        assert R_y(theta) == pytest.approx(spl.expm(-1j * theta/2 * qit.sy), abs=tol)
-        assert R_z(theta) == pytest.approx(spl.expm(-1j * theta/2 * qit.sz), abs=tol)
+        assert Rx(theta) == pytest.approx(spl.expm(-1j * theta/2 * qit.sx), abs=tol)
+        assert Ry(theta) == pytest.approx(spl.expm(-1j * theta/2 * qit.sy), abs=tol)
+        assert Rz(theta) == pytest.approx(spl.expm(-1j * theta/2 * qit.sz), abs=tol)
 
 
     def test_expv(self, tol):

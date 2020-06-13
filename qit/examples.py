@@ -56,10 +56,9 @@ from matplotlib.pyplot import figure, subplots
 from matplotlib.gridspec import GridSpec
 from mpl_toolkits.mplot3d import Axes3D   # FIXME makes buggy 3d plotting work for some reason
 
-
 from .base import sx, sy, sz, p0, p1, tol
 from .lmap import Lmap, tensor, numstr_to_array
-from .utils import gcd, lcm, qubits, R_y, rand_U, rand_SU, mkron, boson_ladder
+from .utils import gcd, lcm, qubits, Ry, rand_U, rand_SU, mkron, boson_ladder
 from .state import State, fidelity
 from . import gate, ho, plot
 
@@ -206,6 +205,22 @@ def adiabatic_qc(H0, H1, s0, tmax=50):
         print('Which is not a solution!')
         if np.min(H1) > 0:
             print("(In this problem instance there aren't any.)")
+
+
+def animation():
+    """Create an animated plot.
+
+    TODO
+    """
+    from matplotlib.animation import FuncAnimation
+
+    def plot_func():
+        return artists
+
+    fig = figure()
+    anim = FuncAnimation(fig, plot_func, frames=frames, init_func=ifunc, fargs=fargs, interval=200)
+    #anim.save(filename)
+    fig.show()
 
 
 def bb84(n=50):
@@ -498,8 +513,8 @@ def markov_decoherence(T1=7e-10, T2=1e-9, B=None):
 
     # T2 demo
     s = state('0')
-    s = s.u_propagate(R_y(pi/2)) # rotate to (|0>+|1>)/sqrt(2)
-    out = s.propagate(L, t, lambda x, h: x.u_propagate(R_y(-pi/2)).ev(p0))
+    s = s.u_propagate(Ry(pi/2)) # rotate to (|0>+|1>)/sqrt(2)
+    out = s.propagate(L, t, lambda x, h: x.u_propagate(Ry(-pi/2)).ev(p0))
     axes[1].plot(t, out, 'r-', t, 0.5*(1+exp(-t/T2)), 'b-.', linewidth = 2)
     axes[1].set_xlabel('$t$ [TU]')
     axes[1].set_ylabel('probability')
@@ -885,7 +900,7 @@ def quantum_walk(steps=8, n=21, p=0.05, n_coin=2):
 
     if n_coin == 2:
         # coin flip operator
-        #C = R_x(pi / 2)
+        #C = Rx(pi / 2)
         C = H
         # shift operator: heads, move left; tails, move right
         S = kron(p0, left) +kron(p1, right)
