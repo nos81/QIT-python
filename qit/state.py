@@ -83,11 +83,10 @@ import numbers
 from copy import deepcopy
 
 import numpy as np
-from numpy.random import rand, randn
 import scipy as sp
 import scipy.sparse as sparse
 import scipy.integrate
-from scipy.linalg import norm, eigh, eigvalsh, sqrtm, svd, svdvals, det
+import scipy.linalg as spl
 
 
 from .base import sy, Q_Bell, tol
@@ -214,7 +213,7 @@ class State(Lmap):
                 else:
                     raise ValueError("Unknown named state '{}'.".format(name))
 
-                s /= norm(s) # normalize
+                s /= spl.norm(s) # normalize
 
             else:
                 # number string defining a standard basis ket
@@ -280,10 +279,10 @@ class State(Lmap):
             ok = False
 
         if not self.is_ket():
-            if norm(self.data - self.data.conj().transpose()) > tol:
+            if spl.norm(self.data - self.data.conj().transpose()) > tol:
                 _warn('State operator not Hermitian.')
                 ok = False
-            if min(eigvalsh(self.data)) < -tol:
+            if min(spl.eigvalsh(self.data)) < -tol:
                 _warn('State operator not semipositive.')
                 ok = False
 
@@ -357,7 +356,7 @@ class State(Lmap):
         """
         s = self._inplacer(inplace)
         if s.is_ket():
-            s.data /= norm(s.data)
+            s.data /= spl.norm(s.data)
         else:
             s.data /= np.trace(s.data)
         return s
@@ -789,7 +788,7 @@ class State(Lmap):
             if gen == 'H':
                 if dim_H < 500:
                     # eigendecomposition
-                    d, v = eigh(H)
+                    d, v = spl.eigh(H)
                     for k in t:
                         # propagator
                         U = (v @ np.diag(np.exp(-1j * k * d))) @ v.conj().transpose()
@@ -831,7 +830,7 @@ class State(Lmap):
             temp = 0
             for k in E:
                 temp += k.conj().transpose() @ k
-            if norm(temp.data - np.eye(temp.shape)) > tol:
+            if spl.norm(temp.data - np.eye(temp.shape)) > tol:
                 _warn('Unphysical quantum operation.')
 
         if self.is_ket():
@@ -886,7 +885,7 @@ class State(Lmap):
         """
         def rand_measure(p):
             """Result of a random measurement using the prob. distribution p."""
-            return np.nonzero(rand() <= np.cumsum(p))[0][0]
+            return np.nonzero(np.random.rand() <= np.cumsum(p))[0][0]
 
         perform = True
         collapse = False
@@ -1056,8 +1055,8 @@ class State(Lmap):
             if r.is_ket():
                 return np.sqrt(np.vdot(r.data, self.data @ r.data).real)
             else:
-                temp = sqrtm(self.data)
-                return np.trace(sqrtm((temp @ r.data) @ temp)).real
+                temp = spl.sqrtm(self.data)
+                return np.trace(spl.sqrtm((temp @ r.data) @ temp)).real
 
 
     def trace_dist(self, r):
@@ -1088,8 +1087,8 @@ class State(Lmap):
         R = r.to_op() if r.is_ket() else r
 
         A = R.data - S.data
-        return 0.5 * sum(abs(eigvalsh(A)))
-        #return 0.5*np.trace(sqrtm(A'*A))
+        return 0.5 * np.sum(np.abs(spl.eigvalsh(A)))
+        #return 0.5*np.trace(spl.sqrtm(A'*A))
 
 
 
@@ -1150,9 +1149,9 @@ class State(Lmap):
 
         # order the coefficients into a matrix, take an svd
         if not full:
-            return svdvals(s.data.reshape(d1, d2))
+            return spl.svdvals(s.data.reshape(d1, d2))
         else:
-            u, s, vh = svd(s.data.reshape(d1, d2), full_matrices = False)
+            u, s, vh = spl.svd(s.data.reshape(d1, d2), full_matrices = False)
             # note the definition of vh in svd
             return s, u, vh.transpose()
 
@@ -1182,10 +1181,10 @@ class State(Lmap):
         if s.is_ket():
             return 0
 
-        p = eigvalsh(s.data)
+        p = spl.eigvalsh(s.data)
         if alpha != 1:
             # Rényi entropy
-            return np.log2(sum(p ** alpha)) / (1 - alpha)
+            return np.log2(np.sum(p ** alpha)) / (1 - alpha)
         else:
             # Von Neumann entropy
             p[p == 0] = 1   # avoid trouble with the logarithm
@@ -1219,7 +1218,7 @@ class State(Lmap):
             # pure state
             #n = len(dim)
             rho_A = self.ptrace(self.invert_selection(sys)) # trace over everything but sys
-            return 2 * np.sqrt(det(rho_A.data).real) # = np.sqrt(2*(1-real(trace(temp*temp)))), .real
+            return 2 * np.sqrt(spl.det(rho_A.data).real) # = np.sqrt(2*(1-real(trace(temp*temp)))), .real
 
         # concurrence between two qubits
         if self.subsystems() != 2 or any(dim != np.array([2, 2])):
@@ -1259,8 +1258,8 @@ class State(Lmap):
           :cite:`Peres`, :cite:`Horodecki1`
         """
         s = self.ptranspose(sys)  # partial transpose the state
-        x = svdvals(s.data)  # singular values
-        return (sum(x) - 1) / 2
+        x = spl.svdvals(s.data)  # singular values
+        return (np.sum(x) - 1) / 2
 
 
     def lognegativity(self, sys):
@@ -1337,7 +1336,7 @@ class State(Lmap):
 
         s.ptrace(sys, inplace = True)
         t.ptrace(sys, inplace = True)
-        return majorize(eigvalsh(s.data), eigvalsh(t.data))
+        return majorize(spl.eigvalsh(s.data), spl.eigvalsh(t.data))
 
 
 
@@ -1423,14 +1422,14 @@ class State(Lmap):
             x, y = np.meshgrid(temp, temp[::-1])
             x = x.ravel()
             y = y.ravel()
-            z = abs(self.data.ravel())
+            z = np.abs(self.data.ravel())
             pcol = ax.bar3d(x, y, 0, width, width, z, edgecolors='k', norm=nn, cmap=cm.hsv)
             # now the colors
             pcol.set_array(np.kron(c.ravel(), (1,)*6))  # six faces per bar
 
             # the way it should work (using np.broadcast, ScalarMappable)
             #x, y = np.meshgrid(temp, temp)
-            #pcol = ax.bar3d(x, y, 0, width, width, abs(self.data), color=c, cmap=cm.hsv, norm=whatever, align='center')
+            #pcol = ax.bar3d(x, y, 0, width, width, np.abs(self.data), color=c, cmap=cm.hsv, norm=whatever, align='center')
 
             # add a colorbar
             cb = fig.colorbar(pcol, ax = ax, ticks = np.linspace(-1, 1, 5))

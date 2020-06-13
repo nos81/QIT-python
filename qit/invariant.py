@@ -76,7 +76,7 @@ def LU(rho, k, perms):
     r = r.flatten()
 
     # TODO this could be done much more efficiently
-    temp = lmap(rho.to_op().tensorpow(k))
+    temp = Lmap(rho.to_op().tensorpow(k))
     return temp.reorder((r, None)).trace()
 
 
@@ -217,7 +217,7 @@ def gate_adjoint_rep(U, dim, only_local=True):
     return W
 
 
-def gate_leakage(U, dim, Z, W):
+def gate_leakage(U, dim, Z=None, W=None):
     """Local degrees of freedom leaked by a unitary gate.
 
     Args:
@@ -233,13 +233,13 @@ def gate_leakage(U, dim, Z, W):
     #import pdb; pdb.set_trace()
     # generate the local part of \hat{U}
     ULL = gate_adjoint_rep(U, dim, only_local=True)
-    #M = ULL
-    M = W.T @ ULL @ Z
+    M = ULL
+    #M = W.T @ ULL @ Z
     u, s, vh = npl.svd(M, full_matrices=False)
-    _, ref, __ = npl.svd(ULL, full_matrices=False)
-    print(s, ref)
-    print(majorize(s, ref[:len(s)]))
-    return s
+    #_, ref, __ = npl.svd(ULL, full_matrices=False)
+    #print(s, ref)
+    #print(majorize(s, ref[:len(s)]))
+    return s, u, vh
 
 
 def plot_makhlin_2q(sdiv=31, tdiv=31):

@@ -503,10 +503,15 @@ class Lmap:
     def reorder_legs(self, perm, inplace=False):
         """Arbitrary reordering of Lmap input/output subsystems (tensor legs).
 
-        Returns a copy of the Lmap with permuted subsystem order.
+        Args:
+            perm (Iterable[Iterable[int]]): (t_1, t_2, ...) where t_i are sequences of nonnegative integers,
+                one for each Lmap index (normally two). Concatenated together the t_i must form a full permutation.
 
-        perm is (t_1, t_2, ...) where t_i are sequences of nonnegative integers, one for each Lmap index (normally two).
-        Concatenated together the t_i must form a full permutation.
+        Returns:
+            Lmap: copy of the Lmap with permuted leg order
+
+        Differs from :meth:`Lmap.reorder` in that :meth:`reorder_legs` also allows permuting
+        input legs into output legs and vice versa, i.e. there is just one big permutation for all the legs.
         """
         s = self._inplacer(inplace)
 
@@ -540,6 +545,7 @@ class Lmap:
 
         Args:
           perm (tuple[Sequence[int]]): 2-tuple of permutations of subsystem indices, (perm_out, perm_in)
+
         Returns:
           Lmap: Copy of the Lmap with permuted subsystem order.
 
