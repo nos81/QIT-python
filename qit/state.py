@@ -88,12 +88,13 @@ import scipy.sparse as sparse
 import scipy.integrate
 import scipy.linalg as spl
 
-
 from .base import sy, Q_Bell, tol
-from .lmap import numstr_to_array, array_to_numstr, Lmap
-from .utils import (_warn, vec, inv_vec, qubits, expv, rand_U, rand_SU, rand_positive, mkron, tensorsum,
-    eighsort, spectral_decomposition, majorize, tensorbasis)
-from .gate import id, swap, copydot
+import qit.lmap as lmap
+import qit.gate as gate
+from qit.lmap import Lmap
+from qit.utils import (_warn, vec, inv_vec, qubits, expv, rand_U, rand_SU, rand_positive, mkron, tensorsum,
+                       eighsort, spectral_decomposition, majorize, tensorbasis)
+
 
 
 __all__ = ['equal_dims', 'index_muls', 'State', 'fidelity', 'trace_dist']
@@ -222,7 +223,7 @@ class State(Lmap):
                     dim = qubits(n)  # assume they're qubits
 
                 # calculate the linear index
-                s = numstr_to_array(s)
+                s = lmap.numstr_to_array(s)
                 if any(s >= dim):
                     raise ValueError('Invalid basis ket.')
 
@@ -838,7 +839,7 @@ class State(Lmap):
                 return self.u_propagate(E[0]) # remains a pure state
 
         s = self.to_op()
-        q = state(np.zeros(s.data.shape, complex), s.dims())
+        q = State(np.zeros(s.data.shape, complex), s.dims())
         for k in E:
             q += s.u_propagate(k)
         return q
@@ -903,7 +904,7 @@ class State(Lmap):
             if perform:
                 res = rand_measure(p)
                 if collapse:
-                    s = state(res, d) # collapsed state
+                    s = State(res, d) # collapsed state
 
         elif isinstance(M, np.ndarray):
             # M is a matrix TODO Lmap?
@@ -1310,7 +1311,6 @@ class State(Lmap):
         return Q
 
 
-
     def locc_convertible(self, t, sys):
         """LOCC convertibility of states.
 
@@ -1337,7 +1337,6 @@ class State(Lmap):
         s.ptrace(sys, inplace = True)
         t.ptrace(sys, inplace = True)
         return majorize(spl.eigvalsh(s.data), spl.eigvalsh(t.data))
-
 
 
     def plot(self, fig=None, symbols=3):
@@ -1370,7 +1369,7 @@ class State(Lmap):
         rest = '0' * (n-m) # the rest is all zeros
         ticklabels = []
         for k in range(nd):
-            temp = array_to_numstr(np.unravel_index(k, d))
+            temp = lmap.array_to_numstr(np.unravel_index(k, d))
             ticklabels.append(temp + rest)
 
         ntot = np.prod(dim)
@@ -1483,8 +1482,6 @@ class State(Lmap):
         return a.reshape(np.array(dim) ** 2)
 
 
-
-
     def tensor(*arg):
         """Tensor product of states.
 
@@ -1549,7 +1546,7 @@ class State(Lmap):
           p (float): symmetric part weight, :math:`p \in [0,1]`
           d (int): dimension
         Returns:
-          ~qit.state.state: Werner state
+          State: Werner state
 
         For every :math:`d \ge 2`, Werner states :cite:`Werner` are a linear family of
         bipartite :math:`d \times d`  dimensional quantum states that are
@@ -1578,8 +1575,8 @@ class State(Lmap):
         with the parameter :math:`p' = \frac{2p-1}{d}`.
         """
         dim = (d, d)
-        S = swap(d, d)
-        I = id(dim)
+        S = gate.swap(d, d)
+        I = gate.id(dim)
         #temp = 1 -2*p
         #alpha = (d*temp +1) / (temp +d)
         #rho = (I -alpha*S) / (d * (d -alpha))
@@ -1595,7 +1592,7 @@ class State(Lmap):
           p (float): maximally entangled part weight, :math:`p \in [0,1]`
           d (int): dimension
         Returns:
-          state: isotropic state
+          State: isotropic state
 
         For every :math:`d \ge 2`, isotropic states :cite:`Werner` are a linear family of
         bipartite :math:`d \times d` dimensional quantum states that are
@@ -1617,9 +1614,9 @@ class State(Lmap):
 
         Isotropic states are partial-transpose dual to :func:`Werner states<werner>`.
         """
-        cup = copydot(0, 2, d)
+        cup = gate.copydot(0, 2, d)
         cup_proj = cup @ cup.ctranspose() / d
-        I = id([d, d])
+        I = gate.id([d, d])
 
         rho = p * cup_proj +(1-p) * (I -cup_proj) / (d**2 -1)
         return State(rho)
@@ -1628,10 +1625,10 @@ class State(Lmap):
 # wrappers
 
 def fidelity(s, t):
-    """Wrapper for state.fidelity."""
+    """Wrapper for :meth:`State.fidelity`."""
     return s.fidelity(t)
 
 
 def trace_dist(s, t):
-    """Wrapper for state.trace_dist."""
+    """Wrapper for :meth:`State.trace_dist`."""
     return s.trace_dist(t)

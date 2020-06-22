@@ -28,8 +28,8 @@ def U():
 
 
 dim = (2, 2)
-CNOT = gate.controlled(sx).data.todense()
-SWAP = gate.swap(*dim).data.todense()
+CNOT = gate.controlled(sx).data.A
+SWAP = gate.swap(*dim).data.A
 
 
 class TestInvariants:
