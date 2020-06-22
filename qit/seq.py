@@ -29,7 +29,7 @@ import scipy.optimize as spo
 from .base import sx, sy
 
 
-__all__ = ['seq', 'nmr', 'bb1', 'corpse', 'scrofulous', 'knill', 'dd', 'propagate']
+__all__ = ['Seq', 'nmr', 'bb1', 'corpse', 'scrofulous', 'knill', 'dd', 'propagate']
 
 
 

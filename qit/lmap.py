@@ -52,7 +52,7 @@ import numpy as np
 import scipy.sparse as sparse
 import scipy.sparse.linalg
 
-from .base import tol
+from qit.base import tol
 
 
 __all__ = ['numstr_to_array', 'array_to_numstr', 'Lmap', 'tensor']
@@ -192,12 +192,12 @@ class Lmap:
 
         #: tuple: 2-tuple of output and input dimension tuples, big-endian
         self.dim = []
-        for k in range(len(dim)):
-            if dim[k] is None or len(dim[k]) == 0:
+        for k, d in enumerate(dim):
+            if d is None or len(d) == 0:
                 # not specified, use default
                 self.dim.append(defdim[k])
             else:
-                self.dim.append(tuple(dim[k]))
+                self.dim.append(tuple(d))
         self.dim = tuple(self.dim)
 
         # check dimensions
@@ -292,8 +292,7 @@ class Lmap:
         """
         if inplace:
             return self
-        else:
-            return copy.deepcopy(self)
+        return copy.deepcopy(self)
 
 
     def remove_singletons(self):
@@ -478,7 +477,7 @@ class Lmap:
 
 
     def tensorpow(self, n):
-        """Tensor power of the Lmap.
+        r"""Tensor power of the Lmap.
 
         Args:
             n (int): number of copies of the Lmap to tensor together
@@ -520,7 +519,7 @@ class Lmap:
         # loop over partial permutations (one p per data array index)
         total_perm = []
         newdim = []
-        for k, p in enumerate(perm):
+        for p in perm:
             p = list(p)
             total_perm.extend(p)
             # reorder the dimensions vectors
@@ -534,7 +533,8 @@ class Lmap:
 
         s.dim = tuple(newdim)
         s.remove_singletons()
-        # tensor into another tensor which has one index per subsystem, permute dimensions, back into a tensor with the original number of indices
+        # tensor into another tensor which has one index per subsystem, permute dimensions,
+        # back into a tensor with the original number of indices
         final_d = map(np.prod, newdim)
         s.data = s.data.reshape(dims).transpose(total_perm).reshape(final_d)
         return s
@@ -590,7 +590,7 @@ class Lmap:
                 this_perm = np.array([0])
                 this_n = 1
             else:
-                this_dim  = np.array(s.dim[k])  # subsystem dims
+                this_dim = np.array(s.dim[k])  # subsystem dims
                 this_perm = np.array(this_perm) # requested permutation for this index
                 this_n = len(this_dim)  # number of subsystems
 
@@ -613,7 +613,8 @@ class Lmap:
             total_perm.extend(last_used_index + this_perm)
             last_used_index += this_n
 
-        # tensor into another tensor which has one index per subsystem, permute dimensions, back into a tensor with the original number of indices
+        # tensor into another tensor which has one index per subsystem, permute dimensions,
+        # back into a tensor with the original number of indices
         s.dim = tuple(newdim)
         s.data = s.data.reshape(total_d).transpose(total_perm).reshape(orig_d)
         return s
@@ -624,7 +625,7 @@ def tensor(*arg):
     """Tensor product of Lmaps."""
     data = 1
     dout = []
-    din  = []
+    din = []
     kron = np.kron
 
     for k in arg:
@@ -634,7 +635,7 @@ def tensor(*arg):
 
         # concatenate dimensions
         dout += k.dim[0]
-        din  += k.dim[1]
+        din += k.dim[1]
         # kronecker product of the data
         data = kron(data, k.data)
 
