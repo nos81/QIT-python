@@ -529,7 +529,7 @@ def markov_decoherence(T1=7e-10, T2=1e-9, B=None):
 
 
 
-def nmr_sequences(seqs=None, titles=None, strength_error=True):
+def nmr_sequences(seqs=None, strength_error=True):
     """NMR control sequences demo.
 
     Compares the performance of different single-qubit NMR control
@@ -540,18 +540,14 @@ def nmr_sequences(seqs=None, titles=None, strength_error=True):
     Reproduces fidelity plots in :cite:`Cummins`.
 
     Args:
-      seqs (Sequence[~seq.seq]): control sequences to compare
-      titles (Sequence[str]): names of the control sequences
+      seqs (Sequence[Seq]): control sequences to compare
       strength_error (bool): if True use a pulse strength error, otherwise use a pulse length error
     """
     # Ville Bergholm 2006-2018
     print('\n\n=== NMR control sequences for correcting systematic errors ===\n')
 
     if seqs is None:
-        seqs = [seq.nmr([[pi, 0]]), seq.corpse(pi), seq.scrofulous(pi), seq.bb1(pi), seq.knill()]
-        titles = [r'Plain $\pi$ pulse', 'CORPSE', 'SCROFULOUS', 'BB1', 'Knill']
-    elif titles is None:
-        titles = ['User-given seq'] * len(seqs)
+        seqs = [seq.nmr([[pi, 0]], name='Plain $\pi$ pulse'), seq.corpse(pi), seq.scrofulous(pi), seq.bb1(pi), seq.knill()]
 
     # Pulse length/timing errors also affect the drift term, pulse strength errors don't.
     if strength_error:
@@ -570,16 +566,16 @@ def nmr_sequences(seqs=None, titles=None, strength_error=True):
 
     fid = np.empty((ng, nf, len(seqs)))
 
-    def helper(fig, s_error, title):
+    def helper(ax, s_error, title):
         """Apply the sequence on the state psi, plot the evolution."""
         out, _ = seq.propagate(psi, s_error, out_func=State.bloch_vector)
-        fig.suptitle(title)
-        plot.state_trajectory(out, fig=fig)
+        plot.state_trajectory(out, ax=ax)
+        ax.set_title(title)
 
     # loop over the different sequences
     for k, ss in enumerate(seqs):
         fig = plt.figure()
-        fig.suptitle(titles[k])
+        fig.suptitle(ss.name)
         gs = GridSpec(2, 2)
         U = ss.to_prop()  # target propagator
         psi_target = [psi.u_propagate(U).bloch_vector()]  # target state
@@ -589,9 +585,9 @@ def nmr_sequences(seqs=None, titles=None, strength_error=True):
         # incorporated into the control sequence.
         #==================================================
         s_error = deepcopy(ss)
-        s_error.A = ss.A +0.1 * offres_A  # off-resonance error (constant \sigma_z drift term)
-        #ax = fig.add_subplot(2, 2, 1, projection='3d')
-        helper(fig, s_error, 'evolution, off-resonance error')
+        s_error.A = ss.A + 0.1 * offres_A  # off-resonance error (constant \sigma_z drift term)
+        ax = fig.add_subplot(gs[0, 0], projection='3d')
+        helper(ax, s_error, 'evolution, off-resonance error')
         #plot.state_trajectory(psi_target, reset=False, marker='')
 
         #==================================================
@@ -600,8 +596,8 @@ def nmr_sequences(seqs=None, titles=None, strength_error=True):
             s_error.control = ss.control * 1.1  # pulse strength error
         else:
             s_error.tau = ss.tau * 1.1  # pulse length error
-        ax = fig.add_subplot(2, 2, 3, projection='3d')
-        helper(fig, s_error, 'evolution, ' + error_type)
+        ax = fig.add_subplot(gs[1, 0], projection='3d')
+        helper(ax, s_error, 'evolution, ' + error_type)
 
         #==================================================
         s_error = deepcopy(ss)
@@ -623,12 +619,14 @@ def nmr_sequences(seqs=None, titles=None, strength_error=True):
 
         ax = fig.add_subplot(gs[:, 1])
         X, Y = np.meshgrid(f, g)
-        ax.contour(X, Y, 1-fid[:, :, k])
-        #ax.surf(X, Y, 1-fid)
+        ax.contour(X, Y, 1 - fid[:, :, k])
+        #ax.surf(X, Y, 1 - fid)
         ax.set_xlabel('Off-resonance error')
         ax.set_ylabel('Pulse length error')
         ax.set_title('fidelity')
         fig.show()
+
+    titles = [s.name for s in seqs]
 
     # horizontal and vertical slices through the error plane
     fig = plt.figure()
@@ -863,7 +861,7 @@ def quantum_channels(p=0.3):
     fig.suptitle('Bloch sphere evolution under one-qubit quantum channels')
     n = len(channels)
     gs = GridSpec(2, (n+1) // 2)
-    for k, (title, ch) in enumerate(channels):
+    for k, (title, ch) in enumerate(channels.items()):
         ax = fig.add_subplot(gs[k], projection='3d')
         present(ax, ch, title)
     fig.show()
@@ -1500,7 +1498,6 @@ def werner_states(d=2):
 def tour():
     """Guided tour to the quantum information toolkit.
     """
-
     print("""This is the guided tour for the Quantum Information Toolkit.
 It should be run in the interactive mode, 'ipython --pylab'.
 Between examples, press enter to proceed to the next one.""")
@@ -1509,7 +1506,7 @@ Between examples, press enter to proceed to the next one.""")
         input('Press enter.')
         #plt.waitforbuttonpress()
 
-    if 0:
+    if 1:
         # simple demos
         teleportation()
         pause()
@@ -1527,7 +1524,6 @@ Between examples, press enter to proceed to the next one.""")
         werner_states(3)
         pause()
 
-    if 1:
         # sequences and channels
         quantum_channels()
         pause()
@@ -1535,7 +1531,6 @@ Between examples, press enter to proceed to the next one.""")
         nmr_sequences()
         pause()
 
-    if 1:
         # algorithms
         bernstein_vazirani(6, linear=True)
         bernstein_vazirani(6, linear=False)
@@ -1555,7 +1550,6 @@ Between examples, press enter to proceed to the next one.""")
         shor_factorization(311 * 269, cheat=True)
         pause()
 
-    if 1:
         # simulations
         markov_decoherence(7e-10, 1e-9)
         pause()

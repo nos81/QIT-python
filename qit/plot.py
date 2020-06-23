@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Plotting functions (:mod:`qit.plot`)
 ====================================
@@ -28,9 +27,8 @@ Plotting utilities
 
 ----
 """
-# Ville Bergholm 2011-2018
+# Ville Bergholm 2011-2020
 
-from __future__ import division, absolute_import, print_function, unicode_literals
 from functools import wraps
 
 import numpy as np
@@ -111,7 +109,7 @@ def adiabatic_evolution(t, st, H_func, n=4):
     lowest = []
     for j in range(n):
         #j = ind[j]
-        lowest.append(state(v[:, -j-1]))
+        lowest.append(State(v[:, -j-1]))
     # TODO with degenerate states these are more or less random linear combinations of the basis states... overlaps are not meaningful
 
     energies = np.zeros((m, H.shape[0]))
@@ -269,7 +267,7 @@ def correlation_simplex(ax=None, labels='diagonal'):
     return ax, ind
 
 
-def state_trajectory(traj, reset=True, fig=None, color='b', marker=''):
+def state_trajectory(traj, reset=True, ax=None, color='b', marker=''):
     """Plot a state trajectory in the correlation representation.
 
     * For a single-qubit system, plots the trajectory in the Bloch sphere.
@@ -283,10 +281,10 @@ def state_trajectory(traj, reset=True, fig=None, color='b', marker=''):
     Args:
       traj (list[array], array): generalized Bloch vector of the quantum state, or a list of them representing a trajectory
       reset (bool):  if False, adds another trajectory to the axes without erasing .
-      fig (Figure): figure to plot in, or None in which case a new figure is created
+      ax (Axes): axes to plot in, or None in which case a new figure is created
 
     Returns:
-      Figure: figure containing the plot
+      Axes: axes containing the plot
 
     Example 1: Trajectory of the state `s` under the Hamiltonian `H`::
 
@@ -297,8 +295,9 @@ def state_trajectory(traj, reset=True, fig=None, color='b', marker=''):
 
       state_trajectory(s.bloch_vector())
     """
-    if fig is None:
+    if ax is None:
         fig = plt.figure()
+        ax = fig.add_subplot(111, projection='3d')
 
     def plot_traj(ax, A, ind):
         """Plots the trajectory formed by the correlations given in ind."""
@@ -320,9 +319,8 @@ def state_trajectory(traj, reset=True, fig=None, color='b', marker=''):
     if A.shape[1] == 4:
         # single qubit
         if reset:
-            ax = fig.add_subplot(111, projection='3d')
+            ax.clear()
             bloch_sphere(ax)
-        ax = fig.gca()
         plot_traj(ax, A, [1, 2, 3])
 
     elif A.shape[1] == 16:
@@ -360,7 +358,7 @@ def state_trajectory(traj, reset=True, fig=None, color='b', marker=''):
 
     else:
         raise ValueError('At the moment only plots one- and two-qubit trajectories.')
-    return fig
+    return ax
 
 
 def pcolor(ax, W, x, y, clim=(0, 1), cmap=None):

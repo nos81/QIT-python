@@ -429,7 +429,7 @@ def wigner(rho, alpha=None, *, res=(20, 20), lim=(-2, 2, -2, 2), method=0):
     else:
         return_ab = False
 
-    n = np.prod(s.dims())
+    n = np.prod(rho.dims())
     W = np.empty(alpha.shape)
     # parity operator (diagonal)
     P = np.ones(n)
@@ -438,7 +438,7 @@ def wigner(rho, alpha=None, *, res=(20, 20), lim=(-2, 2, -2, 2), method=0):
 
     if method == 0:
         for k, c in enumerate(alpha.flat):
-            temp = s.u_propagate(displace(-c, n))
+            temp = rho.u_propagate(displace(-c, n))
             W.flat[k] = np.sum(P * temp.prob().real) # == ev(temp, P).real
     else:
         # TODO new faster method
@@ -446,7 +446,7 @@ def wigner(rho, alpha=None, *, res=(20, 20), lim=(-2, 2, -2, 2), method=0):
             temp = np.empty((n,), dtype=complex)
             for y in range(n):
                 for w in range(n):
-                    temp[y] = xxxx(y, w, -c) * s.data[w,0]
+                    temp[y] = xxxx(y, w, -c) * rho.data[w,0]
             temp = State(temp)
             W.flat[k] = np.sum(P * temp.prob().real)
 

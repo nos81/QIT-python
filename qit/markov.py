@@ -751,7 +751,7 @@ def lindblad_ops(H, D, B):
     a sequence of the corresponding interaction operators.
     """
     # Ville Bergholm 2009-2016
-    _check_baths(B)
+    B = _check_baths(B)
 
     # jump ops
     dH, X = ops(H, D)
@@ -789,8 +789,8 @@ def superop(H, D, B):
 
     Args:
         H (array[complex]): system Hamiltonian
-        D (array[complex]): Hermitian interaction operator
-        B (MarkovianBath): bath instance
+        D (array[complex], Sequence[array[complex]]): Hermitian interaction operator
+        B (MarkovianBath, Sequence[MarkovianBath]): bath instance
 
     Returns:
         array[complex]: Liouvillian superoperator
@@ -806,7 +806,7 @@ def superop(H, D, B):
     a sequence of the corresponding interaction operators.
     """
     # Ville Bergholm 2009-2016
-    _check_baths(B)
+    B = _check_baths(B)
 
     # jump ops
     dH, X = ops(H, D)

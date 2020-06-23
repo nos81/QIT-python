@@ -40,6 +40,7 @@ class Seq:
     Args:
         tau (array[float]): durations of the time slices
         control (array[float]): ``control[i, j]`` is the value of control field j during time slice i. ``shape == (len(tau), len(B))``.
+        name (str): name of the sequence
 
     The total generator for the time slice j is given by
 
@@ -53,14 +54,16 @@ class Seq:
 
       P_j = \exp(\tau_j G_j).
     """
-    def __init__(self, tau=None, control=None):
+    def __init__(self, tau=None, control=None, name=''):
         # construct the sequence
         if tau is None:
             tau = []
         if control is None:
             control = np.zeros((0, 2))
 
-        #: array: Drift generator (typically :math:`-1j/\hbar` times a Hamiltonian and a time unit of your choice).
+        #: str: name of the sequence
+        self.name = name
+        #: array: drift generator (typically :math:`-i/\hbar` times a Hamiltonian and a time unit of your choice)
         self.A = np.zeros((2, 2), dtype=complex)
         #: list[array]: control generators
         self.B = [-0.5j * sx, -0.5j * sy]
@@ -69,9 +72,9 @@ class Seq:
         #: array[float]: control field values for each time slice
         self.control = np.asarray(control)
 
-    def __repr__(self):
+    def __str__(self):
         # prettyprint the object
-        out = 'Control sequence\n'
+        out = 'Control sequence {}\n'.format(self.name)
         out += 'tau: ' + repr(self.tau) +'\n'
         out += 'control: ' + repr(self.control)
         return out
@@ -111,11 +114,12 @@ class Seq:
         return P
 
 
-def nmr(a):
+def nmr(a, name=''):
     r"""Convert a sequence of NMR-style rotations into a one-qubit control sequence.
 
     Args:
         a (array_like): sequence of one-qubit rotations using the NMR notation: :math:`[[\theta_1, \phi_1], [\theta_2, \phi_2], ...]`
+        name (str): name of the sequence
 
     Each :math:`\theta, \phi` pair corresponds to a NMR rotation
     of the form :math:`\theta_\phi`,
@@ -138,7 +142,7 @@ def nmr(a):
     rows = np.nonzero(theta < 0)[0]
     theta[rows] = -theta[rows]
     phi[rows] = phi[rows] + np.pi
-    return Seq(theta, np.c_[np.cos(phi), np.sin(phi)])
+    return Seq(theta, np.c_[np.cos(phi), np.sin(phi)], name=name)
 
 
 def bb1(theta, phi=0, location=0.5):
@@ -161,7 +165,7 @@ def bb1(theta, phi=0, location=0.5):
 
     ph1 = np.arccos(-theta / (4*np.pi))
     W1  = [[np.pi, ph1], [2*np.pi, 3*ph1], [np.pi, ph1]]
-    return nmr([[location * theta, phi]] + W1 + [[(1-location) * theta, phi]])
+    return nmr([[location * theta, phi]] + W1 + [[(1-location) * theta, phi]], name='BB1')
 
 
 def corpse(theta, phi=0):
@@ -192,7 +196,7 @@ def corpse(theta, phi=0):
     th1 = 2*np.pi*n[0] +theta/2 -temp
     th2 = 2*np.pi*n[1] -2*temp
     th3 = 2*np.pi*n[2] +theta/2 -temp
-    return nmr([[th1, phi], [th2, phi+np.pi], [th3, phi]])
+    return nmr([[th1, phi], [th2, phi+np.pi], [th3, phi]], name='CORPSE')
 
 
 def scrofulous(theta, phi=0):
@@ -220,7 +224,7 @@ def scrofulous(theta, phi=0):
 
     u1 = [[th1, ph1]]
     u2 = [[np.pi,  ph2]]
-    return nmr(u1 + u2 + u1)
+    return nmr(u1 + u2 + u1, name='SCROFULOUS')
 
 
 def knill(phi=0):
@@ -242,7 +246,7 @@ def knill(phi=0):
     # Ville Bergholm 2015-2016
 
     th = np.pi
-    return nmr([[th, np.pi/6+phi], [th, phi], [th, np.pi/2+phi], [th, phi], [th, np.pi/6+phi]])
+    return nmr([[th, np.pi/6+phi], [th, phi], [th, np.pi/2+phi], [th, phi], [th, np.pi/6+phi]], name='Knill')
 
 
 def dd(name, t, *, amp=1.0, n=1):
@@ -297,7 +301,7 @@ def dd(name, t, *, amp=1.0, n=1):
         raise ValueError('Unknown sequence.')
 
     # initialize the sequence struct
-    s = Seq()
+    s = Seq(name=name)
     # waits and pi pulses with given phases
     ind = 1
     for k, p in enumerate(phase):
