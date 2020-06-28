@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Model Hamiltonians (:mod:`qit.hamiltonian`)
 ===========================================
@@ -13,30 +12,28 @@ Contents
 
 .. autosummary::
 
+   magnetic_dipole
    heisenberg
    jaynes_cummings
    hubbard
    bose_hubbard
    holstein
 """
-# Ville Bergholm 2014-2016
-
-from __future__ import division, absolute_import, print_function, unicode_literals
-
+# Ville Bergholm 2014-2020
 import numpy as np
-from numpy import asarray, conj, transpose, dot
 
-from .base import sx, sy, sz
-from .utils import (angular_momentum, op_list, boson_ladder, fermion_ladder, cdot)
+import qit
+from qit.utils import (angular_momentum, op_list, boson_ladder, fermion_ladder, cdot)
 
 
 __all__ = [
+    'magnetic_dipole',
     'heisenberg',
     'jaynes_cummings',
     'hubbard',
     'bose_hubbard',
-    'holstein']
-
+    'holstein',
+]
 
 
 def magnetic_dipole(dim, B=(0, 0, 1)):
@@ -49,11 +46,11 @@ def magnetic_dipole(dim, B=(0, 0, 1)):
     where :math:`S_k^{(i)}` is the k-component of the angular momentum operator of spin i.
 
     Args:
-      dim (tuple): dimensions of the spins, i.e. dim == (2, 2, 2) would be a system of three spin-1/2's.
-      B   (tuple): The effective magnetic field the spins locally couple to. Either
-                   a 3-tuple (homogeneous field) or a function B(a) that returns a 3-tuple for a site-dependent field.
+        dim (tuple[int]): dimensions of the spins, i.e. dim == (2, 2, 2) would be a system of three spin-1/2's.
+        B   (callable[[int], tuple[float]]): The effective magnetic field the spins locally couple to. Either
+            a 3-tuple (homogeneous field) or a function B(i) that returns a 3-tuple for a site-dependent field.
     Returns:
-      array: the Hamiltonian
+        array[complex]: Hamiltonian operator
     """
     if not callable(B):
         if len(B) != 3:
@@ -64,8 +61,8 @@ def magnetic_dipole(dim, B=(0, 0, 1)):
 
     # local magnetic field terms
     temp = []
-    for i in range(len(dim)):
-        A = angular_momentum(dim[i])  # spin ops
+    for i, d in enumerate(dim):
+        A = angular_momentum(d)  # spin ops
         temp.append([(cdot(Bf(i), A), i)])
     H = op_list(temp, dim)
     return H
@@ -75,13 +72,14 @@ def heisenberg(dim, J=(0, 0, 2), C=None):
     r"""Heisenberg spin network model.
 
     Args:
-      dim (tuple): dimensions of the spins, i.e. dim == (2, 2, 2) would be a system of three spin-1/2's.
-      J   (tuple): The form of the spin-spin interaction. Either a 3-tuple or a
-                   function J(s, i, j) returning the coefficient of the Hamiltonian term S_s^{(i)} * S_s^{(b)}.
-      C   (array): Optional connection matrix of the spin network, where C[i,j]
-                   is the coupling strength between spins i and j. Only the upper triangle is used.
+        dim (tuple[int]): dimensions of the spins, i.e. dim == (2, 2, 2) would be a system of three spin-1/2's.
+        J   (tuple[float], callable[[int, int, int], float]): The form of the spin-spin interaction.
+            Either a 3-tuple or a function J(s, i, j) returning the coefficient of the
+            Hamiltonian term :math:`S_s^{(i)} S_s^{(j)}`.
+        C   (array[float]): Optional connection matrix of the spin network, where C[i, j]
+            is the coupling strength between spins i and j. Only the upper triangle is used.
     Returns:
-      array: the Hamiltonian
+        array[complex]: Hamiltonian operator
 
     Builds a Heisenberg model Hamiltonian, describing a network of n interacting spins.
 
@@ -110,7 +108,7 @@ def heisenberg(dim, J=(0, 0, 2), C=None):
             # default: linear chain
             C = np.eye(n, n, 1)
 
-        J = asarray(J)
+        J = np.asarray(J)
         Jf = lambda s, i, j: J[s] * C[i, j]
     else:
         Jf = J
@@ -128,7 +126,7 @@ def heisenberg(dim, J=(0, 0, 2), C=None):
     else:
         # loop over nonzero entries of C, only use the upper triangle
         C = np.triu(C)
-        for i, j in transpose(C.nonzero()):
+        for i, j in np.argwhere(C):
             # spin ops for sites i and j
             A = angular_momentum(dim[i])
             B = angular_momentum(dim[j])
@@ -139,18 +137,21 @@ def heisenberg(dim, J=(0, 0, 2), C=None):
     return H
 
 
-
 def jaynes_cummings(om_atom, Omega, m=10, use_RWA=False):
     r"""Jaynes-Cummings model, one or more two-level atoms coupled to a single-mode cavity.
 
-    :param vector om_atom:  Atom level splittings
-    :param vector Omega:       Atom-cavity coupling
-    :param int m:           Cavity Hilbert space dimension truncation limit
-    :param bool use_RWA:    Should we discard counter-rotating interaction terms?
-    :returns tuple (H, dim):  H is the Hamiltonian H and dim the dimension vector for an
-      implementation of the Jaynes-Cummings model, describing n two-level atoms coupled
-      to a harmonic oscillator (e.g. a single EM field mode in an optical cavity),
-      where n == len(om_atom) == len(Omega).
+    Args:
+        om_atom (array[float]): Atom level splittings
+        Omega (array[float]):  Atom-cavity coupling
+        m (int):        Cavity Hilbert space truncation dimension
+        use_RWA (bool): Should we discard counter-rotating interaction terms?
+
+    Returns:
+        tuple: Hamiltonian, dimension vector
+
+    The Jaynes-Cummings model describes n two-level atoms coupled
+    to a harmonic oscillator (e.g. a single EM field mode in an optical cavity),
+    where ``n == len(om_atom) == len(Omega)``.
 
     .. math::
       H/\hbar = -\sum_k \frac{{\omega_a}_k}{2} Z_k +\omega_c a^\dagger a +\sum_k \frac{\Omega_k}{2} (a+a^\dagger) \otimes X_k
@@ -173,46 +174,43 @@ def jaynes_cummings(om_atom, Omega, m=10, use_RWA=False):
     dim = (m,) + (2,)*n
     # operators
     a = boson_ladder(m)
-    ax = a.conj().transpose()
-    x = a+ax
-    sp = 0.5*(sx -1j*sy) # qubit raising operator
-    sm = sp.conj().transpose()
+    ad = a.conj().T
+    x = a + ad
+    sp = 0.5 * (qit.sx -1j * qit.sy) # qubit raising operator
+    sm = sp.conj().T
 
     atom = []
     coupling = []
     # loop over atoms
     for k in range(n):
-        atom.append([(-0.5*om_atom[k] * sz, k+1)])  # atomic Hamiltonian
+        atom.append([(-0.5 * om_atom[k] * qit.sz, k + 1)])  # atomic Hamiltonian
         # atom-cavity coupling
         if use_RWA:
             # rotating wave approximation, discard counter-rotating terms
-            coupling.append([(a,   0), (0.5*Omega[k] * sp, k+1)])
-            coupling.append([(ax,  0), (0.5*Omega[k] * sm, k+1)])
+            coupling.append([(a, 0), (0.5 * Omega[k] * sp, k + 1)])
+            coupling.append([(ad, 0), (0.5 * Omega[k] * sm, k + 1)])
         else:
-            coupling.append([(x, 0),   (0.5*Omega[k] * sx, k+1)])
+            coupling.append([(x, 0), (0.5 * Omega[k] * (sp + sm), k + 1)])
 
     # cavity
-    import pdb; pdb.set_trace()
-    Hc    = op_list([[(dot(ax, a), 0)]], dim)
-    Ha    = op_list(atom, dim)
+    Hc = op_list([[(ad @ a, 0)]], dim)
+    Ha = op_list(atom, dim)
     H_int = op_list(coupling, dim)
-    H = Hc +Ha +H_int
-    return H, dim
-
+    return Hc +Ha +H_int, dim
 
 
 def hubbard(C, U=1, mu=0):
     r"""Hubbard model, fermions on a lattice.
 
-    :param array C:    Connection matrix of the interaction graph
-    :param float U:    Fermion-fermion interaction strength (normalized)
-    :param float mu:   External chemical potential (normalized)
-    :returns tuple (H, dim):
+    Args:
+        C (array[bool]):  Connection matrix of the interaction graph
+        U (float):  Fermion-fermion interaction strength (normalized)
+        mu (float): External chemical potential (normalized)
 
-    Returns the Hamiltonian H and the dimension vector dim for an
-    implementation of the Hubbard model.
+    Returns:
+        tuple: Hamiltonian, dimension vector
 
-    The model consists of spin-1/2 fermions confined in a graph defined by the
+    The Hubbard model consists of spin-1/2 fermions confined in a graph defined by the
     symmetric connection matrix C (only upper triangle is used).
     The fermions interact with other fermions at the same site with interaction strength U,
     as well as with an external chemical potential mu.
@@ -236,31 +234,36 @@ def hubbard(C, U=1, mu=0):
 
     for k in range(n):
         # number operators for this site
-        n1 = dot(f[k, 0].conj().transpose(), f[k, 0])
-        n2 = dot(f[k, 1].conj().transpose(), f[k, 1])
+        n1 = f[k, 0].T.conj() @ f[k, 0]
+        n2 = f[k, 1].T.conj() @ f[k, 1]
         # on-site interaction
-        H += U * dot(n1, n2)
+        H += U * (n1 @ n2)
         # chemical potential
         H += -mu * (n1 + n2)
 
     # fermions hopping: loop over nonzero entries of C
     # only use the upper triangle
     C = np.triu(C)
-    for i, j in transpose(C.nonzero()):
+    for i, j in np.argwhere(C):
         for s in range(2):
-            H -= dot(f[i, s].conj().transpose(), f[j, s]) +dot(f[j, s].conj().transpose(), f[i, s])
+            H -= f[i, s].T.conj() @ f[j, s] + f[j, s].T.conj() @ f[i, s]
 
     return H, dim
-
 
 
 def bose_hubbard(C, U=1, mu=0, m=10):
     r"""Bose-Hubbard model, bosons on a lattice.
 
-    Returns the Hamiltonian H and the dimension vector dim for an
-    implementation of the Bose-Hubbard model.
+    Args:
+        C (array[bool]):  Connection matrix of the interaction graph
+        U (float):  Fermion-fermion interaction strength (normalized)
+        mu (float): External chemical potential (normalized)
+        m (int):    boson Hilbert space truncation dimension
 
-    The model consists of spinless bosons confined in a graph defined by the
+    Returns:
+        tuple: Hamiltonian, dimension vector
+
+    The Bose-Hubbard model consists of spinless bosons confined in a graph defined by the
     symmetric connection matrix C (only upper triangle is used).
     The bosons interact with other bosons at the same site with interaction strength U,
     as well as with an external chemical potential mu.
@@ -273,16 +276,15 @@ def bose_hubbard(C, U=1, mu=0, m=10):
     The dimensions of the boson Hilbert spaces (infinite in principle) are truncated to m.
     """
     # Ville Bergholm 2010-2014
-
     n = len(C)
-    dim = m * np.ones(n)
+    dim = (m,) * n
 
     b = boson_ladder(m)  # boson annihilation op
-    b_dagger = b.conj().transpose()  # boson creation op
-    nb = dot(b_dagger, b)  # boson number op
+    b_dagger = b.T.conj()  # boson creation op
+    nb = b_dagger @ b  # boson number op
 
     I = np.eye(m)
-    A = U/2 * dot(nb, (nb-I)) # on-site interaction
+    A = U/2 * (nb @ (nb - I)) # on-site interaction
     B = -mu * nb # chemical potential
 
     temp = []
@@ -294,20 +296,26 @@ def bose_hubbard(C, U=1, mu=0, m=10):
     # bosons hopping: loop over nonzero entries of C
     # only use the upper triangle
     C = np.triu(C)
-    for i, j in transpose(C.nonzero()):
+    for i, j in np.argwhere(C):
         temp.extend([[(b_dagger, i), (b, j)], [(b, i), (b_dagger, j)]])
 
     H -= op_list(temp, dim)
     return H, dim
 
 
-
 def holstein(C, omega=1, g=1, m=10):
     r"""Holstein model, electrons on a lattice coupled to phonons.
 
-    Returns the Hamiltonian H and the dimension vector dim for an implementation of the Holstein model.
+    Args:
+        C (array):  Connection matrix of the interaction graph
+        omega (float): phonon frequency (normalized)
+        g (float):  electron-phonon coupling constant (normalized)
+        m (int):    phonon Hilbert space truncation dimension
 
-    The model consists of spinless electrons confined in a graph defined by the
+    Returns:
+        tuple: Hamiltonian, dimension vector
+
+    The Holstein model consists of spinless electrons confined in a graph defined by the
     symmetric connection matrix C (only upper triangle is used),
     coupled to phonon modes represented by a harmonic oscillator at each site.
     The dimensions of phonon Hilbert spaces (infinite in principle) are truncated to m.
@@ -324,28 +332,28 @@ def holstein(C, omega=1, g=1, m=10):
 
     n = len(C)
     # Hilbert space: electrons first, then phonons
-    dim = np.r_[2**n, m * np.ones(n)]  # Jordan-Wigner clumps all fermion dims together
+    dim = (2**n,) + (m,) * n  # Jordan-Wigner clumps all fermion dims together
 
     c = fermion_ladder(n)  # electron annihilation ops
     b = boson_ladder(m)    # phonon annihilation
-    b_dagger = b.conj().transpose()  # phonon creation
+    b_dagger = b.conj().T  # phonon creation
     q = b + b_dagger       # phonon position
-    nb = dot(b_dagger, b)  # phonon number operator
+    nb = b_dagger @ b  # phonon number operator
 
     temp = []
     for k in range(n):
         # phonon harmonic oscillators
         temp.append([(omega * nb, 1+k)])
         # electron-phonon interaction
-        temp.append([(-g * omega * dot(c[k].conj().transpose(), c[k]), 0), (q, 1+k)])
+        temp.append([(-g * omega * (c[k].conj().T @ c[k]), 0), (q, 1+k)])
     H = op_list(temp, dim)
 
     # fermions hopping: loop over nonzero entries of C
     # only use the upper triangle
     C = np.triu(C)
     T = 0j
-    for i, j in transpose(C.nonzero()):
-        T += dot(c[i].conj().transpose(), c[j]) +dot(c[j].conj().transpose(), c[i])
+    for i, j in np.argwhere(C):
+        T += c[i].conj().T @ c[j] + c[j].conj().T @ c[i]
     H += op_list([[(-T, 0)]], dim)
 
     # actual dimensions

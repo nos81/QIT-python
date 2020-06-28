@@ -1270,16 +1270,15 @@ def op_list(G, dim):
     r"""Operator consisting of k-local terms, given as a list.
 
     Args:
-      G     (list): list of k-local operator terms
-      dim (array[int]): vector of subsystem dimensions
+        G (list[list[tuple]]): list of k-local operator terms
+        dim (Sequence[int]): vector of subsystem dimensions
     Returns:
-      array: matrix defined by G
+        array[complex]: matrix defined by G
 
-    G is a list of arrays, :math:`G = [c_1, c_2, ..., c_n]`,
-    where each array :math:`c_i` corresponds to a term in the operator.
-
-    An array that has 2 columns and k rows, :math:`c_i` = [(A1, s1), (A2, s2), ... , (Ak, sk)],
-    where Aj are arrays and sj subsystem indices, corresponds to the
+    G is a list of lists, :math:`G = [c_1, c_2, ..., c_n]`.
+    Each list :math:`c_i` corresponds to a term in the operator,
+    and consists of k two-tuples: :math:`c_i` = [(A1, s1), (A2, s2), ... , (Ak, sk)].
+    Aj are arrays and sj subsystem indices, corresponds to the
     k-local term given by the tensor product
 
     .. math:: A_1^{(s_1)} A_2^{(s_2)} \cdots A_k^{(s_k)}.
@@ -1291,7 +1290,10 @@ def op_list(G, dim):
     describes a hyperedge connecting the vertices {s1, s2, ..., sk}.
 
     Example: The connection list
-    G = [[(sz,1)], [(sx,1), (sx,3)], [(sy,1), (sy,3)], [(sz,1), (sz,3)], [(sz,2)], [(A,2), (B+C,3)], [(2*sz,3)]]
+
+    ::
+        G = [[(sz,1)], [(sx,1), (sx,3)], [(sy,1), (sy,3)], [(sz,1), (sz,3)], [(sz,2)], [(A,2), (B+C,3)], [(2*sz,3)]]
+
     corresponds to the operator
 
     .. math::
@@ -1302,7 +1304,7 @@ def op_list(G, dim):
 
     # TODO we could try to infer dim from the operators
     D = np.prod(dim)
-    H = np.zeros((D, D), complex)
+    H = np.zeros((D, D), dtype=complex)
     for k, spec in enumerate(G):
         a = -1  # last subsystem taken care of
         term = 1
