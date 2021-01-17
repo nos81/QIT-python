@@ -97,8 +97,9 @@ Miscellaneous
    Rx
    Ry
    Rz
+   trisurf
 """
-# Ville Bergholm 2008-2020
+# Ville Bergholm 2008-2021
 
 from copy import deepcopy
 
@@ -1432,3 +1433,39 @@ def tensorsum(*arg):
         for _ in range(nd):
             A = np.concatenate(A, axis=nd-1)
     return A
+
+
+def trisurf(p: 'np.array', max_dist: float) -> 'np.array':
+    """Populates a 2D triangular surface with evenly spaced points for Delaunay triangulation.
+
+    Args:
+        p: vertices of the triangle, ``p.shape = (3, 2)``
+        max_dist: maximum 2-norm distance between the created points
+    """
+    def samples(a, b):
+        """Find the number of samples between points a and b, such that distance between them is <= max_dist."""
+        d = np.linalg.norm(b - a)
+        return max(2, int(np.ceil(d / max_dist)) + 1)  # include endpoint, at least 2 points
+
+    def interp(a, b, n, endpoint=True):
+        """Linear interpolation from point a to b, using n samples."""
+        if np.all(a == b):
+            return [a]
+        return [(1 - s) * a + s * b for s in np.linspace(0, 1, n, endpoint=endpoint)]
+
+    # find the longest edge
+    edges = np.array([[p[0], p[1]], [p[1], p[2]], [p[2], p[0]]])
+    m = [samples(*e) for e in edges]
+    ind = np.argmax(m)
+    # longest edge first, reversed
+    edges = np.roll(edges, -ind, 0)
+    edges[0] = edges[0][::-1]
+    m = np.roll(m, -ind, 0)
+    # interpolate lines of points from the longest edge to the two others
+    n = m[1] + m[2] - 1  # use the shared point between the two other edges only once
+    longest = np.array(interp(*edges[0], n))
+    others = np.r_[interp(*edges[1], m[1] - 1, endpoint=False), interp(*edges[2], m[2])]
+    ret = []
+    for a, b in zip(longest, others):
+        ret.extend(interp(a, b, samples(a, b)))
+    return np.array(ret)

@@ -35,47 +35,47 @@ SWAP = gate.swap(*dim).data.A
 class TestInvariants:
     """Testing the invariants module."""
 
-    def test_canonical(self, tol, L, U):
+    def test_canonical_inv(self, tol, L, U):
         """Canonical invariants."""
 
         # canonical invariants
-        #assert norm(qi.canonical(L) -[0, 0, 0]) == pytest.approx(0, abs=tol) # only point in Berkeley chamber with translation degeneracy, (0,0,0) =^ (1,0,0)
-        assert norm(qi.canonical(CNOT) -[0.5, 0, 0]) == pytest.approx(0, abs=tol)
-        assert norm(qi.canonical(SWAP) -[0.5, 0.5, 0.5]) == pytest.approx(0, abs=tol)
+        #assert norm(qi.canonical_inv(L) -[0, 0, 0]) == pytest.approx(0, abs=tol) # only point in Berkeley chamber with translation degeneracy, (0,0,0) =^ (1,0,0)
+        assert norm(qi.canonical_inv(CNOT) -[0.5, 0, 0]) == pytest.approx(0, abs=tol)
+        assert norm(qi.canonical_inv(SWAP) -[0.5, 0.5, 0.5]) == pytest.approx(0, abs=tol)
 
-    def test_makhlin(self, tol, L, U):
+    def test_makhlin_inv(self, tol, L, U):
         """Makhlin invariants."""
-        c = qi.canonical(U)
-        g1 = qi.makhlin(c)
-        g2 = qi.makhlin(U)
+        c = qi.canonical_inv(U)
+        g1 = qi.makhlin_inv(c)
+        g2 = qi.makhlin_inv(U)
         assert norm(g1-g2) == pytest.approx(0, abs=tol)
-        g = qi.makhlin(L)
+        g = qi.makhlin_inv(L)
         print(g)
 
-    def test_max_concurrence(self, tol, L, U):
+    def test_gate_max_concurrence(self, tol, L, U):
         """Maximum concurrence.
         """
-        assert qi.max_concurrence(L) == pytest.approx(0, abs=tol)
-        assert qi.max_concurrence(SWAP) == pytest.approx(0, abs=tol)
-        assert qi.max_concurrence(CNOT) == pytest.approx(1, abs=tol)
+        assert qi.gate_max_concurrence(L) == pytest.approx(0, abs=tol)
+        assert qi.gate_max_concurrence(SWAP) == pytest.approx(0, abs=tol)
+        assert qi.gate_max_concurrence(CNOT) == pytest.approx(1, abs=tol)
 
         #plot_weyl_2q()
         #plot_makhlin_2q(25, 25)
 
-    def test_LU(self, tol, L):
+    def test_state_inv(self, tol, L):
         """Local unitary invariants of states.
         """
         rho = State(rand_positive(4), dim)
-        assert qi.LU(rho, 2, [(), ()]) == pytest.approx(1, abs=tol)  # trace of the state
+        assert qi.state_inv(rho, 2, [(), ()]) == pytest.approx(1, abs=tol)  # trace of the state
         # invariance under LU maps
         perms = [(), (1,0)]
-        assert qi.LU(rho, 2, perms) == pytest.approx(qi.LU(rho.u_propagate(L), 2, perms), abs=tol)
+        assert qi.state_inv(rho, 2, perms) == pytest.approx(qi.state_inv(rho.u_propagate(L), 2, perms), abs=tol)
 
         # invariance under LU maps
         perms = [(), (1,2,0)]
-        assert qi.LU(rho, 3, perms) == pytest.approx(qi.LU(rho.u_propagate(L), 3, perms), abs=tol)
+        assert qi.state_inv(rho, 3, perms) == pytest.approx(qi.state_inv(rho.u_propagate(L), 3, perms), abs=tol)
 
-    def test_gate_leakage(self, tol, L, U):
+    def test_gate_leakage_inv(self, tol, L, U):
 
         U = rand_U(4)  # random two-qubit gate
 
@@ -85,6 +85,6 @@ class TestInvariants:
         W = W[:,:]
         Z = Z[:,:4]
 
-        temp = qi.gate_leakage(CNOT, (2, 2), Z, W)
-        temp = qi.gate_leakage(L, (2, 2), Z, W)
-        temp = qi.gate_leakage(U, (2, 2), Z, W)
+        temp = qi.gate_leakage_inv(CNOT, (2, 2), Z, W)
+        temp = qi.gate_leakage_inv(L, (2, 2), Z, W)
+        temp = qi.gate_leakage_inv(U, (2, 2), Z, W)

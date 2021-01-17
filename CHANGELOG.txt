@@ -98,7 +98,7 @@ b bugfix
               * Bump dependencies: NumPy 1.18.4, SciPy 1.4.1, matplotlib 3.2.1, Sphinx 3.0
               * Unit tests now use pytest, more unit tests.
               * Docstrings now use sphinx.ext.napoleon, math in the docs is rendered using MathJax.
-	      * Classes renamed to begin with a capital letter: Lmap, State, Seq...
+              * Classes renamed to begin with a capital letter: Lmap, State, Seq...
               * SU(2) rotations renamed to Rx, Ry, Rz
               + Lmap.tensorpow
               + Lmap.real
@@ -114,15 +114,18 @@ b bugfix
               + utils.rand_GL
               + utils.superop_to_choi
               * utils.tensorbasis also returns the integer locality of each element.
+              + utils.trisurf
               * seq: sign convention changed, converted into the Seq class.
               + seq.knill
               + seq.dd
               - seq.cpmg (merged into seq.dd)
               * hamiltonian.jaynes_cummings updated.
               * hamiltonian.heisenberg updated.
-              b invariant.LU fixed.
-              + invariant.gate_leakage
+              b invariant.LU fixed, renamed invariant.state_inv
+              + invariant.gate_leakage_inv
               + invariant.gate_adjoint_rep
+              + invariant.canonical_inv_normalize
+              * invariant.plot_canonical_2q and invariant.plot_makhlin_2q also plot the set of perfect entanglers.
               * markov.MarkovianBath class rewritten, supports also fermionic baths.
               + markov.MarkovianBath.plot_correlation
               + markov.MarkovianBath.plot_LUT
