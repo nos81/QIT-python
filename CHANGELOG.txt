@@ -96,12 +96,16 @@ b bugfix
 0.12.0      in progress
               * Python 2 compatibility dropped.
               * Bump dependencies: NumPy 1.18.4, SciPy 1.4.1, matplotlib 3.2.1, Sphinx 3.0
-              + lmap.tensorpow
-              + lmap.real
-              + lmap.imag
-              b lmap.__init__ and lmap.__repr__ now handle also sparse matrices.
-              + state.werner
-              + state.isotropic
+              * Unit tests now use pytest, more unit tests.
+              * Docstrings now use sphinx.ext.napoleon, math in the docs is rendered using MathJax.
+	      * Classes renamed to begin with a capital letter: Lmap, State, Seq...
+              * SU(2) rotations renamed to Rx, Ry, Rz
+              + Lmap.tensorpow
+              + Lmap.real
+              + Lmap.imag
+              b Lmap.__init__ and Lmap.__repr__ now handle also sparse matrices.
+              + State.werner
+              + State.isotropic
               + gate.copydot
               + gate.plusdot
               + gate.epsilon
@@ -110,7 +114,7 @@ b bugfix
               + utils.rand_GL
               + utils.superop_to_choi
               * utils.tensorbasis also returns the integer locality of each element.
-              * seq: sign convention changed, converted into a class.
+              * seq: sign convention changed, converted into the Seq class.
               + seq.knill
               + seq.dd
               - seq.cpmg (merged into seq.dd)
@@ -119,10 +123,10 @@ b bugfix
               b invariant.LU fixed.
               + invariant.gate_leakage
               + invariant.gate_adjoint_rep
-              * markov.bath class rewritten, supports also fermionic baths.
-              + markov/bath.plot_correlation
-              + markov/bath.plot_LUT
-              + markov/bath.plot_cutoff
+              * markov.MarkovianBath class rewritten, supports also fermionic baths.
+              + markov.MarkovianBath.plot_correlation
+              + markov.MarkovianBath.plot_LUT
+              + markov.MarkovianBath.plot_cutoff
               b markov.ops warns of possible RWA violations.
               + examples.werner_states
               + examples.quantum_walk
@@ -133,7 +137,3 @@ b bugfix
               + ho.rotate
               + ho.beamsplitter
               + ho.cx
-              * unit tests now use pytest, more unit tests
-              * Docstrings now use sphinx.ext.napoleon, math in the docs is rendered using MathJax
-              * Classes renamed such that class names start with a capital letter
-              * SU(2) rotations renamed to Rx, Ry, Rz

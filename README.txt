@@ -17,19 +17,21 @@ following Python libraries:
 
 For interactive use the `IPython <http://ipython.org/>`_ interactive shell is recommended.
 
-The latest version can be found on our website,
-
-  http://qit.sourceforge.net/
+The latest version can be found on `our website <http://qit.sourceforge.net/>`_.
 
 The toolkit is installed by downloading it from the Python Package Index,
 or directly from the Git repository. For an interactive session, start
-IPython with ::
+IPython with
 
-  ipython --pylab
+.. code-block:: bash
 
-and then import the toolkit using ::
+   ipython --pylab
 
-  from qit import *
+and then import the toolkit using
+
+.. code-block:: python
+
+   from qit import *
 
 To get an overview of the features and capabilities of the toolkit,
 run examples.tour()
@@ -81,6 +83,6 @@ coding guidelines:
 Authors
 =======
 
-* Ville Bergholm          2008-2020
+* Ville Bergholm          2008-2021
 * Jacob D. Biamonte       2008-2009
 * James D. Whitfield      2009-2010
