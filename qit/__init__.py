@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """Python Quantum Information Toolkit
 
 See the README.txt file included in this distribution

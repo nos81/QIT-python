@@ -1,9 +1,8 @@
-# -*- coding: utf-8 -*-
 """Basic definitions."""
 # Ville Bergholm 2008-2014
 
-
 import numpy as np
+
 
 __all__ = ['I', 'sx', 'sy', 'sz', 'p0', 'p1', 'H',
            'Q_Bell', 'tol']
@@ -24,7 +23,6 @@ H = np.array([[1, 1], [1, -1]]) / np.sqrt(2)
 
 # magic basis
 Q_Bell = np.array([[1, 0, 0, 1j], [0, 1j, 1, 0], [0, 1j, -1, 0], [1, 0, 0, -1j]]) / np.sqrt(2)
-
 
 # error tolerance
 tol = max(1e-8, np.finfo(float).eps)

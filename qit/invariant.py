@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Local invariants (:mod:`qit.invariant`)
 =======================================
