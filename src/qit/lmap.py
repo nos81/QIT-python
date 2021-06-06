@@ -373,7 +373,7 @@ class Lmap:
 
     def __rmul__(self, t):
         """Multiplication of Lmaps by scalars, reverse."""
-        # scalars commute, Lmaps already handled by __mul__
+        # scalars commute
         return self.__mul__(t)
 
     def __matmul__(self, t):
