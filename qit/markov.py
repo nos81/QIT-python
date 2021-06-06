@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """
 Born-Markov noise (:mod:`qit.markov`)
 =====================================
@@ -38,12 +37,12 @@ Contents
    compute_gs
    corr
    fit
-   plot_LUT
+   plot_spectral_correlation
    plot_cutoff
-   plot_correlation
+   plot_bath_correlation
 """
-
 import collections.abc
+from typing import Optional, Tuple
 
 import numpy as np
 from scipy.linalg import norm
@@ -68,10 +67,10 @@ class MarkovianBath:
     :math:`H_\text{int} = A \otimes \sum_k \lambda_k (a_k +a_k')`.
 
     Args:
-        type (str): bath type, in ('ohmic', 'photon')
-        stat (str): bath statistics, in ('boson', 'fermion')
-        TU (float): bath time unit (in s)
-        T (float): bath temperature (in K)
+        type: bath type, in ('ohmic', 'photon')
+        stat: bath statistics, in ('boson', 'fermion')
+        TU: bath time unit (in s)
+        T: bath temperature (in K)
 
     The bath spectral density is either ohmic or photonic, with a cutoff:
 
@@ -126,22 +125,7 @@ class MarkovianBath:
     Since :math:`\Gamma` is pretty expensive to compute, we store the computed results into a lookup table which is used to interpolate nearby values.
 
 
-    Public data:
-
-    ===========  ===========
-    Data member  Description
-    ===========  ===========
-    type         Bath type. 'ohmic' or 'photon'.
-    stat         Bath statistics. Either 'boson' or 'fermion'.
-    TU           Time unit (in s). All Hamiltonians have been made dimensionless by multiplying with :math:`\text{TU}/\hbar`.
-    T            Absolute temperature of the bath (in K).
-    scale        Dimensionless temperature scaling parameter :math:`\hbar / (k_B T \: \text{TU})`.
-    cut_type     Spectral density cutoff type (string).
-    cut_omega    Spectral density cutoff angular frequency :math:`\omega_c` (in :math:`1/\text{TU}`).
-    ===========  ===========
-
-
-    Private data (set automatically):
+    Private attributes (set automatically):
 
     ===========  ===========
     Data member  Description
@@ -158,42 +142,53 @@ class MarkovianBath:
     ===========  ===========
     """
     # Ville Bergholm 2009-2016
-
     def __init__(self, type: str, stat: str, TU: float, T: float):
-        """constructor
-
-        Sets up a descriptor for a heat bath coupled to a quantum system.
-        """
-        # basic bath parameters
+        # Set up a descriptor for a heat bath coupled to a quantum system.
         self.type = type
+        """Bath type. 'ohmic' or 'photon'."""
         self.stat = stat
+        """Bath statistics. Either 'boson' or 'fermion'."""
         self.TU   = TU
+        r"""Time unit (in s). All Hamiltonians have been made dimensionless by multiplying with :math:`\text{TU}/\hbar`."""
         self.T    = T
-        # defaults, can be changed later
-        self.set_cutoff('exp', 1)
+        """Absolute temperature of the bath (in K)."""
+
+        self.scale = 0
+        r"""Dimensionless temperature scaling parameter :math:`\hbar / (k_B T \: \text{TU})`."""
+        self.cut_type = ''
+        """Spectral density cutoff type, in ``{'sharp', 'smooth', 'exp'}``."""
+        self.cut_omega = 0
+        r"""Spectral density cutoff angular frequency :math:`\omega_c` (in :math:`1/\text{TU}`)."""
+        self.set_cutoff('exp', 1.0)
 
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """String representation."""
-        return """<Markovian heat bath. Spectral density: {sd}, {st}ic statistics, T = {temp:g} K, TU = {tu:g} s>""".format(sd = self.type, st = self.stat, temp = self.T, tu = self.TU)
+        return f'<Markovian heat bath. Spectral density: {self.type}, {self.stat}ic statistics, T = {self.T:g} K, TU = {self.TU:g} s>'
 
 
-    def desc(self, long=True):
+    def desc(self, long: bool=True) -> str:
         """Bath description string for plots."""
-        temp = '{}, {}, \\beta \\hbar \\omega_c: {:.4g}, cutoff: {}, {:.4g}'.format(self.type, self.stat, self.scale*self.cut_omega, self.cut_type, self.cut_omega)
+        temp = rf'{self.type}, {self.stat}, $\beta \hbar \omega_c$: {self.scale*self.cut_omega:.4g}, cutoff: {self.cut_type}, {self.cut_omega:.4g}'
         if long:
-            return r'Bath correlation tensor $\Gamma = \frac{1}{2} \gamma(\omega) +i S(\omega)$: ' +temp
+            return r'Bath correlation tensor $\Gamma(\omega) = \frac{1}{2} \gamma(\omega) +i S(\omega)$: ' +temp
         return temp
 
 
-    def set_cutoff(self, type, lim):
-        """Set the spectral density cutoff."""
-        # We assume that cut_func(0) == 1.
+    def set_cutoff(self, type: Optional[str], cut_omega: Optional[float]) -> None:
+        """Set the spectral density cutoff.
 
+        Passing ``None`` leaves the corresponding property unchanged.
+
+        Args:
+            type: cutoff type, in ``{'sharp', 'smooth', 'exp'}``
+            cut_omega: omega cutoff value
+        """
+        # We assume that cut_func(0) == 1.
         if type is not None:
             self.cut_type = type
-        if lim is not None:
-            self.cut_omega = lim  # == omega_c*TU
+        if cut_omega is not None:
+            self.cut_omega = cut_omega  # == omega_c*TU
 
         # update cutoff function
         if self.cut_type == 'sharp':
@@ -203,14 +198,15 @@ class MarkovianBath:
         elif self.cut_type == 'exp':
             self.cut_func = lambda x: np.exp(-x / self.cut_omega)  # exponential cutoff
         else:
-            raise ValueError('Unknown cutoff type "{0}"'.format(self.cut_type))
+            raise ValueError(f"Unknown cutoff type '{self.cut_type}'.")
         self.setup()
 
 
-    def setup(self):
+    def setup(self) -> None:
         """Initializes the g and s functions, and the LUT.
-        Must be called after parameters change."""
 
+        Must be called after parameters change.
+        """
         # shorthand
         self.scale = const.hbar / (const.k * self.T * self.TU)
 
@@ -250,17 +246,17 @@ class MarkovianBath:
         self._pad_LUT()
 
 
-    def _pad_LUT(self):
+    def _pad_LUT(self) -> None:
         """Add limits at infinity to the lookup tables."""
         self.omega    = np.r_[-np.inf, self.omega, np.inf]
         self.gs_table = np.r_[[[0, 0]], self.gs_table, [[0, 0]]]
 
 
-    def build_LUT(self, om=None):
+    def build_LUT(self, om: Optional['np.ndarray[float]'] = None) -> None:
         """Build a lookup table for the spectral correlation tensor Gamma.
 
         Args:
-            om (vector[]): vector of omegas denoting the points to compute
+            om: vector of omegas denoting the points to compute
         """
         # TODO justify limits for S lookup
         if om is None:
@@ -280,12 +276,26 @@ class MarkovianBath:
 
 
     def _plot(self, x, om, q, gs, odd_s, even_s, f=plt.plot):
-        """Plotting utility."""
+        """Plotting utility.
 
-        fig, ax = subplots()
+        Args:
+            x (array[float]): x coordinates of the points
+            om (array[float]):
+            q (array[float]):
+            gs (array[float]): gamma and S, the real and imaginary components of the
+                spectral correlation tensor
+            odd_s (array[float]): odd part of S
+            even_s (array[float]): even part of S
+            f (callable): plotting function
+
+        Returns:
+            Axes: the plot
+        """
+        fig, ax = plt.subplots()
         ax.grid(True)
         ax.plot(x, gs, '-x')
-        ax.plot(x, odd_s, 'k-', x, even_s, 'm-')
+        ax.plot(x, odd_s, 'k-')
+        ax.plot(x, even_s, 'm-')
 
         # analytical expressions for even and odd s funcs
         if self.cut_type == 'sharp':
@@ -302,14 +312,17 @@ class MarkovianBath:
 
         f(x, om * odd_s, 'ko', x, om * even_s, 'mo')
         ax.set_ylabel('[1/TU]')
-        ax.legend(['$\gamma$', 'S', '$S(\omega)-S(-\omega)$', '$S(\omega)+S(-\omega)$',
+        ax.legend(['$\gamma(\omega)$', '$S(\omega)$', '$S(\omega)-S(-\omega)$', '$S(\omega)+S(-\omega)$',
                     '$S(\omega)-S(-\omega)$ (fermion)', '$S(\omega)+S(-\omega)$ (boson)'])
-        fig.show()
+        return ax
 
 
-    def plot_LUT(self):
-        """Plot the contents of the spectral correlation tensor LUT as a function of omega."""
+    def plot_spectral_correlation(self) -> None:
+        r"""Plot the spectral correlation tensor components :math:`\gamma` and :math:`S` as a function of omega.
 
+        Additionally plots the even and odd parts of :math:`S`, and compares them to analytical
+        expressions. Uses the spectral correlation tensor LUT.
+        """
         if len(self.omega) <= 2:
             self.build_LUT()
 
@@ -337,18 +350,22 @@ class MarkovianBath:
         ax.get_figure().show()
 
 
-    def plot_cutoff(self, boltz=0.5):
+    def plot_spectral_correlation_vs_cutoff(self, boltz: float = 0.5) -> None:
         r"""Plot spectral correlation tensor components as a function of cutoff frequency.
-        boltz is the Boltzmann factor :math:`e^{-\beta \hbar \omega}` that fixes omega.
-        """
 
+        The angular frequency :math:`\omega` at which the spectral correlation tensor is evaluated
+        is fixed by giving the Boltzmann factor :math:`e^{-\beta \hbar \omega}`.
+
+        Args:
+            boltz: Boltzmann factor
+        """
         orig_scale  = self.scale
         orig_cutoff = self.cut_omega
 
-        om = -np.log(boltz) / self.scale  # \omega * TU
-        # scale with |om|
-        temp = abs(om)
-        om_scaled = om / temp  # sign of om
+        omega = -np.log(boltz) / self.scale  # \omega * TU
+        # scale with |omega|
+        temp = abs(omega)
+        omega_scaled = omega / temp  # sign of omega
         self.scale *= temp     # scale the temperature parameter
 
         # try different cutoffs relative to omega
@@ -358,8 +375,8 @@ class MarkovianBath:
         for k in range(len(cutoff)):
             print(k)
             self.set_cutoff(None, cutoff[k])  # scaled cutoff frequency
-            gs[k,:]  = self.compute_gs(om_scaled)
-            gsm[k,:] = self.compute_gs(-om_scaled)
+            gs[k,:]  = self.compute_gs(omega_scaled)
+            gsm[k,:] = self.compute_gs(-omega_scaled)
         gs  *= temp
         gsm *= temp
         odd_s  = gs[:,1] -gsm[:,1]
@@ -369,13 +386,13 @@ class MarkovianBath:
         self.scale = orig_scale
         self.set_cutoff(None, orig_cutoff)
 
-        ax = self._plot(cutoff, om, om_scaled/cutoff, gs, odd_s, even_s, plt.semilogx)
+        ax = self._plot(cutoff, omega, omega_scaled/cutoff, gs, odd_s, even_s, plt.semilogx)
         ax.set_xlabel(r'$\omega_c/\omega$')
-        ax.set_title(self.desc() + ', boltzmann: {:.4g} => omega: {:.4g}'.format(boltz, om))
+        ax.set_title(self.desc() + f', boltzmann = {boltz:.4g} => omega = {omega:.4g}')
         ax.get_figure().show()
 
 
-    def plot_correlation(self):
+    def plot_bath_correlation(self) -> None:
         r"""Plot the bath correlation function
         :math:`C_{s,\omega_c}(t) = \frac{1}{\hbar^2}\langle B(t) B(0)\rangle`.
 
@@ -392,38 +409,38 @@ class MarkovianBath:
 
         tol_nu = 1e-5  # approaching the singularity at nu=0 this closely
         c = self.cut_omega
-        plt.figure()
+        fig = plt.figure()
+        fig.suptitle('Bath correlation function C(t): ' + self.desc(False))
 
         # plot the functions to be transformed
-        plt.subplot(1,3,1)
+        ax = plt.subplot(1, 3, 1)
         nu = np.linspace(tol_nu, 5*c, 500)
-        plt.plot(nu, self.J(nu) * self.cut_func(nu) * self.pf(nu), 'r')
-        plt.hold(True)
+        ax.plot(nu, self.J(nu) * self.cut_func(nu) * self.pf(nu), 'r')
         if self.stat == 'boson':
-            plt.plot(nu, self.J(nu) * self.cut_func(nu) * (1 + self.pf(nu)), 'b')
+            ax.plot(nu, self.J(nu) * self.cut_func(nu) * (1 + self.pf(nu)), 'b')
         else:
-            plt.plot(nu, self.J(nu) * self.cut_func(nu) * (1 - self.pf(nu)), 'g')
-        plt.grid(True)
-        plt.legend(['$J*n$', '$J*(1 \pm n)$'])
-        plt.xlabel(r'$\nu$ [1/TU]')
-        plt.title('Integrand without exponentials')
+            ax.plot(nu, self.J(nu) * self.cut_func(nu) * (1 - self.pf(nu)), 'g')
+        ax.grid(True)
+        ax.legend([r'$J(\nu) n(\nu)$', r'$J(\nu) (1 \pm n(\nu))$'])
+        ax.set_xlabel(r'$\nu$ [1/TU]')
+        ax.set_title('Integrand without exponentials')
 
         # plot the full integrand
-        plt.subplot(1,3,2)
+        ax = plt.subplot(1, 3, 2)
         t = np.linspace(0, 4/c, 5)
         nu = np.linspace(tol_nu, 5*c, 100)
         res = np.empty((len(nu), len(t)), dtype=complex)
         for k in range(len(t)):
             print(k)
             res[:,k] = self.corr_int_real(t[k], nu) +1j * self.corr_int_imag(t[k], nu)
-        plt.plot(nu, res.real, '-', nu, res.imag, '--')
-        plt.grid(True)
-        plt.xlabel(r'$\nu$ [1/TU]')
-        plt.title('Integrand')
+        ax.plot(nu, res.real, '-', nu, res.imag, '--')
+        ax.grid(True)
+        ax.set_xlabel(r'$\nu$ [1/TU]')
+        ax.set_title('Integrand for various values of $t$')
 
-        # plot the correlation function
-        plt.subplot(1,3,3)
-        t = np.linspace(tol_nu, 10/c, 100)  # real part of C(t) is even, imaginary part odd
+        # plot the correlation function C(t)
+        ax = plt.subplot(1, 3, 3)
+        t = np.linspace(0, 10/c, 100)  # real part of C(t) is even, imaginary part odd
         res = np.empty(len(t), dtype=complex)
         # upper limit for integration
         if self.cut_type == 'smooth':
@@ -438,42 +455,46 @@ class MarkovianBath:
             res[k], abserr = quad(fun1, tol_nu, int_max)
             temp, abserr = quad(fun2, tol_nu, int_max)
             res[k] += 1j*temp
-        plt.plot(t, res.real, 'k-', t, res.imag, 'k--', t, abs(res), 'k-.')
-        a = plt.axis()
-        plt.hold(True)
-        plt.grid(True)
-        plt.xlabel('t [TU]')
-        plt.ylabel('[1/TU^2]')
-        plt.title('Bath correlation function C(t): ' + self.desc(False))
+        ax.plot(t, res.real, 'k-', label='Re $C(t)$')
+        ax.plot(t, res.imag, 'k--', label='Im $C(t)$')
+        ax.plot(t, abs(res), 'k-.', label='$|C(t)|$')
+        ax.grid(True)
+        ax.set_xlabel('t [TU]')
+        ax.set_ylabel('[TU$^{-2}$]')
+        ax.set_title('Bath correlation function $C(t)$')
+        xlim = ax.get_xlim()
+        ylim = ax.get_ylim()
 
         # plot analytic high- and low-temp limits
         x = c * t
         if self.cut_type == 'sharp':
             temp = ((1 +1j * x) * np.exp(-1j * x) - 1) / x**2
-            hb = 2 / self.scale * np.sin(x) / x
+            boson_hot_real = 2 / self.scale * np.sin(x) / x
         elif self.cut_type == 'smooth':
             shi, chi = sps.shichi(x)
             temp = np.sinh(x) * shi -np.cosh(x) * chi -1j * np.pi / 2 * np.exp(-abs(x))
-            hb = np.pi / self.scale * np.exp(-abs(x))
+            boson_hot_real = np.pi / self.scale * np.exp(-abs(x))
         elif self.cut_type == 'exp':
             temp = 1 / (1 +1j * x)**2
-            hb = 2 / self.scale / (1 + x**2)
+            boson_hot_real = 2 / self.scale / (1 + x**2)
         else:
-            raise ValueError('Unknown cutoff type "{0}"'.format(self.cut_type))
+            raise ValueError(f"Unknown cutoff type '{self.cut_type}'.")
         temp *= c**2
-        hb   *= c
+        boson_hot_real *= c
         if self.stat == 'boson':
-            plt.plot(t, temp.real, 'b.')  # real part, cold
-            plt.plot(t, hb, 'r.')  # real part, hot
-            plt.plot(t, temp.imag, 'ko')  # imag part, every T
-            plt.legend(['re C', 'im C', '|C|', 're C (cold, analytic)', 're C (hot, analytic)', 'im C (analytic)'])
+            ax.plot(t, temp.real, 'b.', label='Re $C(t)$ (analytic) (cold)')  # real part, cold
+            ax.plot(t, boson_hot_real, 'r.', label='Re $C(t)$ (analytic) (hot)')  # real part, hot
+            ax.plot(t, temp.imag, 'ko', label='Im $C(t)$ (analytic)')  # imag part, every T
         else:
-            plt.plot(t, temp.real, 'k.')  # real part, every T
-            plt.plot(t, temp.imag, 'bo')  # imag part, cold
-            plt.plot(t, 0*t, 'ro')  # imag part, hot
-            plt.legend(['re C', 'im C', '|C|', 're C (analytic)', 'im C (cold, analytic)', 'im C (hot, analytic)'])
-        plt.axis(a)
-        return res
+            ax.plot(t, temp.real, 'k.', label='Re $C(t)$ (analytic)')  # real part, every T
+            ax.plot(t, temp.imag, 'bo', label='Im $C(t)$ (analytic) (cold)')  # imag part, cold
+            ax.plot(t, 0*t, 'ro', label='Im $C(t)$ (analytic) (hot)')  # imag part, hot
+        ax.legend()
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+        ax.get_figure().show()
+        #return res
+        return ax
 
         if False:
             c0 = abs(res[0])
@@ -486,9 +507,15 @@ class MarkovianBath:
 
 
 
-    def compute_gs(self, x):
+    def compute_gs(self, x: float) -> Tuple[float, float]:
         r"""Computes the spectral correlation tensor.
         See :func:`corr` for usage.
+
+        Args:
+            x: angular frequency [1/TU]
+
+        Returns:
+            Real and imaginary parts of the spectral correlation tensor at ``x`` [1/TU]
         """
         ep = 1e-5 # epsilon for Cauchy principal value
         tol_omega0 = 1e-8
@@ -506,18 +533,18 @@ class MarkovianBath:
             return g, a + b
 
 
-    def corr(self, x: float):
+    def corr(self, x: float) -> Tuple[float, float]:
         r"""Bath spectral correlation tensor, computed or interpolated.
+
+        .. math::
+
+           \Gamma(x/\text{TU}) \: \text{TU} = \frac{1}{2} g +i s
 
         Args:
             x: angular frequency [1/TU]
 
         Returns:
-            g, s: Real and imaginary parts of the spectral correlation tensor [1/TU]
-
-        .. math::
-
-           \Gamma(x/\text{TU}) \: \text{TU} = \frac{1}{2} g +i s
+            Real and imaginary parts of the spectral correlation tensor at ``x`` [1/TU]
         """
         # Ville Bergholm 2009-2011
 
@@ -708,7 +735,7 @@ def ops(H, D):
     # TODO justify the numerical tolerance used
     for k in range(1, len(dH)):
         if abs(dH[k] -dH[k-1]) < 1e-3:
-            print('Warning: Small difference between dH({}) and dH({}) may break the RWA.\n'.format(k-1, k))
+            print(f'Warning: Small difference between dH({k-1}) and dH({k}) may break the RWA.\n')
     return dH, A
 
 

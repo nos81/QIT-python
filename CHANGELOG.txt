@@ -127,9 +127,9 @@ b bugfix
               + invariant.canonical_inv_normalize
               * invariant.plot_canonical_2q and invariant.plot_makhlin_2q also plot the set of perfect entanglers.
               * markov.MarkovianBath class rewritten, supports also fermionic baths.
-              + markov.MarkovianBath.plot_correlation
-              + markov.MarkovianBath.plot_LUT
-              + markov.MarkovianBath.plot_cutoff
+              + markov.MarkovianBath.plot_bath_correlation
+              + markov.MarkovianBath.plot_spectral_correlation
+              + markov.MarkovianBath.plot_spectral_correlation_vs_cutoff
               b markov.ops warns of possible RWA violations.
               + examples.werner_states
               + examples.quantum_walk

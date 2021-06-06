@@ -1447,7 +1447,6 @@ def teleportation(d=2):
     return reg_B, payload
 
 
-
 def werner_states(d=2):
     """Werner and isotropic states demo.
 
@@ -1492,6 +1491,16 @@ def werner_states(d=2):
     ax.legend(leg)
     ax.grid(True)
     fig.show()
+
+
+def plot_bath_properties():
+    """Markovian bath properties demo.
+    """
+    bath = markov.MarkovianBath('ohmic', stat='boson', TU=1e-9, T=1e-3)
+    #bath.set_cutoff('smooth', 1.0)
+    bath.plot_bath_correlation()
+    bath.plot_spectral_correlation_vs_cutoff()
+    bath.plot_spectral_correlation()
 
 
 
@@ -1559,3 +1568,10 @@ Between examples, press enter to proceed to the next one.""")
 
         qubit_and_resonator(20)
         pause()
+
+        plot_bath_properties()
+        pause()
+
+
+if __name__ == '__main__':
+    tour()
