@@ -1,9 +1,6 @@
 r"""
-Control sequences (:mod:`qit.seq`)
-==================================
-
-.. currentmodule:: qit.seq.seq
-
+Control sequences
+=================
 
 .. currentmodule:: qit.seq
 

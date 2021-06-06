@@ -1,7 +1,6 @@
 """
-Quantum states (:mod:`qit.state`)
-=================================
-
+Quantum states
+==============
 
 In QIT, quantum states are represented by the :class:`State` class,
 defined in this module.
@@ -75,6 +74,8 @@ Named states
 .. autosummary::
    werner
    isotropic
+
+.. currentmodule:: qit.state
 """
 # Ville Bergholm 2008-2020
 

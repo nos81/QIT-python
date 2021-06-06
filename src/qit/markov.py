@@ -1,14 +1,12 @@
 """
-Born-Markov noise (:mod:`qit.markov`)
-=====================================
-
+Born-Markov noise
+=================
 
 This module simulates the effects of a heat bath coupled to a quantum
 system, using the Born-Markov approximation in the weak coupling limit.
 This results in a Lindblad-form master equation for the system.
 
 The treatment in this module mostly follows :cite:`BP`.
-
 
 
 :class:`MarkovianBath` methods
@@ -28,6 +26,8 @@ The treatment in this module mostly follows :cite:`BP`.
    plot_spectral_correlation
    plot_spectral_correlation_vs_cutoff
    plot_bath_correlation
+
+.. currentmodule:: qit.markov
 """
 import collections.abc
 from typing import Optional, Tuple

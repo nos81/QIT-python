@@ -1,6 +1,6 @@
 """
-Model Hamiltonians (:mod:`qit.hamiltonian`)
-===========================================
+Model Hamiltonians
+==================
 
 This module has methods that generate several common types of model Hamiltonians used in quantum mechanics.
 

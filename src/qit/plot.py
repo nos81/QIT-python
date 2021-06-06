@@ -1,6 +1,6 @@
 """
-Plotting functions (:mod:`qit.plot`)
-====================================
+Plotting functions
+==================
 
 .. currentmodule:: qit.plot
 

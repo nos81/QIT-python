@@ -1,7 +1,8 @@
 *~
 *.diff
 *.pyc
-doc/_build
+
+docs/api
 build
 dist
-qit.egg-info
+*.egg-info/

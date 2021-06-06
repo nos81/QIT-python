@@ -1,6 +1,6 @@
 """
-Linear maps (:mod:`qit.lmap`)
-=============================
+Linear maps
+===========
 
 Bounded finite-dimensional linear maps are represented using :class:`Lmap` class instances.
 In addition to the matrix representing the map, they contain

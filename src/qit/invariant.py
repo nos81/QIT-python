@@ -1,6 +1,6 @@
 """
-Local invariants (:mod:`qit.invariant`)
-=======================================
+Local invariants
+================
 
 This module contains tools for computing and plotting the values of
 various gate and state local invariants.

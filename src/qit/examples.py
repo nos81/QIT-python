@@ -1,6 +1,6 @@
 """
-Demos and examples (:mod:`qit.examples`)
-========================================
+Demos and examples
+==================
 
 .. currentmodule:: qit.examples
 

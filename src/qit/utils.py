@@ -1,6 +1,6 @@
 """
-Utilities (:mod:`qit.utils`)
-============================
+Utilities
+=========
 
 .. currentmodule:: qit.utils
 

@@ -1,6 +1,6 @@
 r"""
-Harmonic oscillators (:mod:`qit.ho`)
-====================================
+Harmonic oscillators
+====================
 
 .. currentmodule:: qit.ho
 
