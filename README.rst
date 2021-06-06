@@ -76,11 +76,3 @@ coding guidelines:
 * When you add new functions also add tests for validating
   your code. If you modify existing code, make sure you didn't break
   anything by checking that the tests still run successfully.
-
-
-Authors
--------
-
-* Ville Bergholm          2008-2021
-* Jacob D. Biamonte       2008-2009
-* James D. Whitfield      2009-2010

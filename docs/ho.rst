@@ -1,2 +1,0 @@
-.. automodule:: qit.ho
-   :members:

@@ -1,2 +1,0 @@
-.. automodule:: qit.seq
-   :members:

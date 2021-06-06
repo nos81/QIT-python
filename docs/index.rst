@@ -1,30 +1,24 @@
-.. Quantum Information Toolkit documentation master file
-
 Quantum Information Toolkit
 ===========================
 
 :Release: |release|
 :Date: |today|
 
-Contents:
+
+Contents
+--------
 
 .. toctree::
    :maxdepth: 1
 
-   utils
-   lmap
-   state
-   gate
-   hamiltonian
-   ho
-   invariant
-   markov
-   seq
-   plot
-   examples
+   api
+   changelog
+   authors
    references
+   license
 
-.. include:: ../README.txt
+
+.. include:: ../README.rst
    :start-line: 4
 
 

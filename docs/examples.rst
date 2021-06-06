@@ -1,2 +1,0 @@
-.. automodule:: qit.examples
-   :members:

@@ -11,18 +11,6 @@ The treatment in this module mostly follows :cite:`BP`.
 
 
 
-Contents
---------
-
-.. currentmodule:: qit.markov
-
-.. autosummary::
-
-   ops
-   lindblad_ops
-   superop
-
-
 :class:`MarkovianBath` methods
 ------------------------------
 
@@ -38,7 +26,7 @@ Contents
    corr
    fit
    plot_spectral_correlation
-   plot_cutoff
+   plot_spectral_correlation_vs_cutoff
    plot_bath_correlation
 """
 import collections.abc

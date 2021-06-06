@@ -11,34 +11,40 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
 import os
-import re
 import sys
 
-sys.path.insert(0, os.path.abspath('..'))
-import qit
+# Find the path to the source files we want to to document, relative to the location of this file,
+# convert it to an absolute path.
+src_path = os.path.join(os.getcwd(), os.path.dirname(__file__), '../src')
+sys.path.insert(0, os.path.abspath(src_path))
 
 
 # -- Project information -----------------------------------------------------
 
 project = 'Quantum Information Toolkit'
-copyright = '2011-2020, Ville Bergholm et al.'
+copyright = '2011-2021, Ville Bergholm et al.'
 author = 'Ville Bergholm et al.'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
-#
-# The full version, including alpha/beta/rc tags.
-release = qit.__version__
 
 # The short X.Y version.
-version = re.match(r'^(\d+\.\d+)', release).expand(r'\1')
+version = ''
+# The full version, including alpha/beta/rc tags.
+release = ''
+try:
+    from qit import __version__ as version
+except ImportError:
+    pass
+else:
+    release = version
 
 
 # -- General configuration -----------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
-needs_sphinx = '3.0'
+needs_sphinx = '3.5'
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
@@ -74,9 +80,6 @@ add_function_parentheses = False
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = 'sphinx'
-
-# If true, `todo` and `todoList` produce output, else they produce nothing.
-todo_include_todos = True
 
 
 # -- Options for HTML output ---------------------------------------------------
@@ -134,18 +137,26 @@ latex_elements = {'papersize': 'a4paper',
 # If false, no module index is generated.
 #latex_use_modindex = True
 
-#=========================================================================
 
-# the order in which autodoc lists the documented members
-autodoc_member_order = 'bysource'
+# -- Options for autodoc -------------------------------------------------
 
 # documentation source for classes
 autoclass_content = 'both'
 
+# the order in which autodoc lists the documented members
+autodoc_member_order = 'bysource'
+
+# how to represent typehints
+autodoc_typehints = 'signature'
+
+
+
+# -- Options for MathJax -------------------------------------------------
+
 # latex macros
-mathjax_config = {
-    'TeX': {
-        'Macros': {
+mathjax3_config = {
+    'tex': {
+        'macros': {
             'ket': [r'\left| #1 \right\rangle', 1],
             'bra': [r'\left\langle #1 \right|', 1],
             're': [r'\mathrm{Re} \: #1', 1],
@@ -157,7 +168,19 @@ mathjax_config = {
             'expect': [r'\langle #1 \rangle', 1],
             'hc': r'\text{h.c.}',  # hermitian conjugate
             'cc': r'\text{c.c.}',  # complex conjugate
-            'I': r'\mathrm{I}',   # identity operator
+            'I': r'\mathrm{I}',  # identity operator
         }
     }
 }
+
+
+# -- Options for sphinxcontrib.bibtex -------------------------------------------------
+
+# List of all bibliography files used.
+bibtex_bibfiles = ['refs.bib']
+
+
+# -- Options for todo -------------------------------------------------
+
+# If true, `todo` and `todoList` produce output, else they produce nothing.
+todo_include_todos = True
