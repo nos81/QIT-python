@@ -42,6 +42,7 @@ General-purpose quantum algorithms
    find_order
 """
 # Ville Bergholm 2011-2020
+from __future__ import annotations
 
 from operator import mod
 from copy import deepcopy
@@ -529,7 +530,7 @@ def markov_decoherence(T1=7e-10, T2=1e-9, B=None):
 
 
 
-def nmr_sequences(seqs=None, strength_error=True):
+def nmr_sequences(seqs: Sequence[Seq] = None, strength_error: bool = True):
     """NMR control sequences demo.
 
     Compares the performance of different single-qubit NMR control
@@ -540,10 +541,10 @@ def nmr_sequences(seqs=None, strength_error=True):
     Reproduces fidelity plots in :cite:`Cummins`.
 
     Args:
-      seqs (Sequence[Seq]): control sequences to compare
-      strength_error (bool): if True use a pulse strength error, otherwise use a pulse length error
+      seqs: control sequences to compare
+      strength_error: if True use a pulse strength error, otherwise use a pulse length error
     """
-    # Ville Bergholm 2006-2018
+    # Ville Bergholm 2006-2021
     print('\n\n=== NMR control sequences for correcting systematic errors ===\n')
 
     if seqs is None:
@@ -566,11 +567,27 @@ def nmr_sequences(seqs=None, strength_error=True):
 
     fid = np.empty((ng, nf, len(seqs)))
 
-    def helper(ax, s_error, title):
-        """Apply the sequence on the state psi, plot the evolution."""
+    def plot_trajectory(ax, s_error, title):
+        """Apply the sequence on the state psi, plot the evolution.
+        """
         out, _ = seq.propagate(psi, s_error, out_func=State.bloch_vector)
         plot.state_trajectory(out, ax=ax)
         ax.set_title(title)
+
+    def plot_slice(x, data, titles, slice_name):
+        """Plot the fidelities of a slice in the error plane for every sequence into a new figure.
+        """
+        fig = plt.figure()
+        ax = fig.gca()
+        ax.plot(x, data)
+        ax.set_xlabel(slice_name)
+        ax.set_ylabel('fidelity')
+        ax.legend(titles)
+        ax.grid(True)
+        ax.set_xlim([-1, 1])
+        ax.set_ylim([0, 1])
+        ax.set_title('Fidelity under ' + slice_name)
+        fig.show()
 
     # loop over the different sequences
     for k, ss in enumerate(seqs):
@@ -578,7 +595,7 @@ def nmr_sequences(seqs=None, strength_error=True):
         fig.suptitle(ss.name)
         gs = GridSpec(2, 2)
         U = ss.to_prop()  # target propagator
-        psi_target = [psi.u_propagate(U).bloch_vector()]  # target state
+        #psi_target = [psi.u_propagate(U).bloch_vector()]  # target state
 
         # State evolution plots.
         # The two systematic error types we are interested here can be
@@ -587,8 +604,7 @@ def nmr_sequences(seqs=None, strength_error=True):
         s_error = deepcopy(ss)
         s_error.A = ss.A + 0.1 * offres_A  # off-resonance error (constant \sigma_z drift term)
         ax = fig.add_subplot(gs[0, 0], projection='3d')
-        helper(ax, s_error, 'evolution, off-resonance error')
-        #plot.state_trajectory(psi_target, reset=False, marker='')
+        plot_trajectory(ax, s_error, 'evolution, off-resonance error')
 
         #==================================================
         s_error = deepcopy(ss)
@@ -597,7 +613,7 @@ def nmr_sequences(seqs=None, strength_error=True):
         else:
             s_error.tau = ss.tau * 1.1  # pulse length error
         ax = fig.add_subplot(gs[1, 0], projection='3d')
-        helper(ax, s_error, 'evolution, ' + error_type)
+        plot_trajectory(ax, s_error, 'evolution, ' + error_type)
 
         #==================================================
         s_error = deepcopy(ss)
@@ -621,35 +637,16 @@ def nmr_sequences(seqs=None, strength_error=True):
         X, Y = np.meshgrid(f, g)
         ax.contour(X, Y, 1 - fid[:, :, k])
         #ax.surf(X, Y, 1 - fid)
-        ax.set_xlabel('Off-resonance error')
-        ax.set_ylabel('Pulse length error')
+        ax.grid(True)
+        ax.set_xlabel('off-resonance error')
+        ax.set_ylabel(error_type)
         ax.set_title('fidelity')
         fig.show()
 
-    titles = [s.name for s in seqs]
-
     # horizontal and vertical slices through the error plane
-    fig = plt.figure()
-    ax = fig.gca()
-    ax.plot(f, fid[ng//2, :, :])
-    ax.set_xlabel('Off-resonance error')
-    ax.set_ylabel('fidelity')
-    ax.legend(titles)
-    ax.grid(True)
-    ax.set_xlim([-1, 1])
-    ax.set_ylim([0, 1])
-    ax.set_title('Fidelity under off-resonance error')
-
-    fig = plt.figure()
-    ax = fig.gca()
-    ax.plot(g, fid[:, nf//2, :])
-    ax.set_xlabel(error_type)
-    ax.set_ylabel('fidelity')
-    ax.legend(titles)
-    ax.grid(True)
-    ax.set_xlim([-1, 1])
-    ax.set_ylim([0, 1])
-    ax.set_title('Fidelity under ' + error_type)
+    titles = [s.name for s in seqs]
+    plot_slice(f, fid[ng // 2, :, :], titles, 'off-resonance error')
+    plot_slice(g, fid[:, nf // 2, :], titles, error_type)
 
 
 
