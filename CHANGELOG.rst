@@ -4,7 +4,7 @@ Changelog
 for Quantum Information Toolkit (Python version)
 
 
-0.12.0 (2021-07-30)
+0.12.0 (2021-09-05)
 -------------------
 
 Features
