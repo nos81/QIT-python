@@ -37,9 +37,8 @@ import numpy as np
 import scipy.special as sps
 import scipy.linalg as spl
 
-from .base import tol
 from .state import State
-from .utils import boson_ladder, comm
+from .utils import boson_ladder
 
 __all__ = ['coherent_state', 'displace', 'squeeze', 'rotate',
            'beamsplitter', 'cx',
@@ -419,6 +418,7 @@ def wigner(rho, alpha=None, *, res=(20, 20), lim=(-2, 2, -2, 2), method=0):
     results in spurious circular ripples in the Wigner function outside
     a given radius. To increase the accuracy, increase the truncation dimension.
     """
+    # pylint: disable=too-many-locals,undefined-variable
     if alpha is None:
         # return a grid of W values for a grid of alphas
         a = np.linspace(lim[0], lim[1], res[0])
@@ -446,52 +446,10 @@ def wigner(rho, alpha=None, *, res=(20, 20), lim=(-2, 2, -2, 2), method=0):
             temp = np.empty((n,), dtype=complex)
             for y in range(n):
                 for w in range(n):
-                    temp[y] = xxxx(y, w, -c) * rho.data[w,0]
+                    temp[y] = _displacement(y, w, -c) * rho.data[w, 0]
             temp = State(temp)
             W.flat[k] = np.sum(P * temp.prob().real)
 
     if return_ab:
         return W, a, b
     return W
-
-
-def koe(n,m):
-
-    d = 20
-    z = np.linspace(0,2,100)
-    res = np.zeros(z.shape, dtype=complex)
-    res2 = np.zeros(z.shape, dtype=complex)
-    s = State(n,d)
-    for k, c in enumerate(z):
-        temp = s.u_propagate(displace(c, d))
-        res[k] = temp.data[m,0]
-        res2[k] = xxxx(m,n,c)
-
-    print('sdfs = ', abs(res.imag))
-    print('sdfs = ', abs(res2.imag))
-    print('err = ', max(abs(res.real-res2.real)))
-    import matplotlib.pyplot as plt
-    fig = plt.figure()
-    ax = fig.gca()
-    ax.plot(z, res.real, 'b')
-    ax.plot(z, res2.real, 'r--')
-    ax.grid(True)
-    fig.show()
-
-
-
-def xxxx(m,n,alpha):
-    """Computing the matrix elements of displacement ops."""
-
-    temp = abs(alpha)
-    if temp < 1e-10:
-        if m == n:
-            return 1
-        else:
-            return 0
-    temp = temp**2
-    x = np.sqrt(sps.factorial(n) / sps.factorial(m)) * (alpha ** (m - n)) * exp(-0.5 * temp)
-    #print(x)
-    q = sps.eval_genlaguerre(n, m - n, temp)
-    #print(q)
-    return x * q

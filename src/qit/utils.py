@@ -100,13 +100,14 @@ Miscellaneous
    trisurf
 """
 # Ville Bergholm 2008-2021
+from __future__ import annotations
 
 from copy import deepcopy
 
 import numpy as np
 import scipy.linalg as spl
 
-from .base import sx, sy, sz, tol
+from .base import sx, sy, sz, TOLERANCE
 
 __all__ = ['copy_memoize',
            'gcd', 'lcm', 'majorize',
@@ -233,8 +234,7 @@ def orth(A, tol=None, kernel=False, spectrum=False):
 
     if spectrum:
         return ret, s
-    else:
-        return ret
+    return ret
 
 
 def nullspace(A, tol=None, spectrum=False):
@@ -349,6 +349,7 @@ def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
     Uses the sparse algorithm from :cite:`EXPOKIT`.
     """
     # Ville Bergholm 2009-2012
+    # pylint: disable=too-many-locals,too-many-statements
 
     # just in case somebody tries to use numpy.matrix instances here
     if isinstance(A, np.matrix) or isinstance(v, np.matrix):
@@ -388,7 +389,8 @@ def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
     # TODO don't use complex matrices unless we have to: dt = result_type(t, A, v)
 
     # TODO shortcuts for Hessenberg matrix exponentiation?
-    H = np.zeros((m+2, m+2), dt) # upper Hessenberg matrix for the Arnoldi process + two extra rows/columns for the error estimate trick
+    # upper Hessenberg matrix for the Arnoldi process + two extra rows/columns for the error estimate trick
+    H = np.zeros((m+2, m+2), dt)
     H[m + 1, m] = 1           # never overwritten!
     V = np.zeros((n, m+1), dt)   # orthonormal basis for the Krylov subspace + one extra vector
 
@@ -457,8 +459,7 @@ def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
         raise ValueError("Only 'arnoldi' and 'lanczos' iterations are supported.")
 
     # loop over the time instances (which must be in increasing order)
-    for kk in range(len(tt)):
-        t_end = tt[kk]
+    for kk, t_end in enumerate(tt):
         # initial stepsize
         # TODO we should inherit the stepsize from the previous interval
         r = m
@@ -501,7 +502,7 @@ def expv(t, A, v, tol=1.0e-7, m=30, iteration='arnoldi'):
                     if err_loc <= delta * tol * t_step:
                         break
                     if k >= max_stepsize_changes:
-                        raise RuntimeError('Requested tolerance cannot be achieved in {0} stepsize changes.'.format(max_stepsize_changes))
+                        raise RuntimeError(f'Requested tolerance cannot be achieved in {max_stepsize_changes} stepsize changes.')
                     t_step = update_stepsize(t_step, err_loc, r)
 
             # step accepted, update v, beta, error, hump
@@ -714,7 +715,7 @@ def inv_vec(v, dim=None):
 def lmul(L, q=None):
     r"""Superoperator equivalent for multiplying from the left.
 
-    .. math:: L \rho = \text{inv\_vec}(\text{lmul}(L) \text{vec}(\rho))
+    .. math:: L \rho = \text{inv_vec}(\text{lmul}(L) \text{vec}(\rho))
 
     Args:
       L (array): multiplying operator, shape == (m, p)
@@ -730,7 +731,7 @@ def lmul(L, q=None):
 def rmul(R, p=None):
     r"""Superoperator equivalent for multiplying from the right.
 
-    .. math:: \rho R = \text{inv\_vec}(\text{rmul}(R) \text{vec}(\rho))
+    .. math:: \rho R = \text{inv_vec}(\text{rmul}(R) \text{vec}(\rho))
 
     Args:
       R (array): multiplying operator, shape == (q, r)
@@ -746,13 +747,14 @@ def rmul(R, p=None):
 def lrmul(L, R):
     r"""Superoperator equivalent for multiplying both from left and right.
 
-    .. math:: L \rho R = \text{inv\_vec}(\text{lrmul}(L, R) \text{vec}(\rho))
+    .. math:: L \rho R = \text{inv_vec}(\text{lrmul}(L, R) \text{vec}(\rho))
 
     Args:
       L (array): matrix, shape (m, p)
       R (array): matrix, shape (q, r)
     Returns:
-      array: superoperator that implements left multiplication by the matrix L and right multiplication by the matrix R of a vectorized matrix :math:`\rho`
+      array: superoperator that implements left multiplication by the matrix L and right
+        multiplication by the matrix R of a vectorized matrix :math:`\rho`
     """
     # L and R fix the shape of rho completely
     return np.kron(R.transpose(), L)
@@ -768,7 +770,11 @@ def superop_lindblad(A, H=None):
       array: Liouvillian superoperator L
 
     L corresponding to the diagonal-form Lindblad equation
-    .. math:: \dot{\rho} = \text{inv\_vec}(L \text{vec}(\rho)) = -i [H, \rho] +\sum_k \left(A_k \rho A_k^\dagger -\frac{1}{2} \{A_k^\dagger A_k, \rho\}\right)
+
+    .. math::
+
+       \dot{\rho} = \text{inv_vec}(L \text{vec}(\rho))
+       = -i [H, \rho] +\sum_k \left(A_k \rho A_k^\dagger -\frac{1}{2} \{A_k^\dagger A_k, \rho\}\right)
     """
     # James D. Whitfield 2009
     # Ville Bergholm 2009-2010
@@ -799,7 +805,7 @@ def superop_fp(L, tol=None):
     fixed point states for the quantum channel represented by the
     master equation
 
-    .. math:: \dot{\rho} = \text{inv\_vec}(L \text{vec}(\rho)).
+    .. math:: \dot{\rho} = \text{inv_vec}(L \text{vec}(\rho)).
 
     Let L.shape == (D, D) (and d = sqrt(D) be the dimension of the Hilbert space).
 
@@ -1084,11 +1090,19 @@ def Rz(theta):
 
 # decompositions
 
-def spectral_decomposition(A):
+def spectral_decomposition(
+        A: 'array[complex]',
+        tol: float = TOLERANCE
+) -> tuple['array[float]', list['array[complex]']]:
     r"""Spectral decomposition of a Hermitian matrix.
 
-    Returns the unique eigenvalues a and the corresponding projectors P
-    for the Hermitian matrix A, such that :math:`A = \sum_k  a_k P_k`.
+    Args:
+        A: Hermitian matrix to decompose
+        tol: numerical tolerance
+
+    Returns:
+        unique eigenvalues ``a`` and the corresponding projectors ``P``
+        for ``A``, such that :math:`A = \sum_k  a_k P_k`.
     """
     # Ville Bergholm 2010
 
@@ -1189,6 +1203,7 @@ def tensorbasis(n, d=None, get_locality=False, only_local=False):
     in the tensor product.
     """
     # Ville Bergholm 2005-2016
+    # pylint: disable=too-many-locals
     if d is None:
         # dim vector
         dim = tuple(n)
@@ -1209,9 +1224,8 @@ def tensorbasis(n, d=None, get_locality=False, only_local=False):
         if get_locality:
             # tuple: matrices, locality
             return deepcopy((B, loc))
-        else:
-            # just the matrices
-            return deepcopy(B)
+        # just the matrices
+        return deepcopy(B)
 
     n_elements = np.array(dim) ** 2    # number of basis elements for each subsystem, incl. identity
     if only_local:
@@ -1260,8 +1274,7 @@ def tensorbasis(n, d=None, get_locality=False, only_local=False):
 
     if get_locality:
         return B, locality
-    else:
-        return B
+    return B
 
 
 
@@ -1355,7 +1368,7 @@ def qubits(n):
     return (2,) * n
 
 
-def majorize(x, y):
+def majorize(x: 'array[float]', y: 'array[float]', tol: float = TOLERANCE) -> bool:
     r"""Majorization partial order of real vectors.
 
     Returns True iff x is majorized by y, denoted by :math:`x \preceq y`. This is equivalent to
@@ -1368,9 +1381,10 @@ def majorize(x, y):
     :math:`x \preceq y` if and only if x is in the convex hull of all the coordinate permutations of y.
 
     Args:
-      x, y (array[float]): real vectors, equal length
+        x, y: real vectors, equal length
+        tol: numerical tolerance
     Returns:
-      bool: :math:`x \preceq y`
+        :math:`x \preceq y`
     """
     if x.ndim != 1 or y.ndim != 1 or np.iscomplexobj(x) or np.iscomplexobj(y):
         raise ValueError('Inputs must be real vectors.')
@@ -1384,10 +1398,9 @@ def majorize(x, y):
     if abs(x[-1] -y[-1]) <= tol:
         # exact majorization
         return all(x-y <= tol)
-    else:
-        # weak majorization could still be possible, but...
-        _warn('Vectors have unequal sums.')
-        return False
+    # weak majorization could still be possible, but...
+    _warn('Vectors have unequal sums.')
+    return False
 
 
 def mkron(*arg):

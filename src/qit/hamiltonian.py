@@ -20,9 +20,11 @@ Contents
    holstein
 """
 # Ville Bergholm 2014-2020
+# pylint: disable=too-many-locals
+
 import numpy as np
 
-import qit
+from qit.base import sx, sy, sz
 from qit.utils import (angular_momentum, op_list, boson_ladder, fermion_ladder, cdot)
 
 
@@ -176,14 +178,14 @@ def jaynes_cummings(om_atom, Omega, m=10, use_RWA=False):
     a = boson_ladder(m)
     ad = a.conj().T
     x = a + ad
-    sp = 0.5 * (qit.sx -1j * qit.sy) # qubit raising operator
+    sp = 0.5 * (sx -1j * sy) # qubit raising operator
     sm = sp.conj().T
 
     atom = []
     coupling = []
     # loop over atoms
     for k in range(n):
-        atom.append([(-0.5 * om_atom[k] * qit.sz, k + 1)])  # atomic Hamiltonian
+        atom.append([(-0.5 * om_atom[k] * sz, k + 1)])  # atomic Hamiltonian
         # atom-cavity coupling
         if use_RWA:
             # rotating wave approximation, discard counter-rotating terms

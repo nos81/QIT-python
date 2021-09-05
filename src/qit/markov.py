@@ -39,8 +39,8 @@ import scipy.special as sps
 import scipy.constants as const
 import matplotlib.pyplot as plt
 
-from .base import sx, sz, tol
-from .utils import lmul, rmul, lrmul, rand_hermitian, superop_lindblad, spectral_decomposition
+from .base import sx, sz, TOLERANCE
+from .utils import lmul, rmul, lrmul, spectral_decomposition
 
 
 __all__ = ['MarkovianBath', 'ops', 'lindblad_ops', 'superop']
@@ -55,7 +55,7 @@ class MarkovianBath:
     :math:`H_\text{int} = A \otimes \sum_k \lambda_k (a_k +a_k')`.
 
     Args:
-        type: bath type, in ('ohmic', 'photon')
+        bath_type: bath type, determines the spectral density, in {'ohmic', 'photon'}.
         stat: bath statistics, in ('boson', 'fermion')
         TU: bath time unit (in s)
         T: bath temperature (in K)
@@ -109,9 +109,10 @@ class MarkovianBath:
       \omega +\nu \tanh(\beta \hbar \nu/2) \quad \text{(fermions)}
       \end{cases}
 
-    where :math:`n(\omega) := 1/(e^{\beta \hbar \omega} \mp 1)` is the Planc/Fermi function and :math:`\beta = 1/(k_B T)`.
-    Since :math:`\Gamma` is pretty expensive to compute, we store the computed results into a lookup table which is used to interpolate nearby values.
-
+    where :math:`n(\omega) := 1/(e^{\beta \hbar \omega} \mp 1)` is the Planc/Fermi function
+    and :math:`\beta = 1/(k_B T)`.
+    Since :math:`\Gamma` is pretty expensive to compute, we store the computed results
+    into a lookup table which is used to interpolate nearby values.
 
     Private attributes (set automatically):
 
@@ -130,9 +131,10 @@ class MarkovianBath:
     ===========  ===========
     """
     # Ville Bergholm 2009-2016
-    def __init__(self, type: str, stat: str, TU: float, T: float):
+    # pylint: disable=attribute-defined-outside-init,too-many-instance-attributes
+    def __init__(self, bath_type: str, stat: str, TU: float, T: float):
         # Set up a descriptor for a heat bath coupled to a quantum system.
-        self.type = type
+        self.type = bath_type
         """Bath type. 'ohmic' or 'photon'."""
         self.stat = stat
         """Bath statistics. Either 'boson' or 'fermion'."""
@@ -147,6 +149,7 @@ class MarkovianBath:
         """Spectral density cutoff type, in ``{'sharp', 'smooth', 'exp'}``."""
         self.cut_omega = 0
         r"""Spectral density cutoff angular frequency :math:`\omega_c` (in :math:`1/\text{TU}`)."""
+
         self.set_cutoff('exp', 1.0)
 
 
@@ -157,24 +160,25 @@ class MarkovianBath:
 
     def desc(self, long: bool=True) -> str:
         """Bath description string for plots."""
-        temp = rf'{self.type}, {self.stat}, $\beta \hbar \omega_c$: {self.scale*self.cut_omega:.4g}, cutoff: {self.cut_type}, {self.cut_omega:.4g}'
+        temp = rf'{self.type}, {self.stat}, $\beta \hbar \omega_c$: {self.scale*self.cut_omega:.4g},'\
+            + rf'cutoff: {self.cut_type}, {self.cut_omega:.4g}'
         if long:
             return r'Bath correlation tensor $\Gamma(\omega) = \frac{1}{2} \gamma(\omega) +i S(\omega)$: ' +temp
         return temp
 
 
-    def set_cutoff(self, type: Optional[str], cut_omega: Optional[float]) -> None:
+    def set_cutoff(self, cutoff_type: Optional[str], cut_omega: Optional[float]) -> None:
         """Set the spectral density cutoff.
 
         Passing ``None`` leaves the corresponding property unchanged.
 
         Args:
-            type: cutoff type, in ``{'sharp', 'smooth', 'exp'}``
+            cutoff_type: cutoff type, in ``{'sharp', 'smooth', 'exp'}``
             cut_omega: omega cutoff value
         """
         # We assume that cut_func(0) == 1.
-        if type is not None:
-            self.cut_type = type
+        if cutoff_type is not None:
+            self.cut_type = cutoff_type
         if cut_omega is not None:
             self.cut_omega = cut_omega  # == omega_c*TU
 
@@ -279,7 +283,7 @@ class MarkovianBath:
         Returns:
             Axes: the plot
         """
-        fig, ax = plt.subplots()
+        _, ax = plt.subplots()
         ax.grid(True)
         ax.plot(x, gs, '-x')
         ax.plot(x, odd_s, 'k-')
@@ -300,8 +304,14 @@ class MarkovianBath:
 
         f(x, om * odd_s, 'ko', x, om * even_s, 'mo')
         ax.set_ylabel('[1/TU]')
-        ax.legend(['$\gamma(\omega)$', '$S(\omega)$', '$S(\omega)-S(-\omega)$', '$S(\omega)+S(-\omega)$',
-                    '$S(\omega)-S(-\omega)$ (fermion)', '$S(\omega)+S(-\omega)$ (boson)'])
+        ax.legend([
+            r'$\gamma(\omega)$',
+            r'$S(\omega)$',
+            r'$S(\omega)-S(-\omega)$',
+            r'$S(\omega)+S(-\omega)$',
+            r'$S(\omega)-S(-\omega)$ (fermion)',
+            r'$S(\omega)+S(-\omega)$ (boson)',
+        ])
         return ax
 
 
@@ -360,9 +370,9 @@ class MarkovianBath:
         cutoff = np.logspace(-1.5, 1.5, 50)
         gs  = np.zeros((len(cutoff), 2))
         gsm = np.zeros((len(cutoff), 2))
-        for k in range(len(cutoff)):
+        for k, cut_k in enumerate(cutoff):
             print(k)
-            self.set_cutoff(None, cutoff[k])  # scaled cutoff frequency
+            self.set_cutoff(None, cut_k)  # scaled cutoff frequency
             gs[k,:]  = self.compute_gs(omega_scaled)
             gsm[k,:] = self.compute_gs(-omega_scaled)
         gs  *= temp
@@ -394,6 +404,7 @@ class MarkovianBath:
         .. math::
            C_{s,\omega_c}(t) = \frac{1}{\text{TU}^2} C_{\hat{s}, \hat{\omega_c}}(\hat{t}).
         """
+        # pylint: disable=too-many-locals,too-many-statements
 
         tol_nu = 1e-5  # approaching the singularity at nu=0 this closely
         c = self.cut_omega
@@ -418,9 +429,9 @@ class MarkovianBath:
         t = np.linspace(0, 4/c, 5)
         nu = np.linspace(tol_nu, 5*c, 100)
         res = np.empty((len(nu), len(t)), dtype=complex)
-        for k in range(len(t)):
+        for k, t_k in enumerate(t):
             print(k)
-            res[:,k] = self.corr_int_real(t[k], nu) +1j * self.corr_int_imag(t[k], nu)
+            res[:,k] = self.corr_int_real(t_k, nu) +1j * self.corr_int_imag(t_k, nu)
         ax.plot(nu, res.real, '-', nu, res.imag, '--')
         ax.grid(True)
         ax.set_xlabel(r'$\nu$ [1/TU]')
@@ -481,18 +492,7 @@ class MarkovianBath:
         ax.set_xlim(xlim)
         ax.set_ylim(ylim)
         ax.get_figure().show()
-        #return res
         return ax
-
-        if False:
-            c0 = abs(res[0])
-            temp = np.linspace(0, 0.5 / c, 10)
-            plt.plot(temp, c0 * (1 - (temp * c)**2), 'k-')
-            temp = np.linspace(0.5 / c, self.scale, 10)
-            plt.plot(temp, c0 * 0.75 / 2 * (temp * c)**(-1), 'k:')
-            temp = np.linspace(self.scale, t[-1], 10)
-            plt.plot(temp, c0 * np.exp(-temp / self.scale), 'k--')
-
 
 
     def compute_gs(self, x: float) -> Tuple[float, float]:
@@ -510,15 +510,15 @@ class MarkovianBath:
 
         if abs(x) <= tol_omega0:
             return self.g0, self.s0
-        else:
-            g = self.g_func(x)
 
-            # Cauchy principal value, integrand has simple poles at \nu = \pm x.
-            # TODO scipy quad can do these types of simple pole PVs directly...
-            f = lambda nu: self.s_func(x, nu)
-            a, abserr = quad(f, tol_omega0, abs(x) -ep)
-            b, abserr = quad(f, abs(x) +ep, np.inf)
-            return g, a + b
+        g = self.g_func(x)
+
+        # Cauchy principal value, integrand has simple poles at \nu = \pm x.
+        # TODO scipy quad can do these types of simple pole PVs directly...
+        f = lambda nu: self.s_func(x, nu)
+        a, abserr = quad(f, tol_omega0, abs(x) -ep)
+        b, abserr = quad(f, abs(x) +ep, np.inf)
+        return g, a + b
 
 
     def corr(self, x: float) -> Tuple[float, float]:
@@ -562,38 +562,38 @@ class MarkovianBath:
         # x close enough to either endpoint?
         if d1 <= tol_omega:
             return self.gs_table[a, :]
-        elif d2 <= tol_omega:
+        if d2 <= tol_omega:
             return self.gs_table[b, :]
-        elif gap <= max_ip_omega + tol_omega:  # short enough gap to interpolate?
-            return interpolate(ee, tt, x)
-        else: # compute a new point p, then interpolate
-            if gap <= 2 * max_ip_omega:
-                p = ee[0] + gap / 2 # gap midpoint
-                if x < p:
-                    idx = 1 # which ee p will replace
-                else:
-                    idx = 0
-            elif d1 <= max_ip_omega: # x within interpolation distance from one of the gap endpoints?
-                p = ee[0] + max_ip_omega
-                idx = 1
-            elif d2 <= max_ip_omega:
-                p = ee[1] - max_ip_omega
-                idx = 0
-            else: # x not near anything, don't interpolate
-                p = x
-                idx = 0
-
-            # compute new g, s values at p and insert them into the table
-            temp = self.compute_gs(p)
-
-            self.omega = np.r_[self.omega[:b], p, self.omega[b:]]
-            self.gs_table = np.r_[self.gs_table[:b], [temp], self.gs_table[b:]]
-
-            # now interpolate the required value
-            ee[idx] = p
-            tt[idx, :] = temp
+        if gap <= max_ip_omega + tol_omega:  # short enough gap to interpolate?
             return interpolate(ee, tt, x)
 
+        # compute a new point p, then interpolate
+        if gap <= 2 * max_ip_omega:
+            p = ee[0] + gap / 2 # gap midpoint
+            if x < p:
+                idx = 1 # which ee p will replace
+            else:
+                idx = 0
+        elif d1 <= max_ip_omega: # x within interpolation distance from one of the gap endpoints?
+            p = ee[0] + max_ip_omega
+            idx = 1
+        elif d2 <= max_ip_omega:
+            p = ee[1] - max_ip_omega
+            idx = 0
+        else: # x not near anything, don't interpolate
+            p = x
+            idx = 0
+
+        # compute new g, s values at p and insert them into the table
+        temp = self.compute_gs(p)
+
+        self.omega = np.r_[self.omega[:b], p, self.omega[b:]]
+        self.gs_table = np.r_[self.gs_table[:b], [temp], self.gs_table[b:]]
+
+        # now interpolate the required value
+        ee[idx] = p
+        tt[idx, :] = temp
+        return interpolate(ee, tt, x)
 
 
     def fit(self, delta: float, T1: float, T2: float):
@@ -639,7 +639,7 @@ class MarkovianBath:
                 #T2 = 1/(0.5/T1 +1/T_dephase)
 
             elif self.stat == 'fermion':
-                if abs(iTd) >= tol:
+                if abs(iTd) >= TOLERANCE:
                     raise ValueError('For a fermionic bath we must have T2 = 2*T1')
                 # dimensionless system-bath coupling factor squared
                 c = 1 / (T1 * 2 * np.pi * abs(delta) * self.cut_func(abs(delta)))
@@ -672,6 +672,7 @@ def ops(H, D):
     Since :math:`A_k(-dH) = A_k^\dagger(dH)`, only the nonnegative dH:s and corresponding A:s are returned.
     """
     # Ville Bergholm 2009-2016
+    # pylint: disable=too-many-locals
 
     E, P = spectral_decomposition(H)
     m = len(E) # unique eigenvalues
@@ -696,7 +697,7 @@ def ops(H, D):
     # loop over lower triangle indices
     for k in ind:
         dE = deltaE.flat[k]
-        if abs(dE -current_dE) > tol:
+        if abs(dE -current_dE) > TOLERANCE:
             # new omega value, new jump op
             current_dE = dE
             dH.append(dE)
@@ -713,7 +714,7 @@ def ops(H, D):
     temp = np.zeros(A.shape[0:2])
     for k in range(len(dH)):
         for op in range(n_D):
-            temp[op, k] = norm(A[op, k]) > tol
+            temp[op, k] = norm(A[op, k]) > TOLERANCE
     temp = temp.any(0)
     # eliminate zero As and corresponding dHs
     A = A[:,temp]
@@ -775,23 +776,23 @@ def lindblad_ops(H, D, B):
     for n, b in enumerate(B):
         A = X[n] # jump ops for bath/interaction op n
 
-        for k in range(len(dH)):
+        for k, dH_k in enumerate(dH):
             #NA[k] = norm(A[k], 'fro'); # how significant is this op?
 
             # first the positive energy shift
-            g, s = b.corr(dH[k])
+            g, s = b.corr(dH_k)
             # is the dissipation significant?
-            if abs(g) >= tol:
+            if abs(g) >= TOLERANCE:
                 L.append(np.sqrt(g) * A[k])
             H_LS += s * np.dot(A[k].conj().transpose(), A[k])
 
-            if dH[k] == 0:
+            if dH_k == 0:
                 # no negative shift
                 continue
 
             # now the corresponding negative energy shift
-            g, s = b.corr(-dH[k])
-            if abs(g) >= tol:
+            g, s = b.corr(-dH_k)
+            if abs(g) >= TOLERANCE:
                 L.append(np.sqrt(g) * A[k].conj().transpose()) # note the difference here, A(-omega) = A'(omega)
             H_LS += s * np.dot(A[k], A[k].conj().transpose())  # here too
     return L, H_LS
@@ -828,24 +829,24 @@ def superop(H, D, B):
     iH_LS = 1j * H  # i * (system Hamiltonian + Lamb-Stark shift)
     acomm = 0  # anticommutator
     diss = 0   # the rest of the dissipator
-    for n, b in enumerate(B):
-        A = X[n] # jump ops for bath/interaction op n
+    for B_n, A in zip(B, X):
+        # A contains the jump ops for bath/interaction op n
 
         # we build the Liouvillian in a funny order to be a bit more efficient
-        for k in range(len(dH)):
+        for k, dH_k in enumerate(dH):
             # first the positive energy shift
-            g, s = b.corr(dH[k])
+            g, s = B_n.corr(dH_k)
             temp = np.dot(A[k].conj().transpose(), A[k])
             iH_LS += (1j * s) * temp
             acomm += (-0.5 * g) * temp
             diss  += lrmul(g * A[k], A[k].conj().transpose())
 
-            if dH[k] == 0:
+            if dH_k == 0:
                 # no negative shift
                 continue
 
             # now the corresponding negative energy shift
-            g, s = b.corr(-dH[k])
+            g, s = B_n.corr(-dH_k)
             temp = np.dot(A[k], A[k].conj().transpose()) # note the difference here, A(-omega) = A'(omega)
             iH_LS += (1j * s) * temp
             acomm += (-0.5 * g) * temp

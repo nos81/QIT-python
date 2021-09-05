@@ -300,7 +300,6 @@ def dd(name, t, *, amp=1.0, n=1):
     # initialize the sequence struct
     s = Seq(name=name)
     # waits and pi pulses with given phases
-    ind = 1
     for k, p in enumerate(phase):
         # wait
         s.tau = np.r_[s.tau, t * tau[k]]
@@ -341,7 +340,7 @@ def propagate(s, seq, out_func=lambda x: x, base_dt=0.1):
         dt = T / n_steps
 
         P = spl.expm(G * dt)
-        for k in range(n_steps):
+        for _ in range(n_steps):
             s = s.u_propagate(P)
             out.append(out_func(s))
 

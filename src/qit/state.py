@@ -5,11 +5,16 @@ In QIT, quantum states are represented by the :class:`State` class,
 defined in this module.
 """
 # Ville Bergholm 2008-2020
+# pylint: disable=too-many-statements,too-many-locals,too-many-public-methods
+
 from __future__ import annotations
 
 import collections
-import numbers
+from collections.abc import Sequence
 from copy import deepcopy
+import itertools
+import numbers
+from typing import Optional, Union
 
 import numpy as np
 import scipy as sp
@@ -17,11 +22,11 @@ import scipy.sparse as sparse
 import scipy.integrate
 import scipy.linalg as spl
 
-from .base import sy, Q_Bell, tol
 import qit.lmap as lmap
 import qit.gate as gate
+from qit.base import sy, Q_Bell, TOLERANCE
 from qit.lmap import Lmap
-from qit.utils import (_warn, vec, inv_vec, qubits, expv, rand_U, rand_SU, rand_positive, mkron, tensorsum,
+from qit.utils import (_warn, vec, inv_vec, qubits, expv, tensorsum,
                        eighsort, spectral_decomposition, majorize, tensorbasis)
 
 
@@ -131,7 +136,7 @@ class State(Lmap):
        werner
        isotropic
     """
-    def __init__(self, s: Union[str, int, array_like, State], dim: Optional[Sequence[int]] = None):
+    def __init__(self, s: Union[str, int, 'array_like', State], dim: Optional[Sequence[int]] = None):
         """
         Args:
             s: state description, see below
@@ -179,7 +184,7 @@ class State(Lmap):
             super().__init__(s, dim)
             return
 
-        elif isinstance(s, str):
+        if isinstance(s, str):
             if s[0].isalpha():
                 # named state
                 name = s.lower()
@@ -258,7 +263,8 @@ class State(Lmap):
         super().__init__(s, dim)
 
 # utility methods
-# TODO design issue: for valid states, lots of these funcs should return reals (marked with a commented-out .real). should we just drop the imaginary part? what about if the state is invalid, how will the user know? what about numerical errors?
+# TODO design issue: for valid states, lots of these funcs should return reals (marked with a commented-out .real).
+# Should we just drop the imaginary part? what about if the state is invalid, how will the user know? what about numerical errors?
 # TODO same thing except with normalization, should we assume states are normalized?
 
     def check(self):
@@ -267,15 +273,15 @@ class State(Lmap):
         Makes sure it is normalized, and if an operator, Hermitian and semipositive.
         """
         ok = True
-        if abs(self.trace() - 1) > tol:
+        if abs(self.trace() - 1) > TOLERANCE:
             _warn('State not properly normalized.')
             ok = False
 
         if not self.is_ket():
-            if spl.norm(self.data - self.data.conj().transpose()) > tol:
+            if spl.norm(self.data - self.data.conj().transpose()) > TOLERANCE:
                 _warn('State operator not Hermitian.')
                 ok = False
-            if min(spl.eigvalsh(self.data)) < -tol:
+            if min(spl.eigvalsh(self.data)) < -TOLERANCE:
                 _warn('State operator not semipositive.')
                 ok = False
 
@@ -334,7 +340,7 @@ class State(Lmap):
             # apply the phase convention: first nonzero element in state vector is real, positive
             v = s.data
             for temp in v.flat:
-                if abs(temp) > tol:
+                if abs(temp) > TOLERANCE:
                     phase = temp / abs(temp)
                     v /= phase
                     break
@@ -364,9 +370,9 @@ class State(Lmap):
         """
         if self.is_ket():
             return 1
-        else:
-            # rho is hermitian so purity should be real
-            return np.trace(self.data @ self.data) # .real
+
+        # rho is hermitian so purity should be real
+        return np.trace(self.data @ self.data) # .real
 
 
     def to_ket(self, inplace=False):
@@ -382,10 +388,10 @@ class State(Lmap):
         s = self._inplacer(inplace)
         if not s.is_ket():
             # state op
-            if abs(s.purity() - 1) > tol:
+            if abs(s.purity() - 1) > TOLERANCE:
                 raise ValueError('The state is not pure, and thus cannot be represented by a ket vector.')
 
-            d, v = eighsort(s.data)
+            _, v = eighsort(s.data)
             s.data = v[:, [0]]  # corresponds to the highest eigenvalue, i.e. 1
             s.fix_phase(inplace = True)  # clean up global phase
             s.dim = (s.dim[0], (1,))
@@ -415,8 +421,8 @@ class State(Lmap):
         if self.is_ket():
             # squared norm, thus always real
             return np.vdot(self.data, self.data).real
-        else:
-            return np.trace(self.data)  # .real
+
+        return np.trace(self.data)  # .real
 
 
     def ptrace(self, sys, inplace=False):
@@ -562,8 +568,8 @@ class State(Lmap):
         if self.is_ket():
             temp = self.data.ravel() # into 1D array
             return (temp * temp.conj()).real  # == np.absolute(self.data) ** 2
-        else:
-            return np.diag(self.data).real # .real
+
+        return np.diag(self.data).real # .real
 
 
     def projector(self):
@@ -571,7 +577,7 @@ class State(Lmap):
 
         Returns the projection operator P defined by the state.
         """
-        if abs(self.purity() - 1) > tol:
+        if abs(self.purity() - 1) > TOLERANCE:
             raise ValueError('The state is not pure, and thus does not correspond to a projector.')
 
         s = self.to_op()
@@ -590,16 +596,15 @@ class State(Lmap):
         if isinstance(U, Lmap):
             if self.is_ket():
                 return State(U @ self)
-            else:
-                return State((U @ self) @ U.ctranspose())
-        elif isinstance(U, np.ndarray):
+            return State((U @ self) @ U.ctranspose())
+
+        if isinstance(U, np.ndarray):
             # U is a matrix, dims do not change. could also construct an Lmap here...
             if self.is_ket():
                 return State(U @ self.data, self.dims())
-            else:
-                return State((U @ self.data) @ U.conj().transpose(), self.dims())
-        else:
-            raise TypeError('States can only be propagated using Lmaps and arrays.')
+            return State((U @ self.data) @ U.conj().transpose(), self.dims())
+
+        raise TypeError('States can only be propagated using Lmaps and arrays.')
 
 
     def propagate(self, G, t, out_func=lambda x, h: deepcopy(x), **kwargs):
@@ -693,6 +698,7 @@ class State(Lmap):
                 return -1j * (F(t) @ y)
             def pure_jac(t, y, F):
                 "Jacobian of a pure state, Hamiltonian."
+                # pylint: disable=unused-argument
                 return -1j * F(t)
 
             # H, state op
@@ -702,13 +708,13 @@ class State(Lmap):
                 if y.ndim == 1:
                     rho = inv_vec(y, dim)  # into a matrix
                     return vec(H @ rho - rho @ H) # back into a vector
-                else:
-                    # vectorization, rows of y
-                    d = np.empty(y.shape, complex)
-                    for k in range(len(y)):
-                        rho = inv_vec(y[k], dim) # into a matrix
-                        d[k] = vec(H @ rho - rho @ H) # back into a vector
-                    return d
+
+                # vectorization, rows of y
+                d = np.empty(y.shape, complex)
+                for k, y_k in enumerate(y):
+                    rho = inv_vec(y_k, dim) # into a matrix
+                    d[k] = vec(H @ rho - rho @ H) # back into a vector
+                return d
 
             # L, state op, same as the H/ket ones, only without the -1j
             def liouvillian_fun(t, y, F):
@@ -716,6 +722,7 @@ class State(Lmap):
                 return F(t) @ y
             def liouvillian_jac(t, y, F):
                 "Jacobian of a state, Liouvillian."
+                # pylint: disable=unused-argument
                 return F(t)
 
             # A, state op
@@ -731,17 +738,17 @@ class State(Lmap):
                         ac = 0.5 * (A.conj().transpose() @ A)
                         temp += (A @ rho) @ A.conj().transpose() -ac @ rho -rho @ ac
                     return vec(temp) # back into a vector
-                else:
-                    # vectorization, rows of y
-                    d = np.empty(y.shape, complex)
-                    for k in range(len(y)):
-                        rho = inv_vec(y[k], dim)  # into a matrix
-                        temp = H @ rho - rho @ H
-                        for A in Lind:
-                            ac = 0.5 * (A.conj().transpose() @ A)
-                            temp += (A @ rho) @ A.conj().transpose() -ac @ rho -rho @ ac
-                        d[k] = vec(temp)  # back into a vector
-                    return d
+
+                # vectorization, rows of y
+                d = np.empty(y.shape, complex)
+                for k, y_k in enumerate(y):
+                    rho = inv_vec(y_k, dim)  # into a matrix
+                    temp = H @ rho - rho @ H
+                    for A in Lind:
+                        ac = 0.5 * (A.conj().transpose() @ A)
+                        temp += (A @ rho) @ A.conj().transpose() -ac @ rho -rho @ ac
+                    d[k] = vec(temp)  # back into a vector
+                return d
 
             # what kind of generator are we using?
             if gen == 'H':  # Hamiltonian
@@ -802,8 +809,7 @@ class State(Lmap):
 
         if len(out) == 1:
             return out[0] # don't bother to wrap a single output in a list
-        else:
-            return out
+        return out
 
 
     def kraus_propagate(self, E):
@@ -823,7 +829,7 @@ class State(Lmap):
             temp = 0
             for k in E:
                 temp += k.conj().transpose() @ k
-            if spl.norm(temp.data - np.eye(temp.shape)) > tol:
+            if spl.norm(temp.data - np.eye(temp.shape)) > TOLERANCE:
                 _warn('Unphysical quantum operation.')
 
         if self.is_ket():
@@ -1007,10 +1013,9 @@ class State(Lmap):
             raise ValueError('Unsupported input type.')
         if collapse:
             return p, res, s
-        elif perform:
+        if perform:
             return p, res
-        else:
-            return p
+        return p
 
 
 
@@ -1042,14 +1047,12 @@ class State(Lmap):
         if self.is_ket():
             if r.is_ket():
                 return abs(np.vdot(self.data, r.data))
-            else:
-                return np.sqrt(np.vdot(self.data, r.data @ self.data).real)
-        else:
-            if r.is_ket():
-                return np.sqrt(np.vdot(r.data, self.data @ r.data).real)
-            else:
-                temp = spl.sqrtm(self.data)
-                return np.trace(spl.sqrtm((temp @ r.data) @ temp)).real
+            return np.sqrt(np.vdot(self.data, r.data @ self.data).real)
+
+        if r.is_ket():
+            return np.sqrt(np.vdot(r.data, self.data @ r.data).real)
+        temp = spl.sqrtm(self.data)
+        return np.trace(spl.sqrtm((temp @ r.data) @ temp)).real
 
 
     def trace_dist(self, r):
@@ -1122,8 +1125,8 @@ class State(Lmap):
 
         try:
             s = self.to_ket()
-        except ValueError:
-            raise ValueError('Schmidt decomposition is only defined for pure states.')
+        except ValueError as exc:
+            raise ValueError('Schmidt decomposition is only defined for pure states.') from exc
 
         # complement of sys, dimensions of the partitions
         sys = s.clean_selection(sys)
@@ -1142,10 +1145,10 @@ class State(Lmap):
         # order the coefficients into a matrix, take an svd
         if not full:
             return spl.svdvals(s.data.reshape(d1, d2))
-        else:
-            u, s, vh = spl.svd(s.data.reshape(d1, d2), full_matrices = False)
-            # note the definition of vh in svd
-            return s, u, vh.transpose()
+
+        u, s, vh = spl.svd(s.data.reshape(d1, d2), full_matrices = False)
+        # note the definition of vh in svd
+        return s, u, vh.transpose()
 
 
 
@@ -1177,10 +1180,10 @@ class State(Lmap):
         if alpha != 1:
             # Rényi entropy
             return np.log2(np.sum(p ** alpha)) / (1 - alpha)
-        else:
-            # Von Neumann entropy
-            p[p == 0] = 1   # avoid trouble with the logarithm
-            return -p @ np.log2(p)
+
+        # Von Neumann entropy
+        p[p == 0] = 1   # avoid trouble with the logarithm
+        return -(p @ np.log2(p))
 
 
     def concurrence(self, sys=None):
@@ -1194,7 +1197,7 @@ class State(Lmap):
           float: Concurrence of the state wrt. the given partitioning.
         """
         # TODO rewrite, check
-        if abs(self.trace() - 1) > tol:
+        if abs(self.trace() - 1) > TOLERANCE:
             _warn('State not properly normalized.')
 
         dim = self.dims()
@@ -1204,7 +1207,7 @@ class State(Lmap):
             if not (len(sys) == 1 and dim[sys] == 2):
                 raise ValueError('Concurrence only defined between a qubit and another system.')
 
-            if abs(self.purity() - 1) > tol:
+            if abs(self.purity() - 1) > TOLERANCE:
                 raise ValueError('Not a pure state.')
 
             # pure state
@@ -1228,15 +1231,15 @@ class State(Lmap):
             #bell = [1 i 0 0 0 0 i 1 0 0 i -1 1 -i 0 0]/np.sqrt(2)
             #a = bell'*p
             #C = abs(sum(a ** 2))
-        else:
-            # state operator
-            temp = p @ W  # W.conj() == W so this works
-            temp = temp @ temp.conj()  # == p * W * conj(p) * W
-            if abs(self.purity() - 1) > tol:
-                L = np.sqrt(np.sort(np.linalg.eigvals(temp).real)[::-1]).real  # .real?
-                return max(0, L[1] -L[2] -L[3] -L[4])
-            else:
-                return np.sqrt(np.trace(temp).real) # same formula as for state vecs, .real?
+
+        # state operator
+        temp = p @ W  # W.conj() == W so this works
+        temp = temp @ temp.conj()  # == p * W * conj(p) * W
+        if abs(self.purity() - 1) > TOLERANCE:
+            L = np.sqrt(np.sort(np.linalg.eigvals(temp).real)[::-1]).real  # .real?
+            return max(0, L[1] -L[2] -L[3] -L[4])
+
+        return np.sqrt(np.trace(temp).real) # same formula as for state vecs, .real?
 
 
     def negativity(self, sys):
@@ -1279,8 +1282,6 @@ class State(Lmap):
         # Jacob D. Biamonte 2008
         # Ville Bergholm 2008-2014
 
-        import itertools
-
         dim = self.dims()
         n = self.subsystems()
 
@@ -1288,7 +1289,7 @@ class State(Lmap):
             raise ValueError('Partition size must be between 1 and n-1.')
 
         D = min(dim) # FIXME correct for arbitrary combinations of qudits??
-        N = sp.misc.comb(n, m, exact=True)
+        N = sp.special.comb(n, m, exact=True)
         C = (D**m / (D**m - 1)) / N  # normalization
 
         Q = np.empty((N,))
@@ -1321,8 +1322,8 @@ class State(Lmap):
         try:
             s = self.to_ket()
             t = t.to_ket()
-        except ValueError:
-            raise ValueError('Not implemented for nonpure states.')
+        except ValueError as exc:
+            raise ValueError('Not implemented for nonpure states.') from exc
 
         s.ptrace(sys, inplace = True)
         t.ptrace(sys, inplace = True)
@@ -1346,7 +1347,6 @@ class State(Lmap):
         Returns:
           Axes, Axes3D: the plot
         """
-        import matplotlib.pyplot as plt
         from matplotlib import cm, colors
 
         dim = self.dims()
@@ -1381,7 +1381,7 @@ class State(Lmap):
             width = 0.8
             bars = ax.bar(range(N), s.prob(), width)
             # color bars using phase data
-            colormapper = cm.ScalarMappable(norm=nn, cmap=cm.hsv)
+            colormapper = cm.ScalarMappable(norm=nn, cmap=cm.get_cmap('hsv'))
             colormapper.set_array(c)
             for b in range(N):
                 bars[b].set_edgecolor('k')
@@ -1392,7 +1392,7 @@ class State(Lmap):
             cb.ax.set_yticklabels([r'$-\pi$', r'$-\pi/2$', '0', r'$\pi/2$', r'$\pi$'])
 
             # the way it should work (using np.broadcast, ScalarMappable)
-            #bars = ax.bar(range(N), s.prob(), color=c, cmap=cm.hsv, norm=whatever, align='center')
+            #bars = ax.bar(range(N), s.prob(), color=c, cmap=cm.get_cmap('hsv'), norm=whatever, align='center')
             #cb = fig.colorbar(bars, ax = ax, ticks = np.linspace(-1, 1, 5))
 
             ax.set_xlabel('Basis state')
@@ -1412,13 +1412,13 @@ class State(Lmap):
             x = x.ravel()
             y = y.ravel()
             z = np.abs(self.data.ravel())
-            pcol = ax.bar3d(x, y, 0, width, width, z, edgecolors='k', norm=nn, cmap=cm.hsv)
+            pcol = ax.bar3d(x, y, 0, width, width, z, edgecolors='k', norm=nn, cmap=cm.get_cmap('hsv'))
             # now the colors
             pcol.set_array(np.kron(c.ravel(), (1,)*6))  # six faces per bar
 
             # the way it should work (using np.broadcast, ScalarMappable)
             #x, y = np.meshgrid(temp, temp)
-            #pcol = ax.bar3d(x, y, 0, width, width, np.abs(self.data), color=c, cmap=cm.hsv, norm=whatever, align='center')
+            #pcol = ax.bar3d(x, y, 0, width, width, np.abs(self.data), color=c, cmap=cm.get_cmap('hsv'), norm=whatever, align='center')
 
             # add a colorbar
             cb = fig.colorbar(pcol, ax = ax, ticks = np.linspace(-1, 1, 5))
@@ -1471,30 +1471,23 @@ class State(Lmap):
         return a.reshape(np.array(dim) ** 2)
 
 
+    @staticmethod
     def tensor(*arg):
         """Tensor product of states.
 
         Returns the tensor product state of states s1, s2, ...
         """
         # if all states are kets, keep the result state a ket
-        pure = True
-        for k in arg:
-            if not k.is_ket():
-                pure = False
-                break
-
+        pure = all(k.is_ket() for k in arg)
         if not pure:
             # otherwise convert all states to state ops before tensoring
-            temp = []
-            for k in arg:
-                temp.append(k.to_op())
-            arg = temp
+            arg = [k.to_op() for k in arg]
 
         return State(lmap.tensor(*arg))
 
 
     @staticmethod
-    def bloch_state(A: array[float], dim: Optional[Sequence[int]] = None):
+    def bloch_state(A: 'array[float]', dim: Optional[Sequence[int]] = None):
         r"""State corresponding to a generalized Bloch vector.
 
         Args:

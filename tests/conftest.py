@@ -9,4 +9,4 @@ import qit
 @pytest.fixture(scope='session')
 def tol():
     """Numerical tolerance."""
-    return qit.tol
+    return qit.TOLERANCE

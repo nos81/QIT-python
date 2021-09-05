@@ -1,0 +1,15 @@
+[MASTER]
+disable=
+    arguments-differ,
+    protected-access,
+    too-few-public-methods,
+    invalid-name,
+    abstract-method,
+    duplicate-code,
+    fixme,
+    too-many-arguments,
+    too-many-lines,
+    too-many-branches,
+
+[FORMAT]
+max-line-length=140

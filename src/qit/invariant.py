@@ -29,7 +29,7 @@ import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 
 from .base import sy, Q_Bell
-from .lmap import Lmap, tensor
+from .lmap import Lmap
 from .utils import tensorbasis, majorize, trisurf
 
 
@@ -81,8 +81,11 @@ def state_inv(rho: 'State', k: int, perms: 'Sequence[Sequence[int]]') -> complex
     return temp.reorder((r, None)).trace()
 
 
-def canonical_inv_normalize(c: 'np.array[float]') -> 'np.array[float]':
-    """Normalizes canonical local invariants into the default Weyl chamber.
+def canonical_inv_normalize(
+        c: 'np.array[float]',
+        fix_jittering: bool = True,
+) -> 'np.array[float]':
+    r"""Normalizes canonical local invariants into the default Weyl chamber.
 
     The default chamber is defined by :math:`1 \ge c_1 \ge c_2 \ge c_3 \ge 0, \quad c_2 \le 1-c_1`.
 
@@ -107,13 +110,14 @@ def canonical_inv_normalize(c: 'np.array[float]') -> 'np.array[float]':
         c[[1, 2]] = c[[2, 1]]
     if c[1] > 1 - c[0]:  # 2 -> 1
         c[[0, 1]] = 1 - c[[1, 0]]
-    return c
 
-    # rotate points just above the second half of the XY plane under the first half,
-    # to avoid points approximately on the XY plane jumping back and forth
-    if c[2] < 1e-6 and c[0] > 0.5:
-        c[0] = 1 - c[0]
-        c[2] = -c[2]
+    if fix_jittering:
+        # rotate points just above the second half of the XY plane under the first half,
+        # to avoid points approximately on the XY plane jumping back and forth
+        if c[2] < 1e-6 and c[0] > 0.5:
+            c[0] = 1 - c[0]
+            c[2] = -c[2]
+
     return c
 
 
@@ -187,7 +191,8 @@ def makhlin_inv(U: 'np.array[complex]') -> 'np.array[float]':
         c *= np.pi
         g = np.empty(c.shape)
 
-        g[..., 0] = (np.cos(c[..., 0]) * np.cos(c[..., 1]) * np.cos(c[..., 2])) ** 2 -(np.sin(c[..., 0]) * np.sin(c[..., 1]) * np.sin(c[..., 2])) ** 2
+        g[..., 0] = (np.cos(c[..., 0]) * np.cos(c[..., 1]) * np.cos(c[..., 2])) ** 2 -(np.sin(c[..., 0])\
+            * np.sin(c[..., 1]) * np.sin(c[..., 2])) ** 2
         g[..., 1] = 0.25 * np.sin(2 * c[..., 0]) * np.sin(2 * c[..., 1]) * np.sin(2 * c[..., 2])
         g[..., 2] = 4 * g[..., 0] - np.cos(2 * c[..., 0]) * np.cos(2 * c[..., 1]) * np.cos(2*c[..., 2])
     else:
@@ -300,9 +305,6 @@ def plot_makhlin_2q(
     """
     # Ville Bergholm 2006-2021
 
-    import matplotlib.cm as cm
-    import matplotlib.colors as colors
-
     if ax is None:
         ax = plt.subplot(111, projection='3d')
 
@@ -319,8 +321,8 @@ def plot_makhlin_2q(
     # canonical coordinate plane (s, t, t) gives the entire surface of the set of gate equivalence classes
     S, T = np.meshgrid(s, t)
     c = np.c_[S.ravel(), T.ravel(), T.ravel()]
-    G = makhlin_inv(c).reshape(tdiv, sdiv, 3)
-    C = gate_max_concurrence(c).reshape(sdiv, tdiv)
+    G = makhlin_inv(c).reshape((tdiv, sdiv, 3))
+    C = gate_max_concurrence(c).reshape((sdiv, tdiv))
 
     polyc = ax.plot_surface(
         G[:, :, 0], G[:, :, 1], G[:, :, 2],

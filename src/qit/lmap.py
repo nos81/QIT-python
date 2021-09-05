@@ -4,13 +4,15 @@ Linear maps.
 # Ville Bergholm 2008-2020
 from __future__ import annotations
 
+from collections.abc import Sequence
 import copy
+from typing import Optional, Union
 
 import numpy as np
 import scipy.sparse as sparse
 import scipy.sparse.linalg
 
-from qit.base import tol
+from qit.base import TOLERANCE
 
 
 __all__ = ['numstr_to_array', 'array_to_numstr', 'Lmap', 'tensor']
@@ -92,7 +94,7 @@ class Lmap:
 # TODO def __format__(self, format_spec)
 # TODO linalg efficiency: copy vs. view
 
-    def __init__(self, s: Union[array_like, Lmap], dim: Optional[Sequence[int]] = None):
+    def __init__(self, s: Union['array_like', Lmap], dim: Optional[Sequence[int]] = None):
         """
         Args:
           s: Linear map. If an Lmap instance is given, a copy is made.
@@ -171,10 +173,10 @@ class Lmap:
 
         def format_scalar(x):
             "Print a complex scalar."
-            if abs(x.imag) < tol:
+            if abs(x.imag) < TOLERANCE:
                 # just the real part
                 out = ' {0:+.4g}'.format(x.real)
-            elif abs(x.real) < tol:
+            elif abs(x.real) < TOLERANCE:
                 # just the imaginary part
                 out = ' {0:+.4g}j'.format(x.imag)
             else:
@@ -220,7 +222,7 @@ class Lmap:
                 for ind in range(np.prod(dim)):
                     x = self.data.flat[ind]
                     # make sure there is something to print
-                    if abs(x) < tol:
+                    if abs(x) < TOLERANCE:
                         continue
                     printed += 1
                     out += format_scalar(x)

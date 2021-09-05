@@ -43,6 +43,8 @@ General-purpose quantum algorithms
    find_order
 """
 # Ville Bergholm 2011-2020
+# pylint: disable=too-many-locals,too-many-statements
+
 from __future__ import annotations
 
 from operator import mod
@@ -57,7 +59,7 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from mpl_toolkits.mplot3d import Axes3D   # FIXME makes buggy 3d plotting work for some reason
 
-from qit.base import sx, sy, sz, p0, p1, tol
+from qit.base import sx, sy, sz, p0, p1, TOLERANCE
 from qit.lmap import Lmap, tensor, numstr_to_array
 from qit.utils import gcd, lcm, qubits, Ry, rand_U, rand_SU, mkron, boson_ladder
 from qit.state import State, fidelity
@@ -86,8 +88,7 @@ def adiabatic_qc_3sat(n=6, n_clauses=None, clauses=None, problem='3sat'):
 
     print('\n\n=== Solving 3-SAT using adiabatic qc ===\n')
 
-    if n < 3:
-        n = 3
+    n = max(n, 3)
 
     if clauses is None:
         if n_clauses is None:
@@ -206,22 +207,6 @@ def adiabatic_qc(H0, H1, s0, tmax=50):
         print('Which is not a solution!')
         if np.min(H1) > 0:
             print("(In this problem instance there aren't any.)")
-
-
-def animation():
-    """Create an animated plot.
-
-    TODO
-    """
-    from matplotlib.animation import FuncAnimation
-
-    def plot_func():
-        return artists
-
-    fig = plt.figure()
-    anim = FuncAnimation(fig, plot_func, frames=frames, init_func=ifunc, fargs=fargs, interval=200)
-    #anim.save(filename)
-    fig.show()
 
 
 def bb84(n=50):
@@ -531,7 +516,7 @@ def markov_decoherence(T1=7e-10, T2=1e-9, B=None):
 
 
 
-def nmr_sequences(seqs: Sequence[Seq] = None, strength_error: bool = True):
+def nmr_sequences(seqs: 'Sequence[Seq]' = None, strength_error: bool = True):
     """NMR control sequences demo.
 
     Compares the performance of different single-qubit NMR control
@@ -549,7 +534,7 @@ def nmr_sequences(seqs: Sequence[Seq] = None, strength_error: bool = True):
     print('\n\n=== NMR control sequences for correcting systematic errors ===\n')
 
     if seqs is None:
-        seqs = [seq.nmr([[pi, 0]], name='Plain $\pi$ pulse'), seq.corpse(pi), seq.scrofulous(pi), seq.bb1(pi), seq.knill()]
+        seqs = [seq.nmr([[pi, 0]], name=r'Plain $\pi$ pulse'), seq.corpse(pi), seq.scrofulous(pi), seq.bb1(pi), seq.knill()]
 
     # Pulse length/timing errors also affect the drift term, pulse strength errors don't.
     if strength_error:
@@ -776,8 +761,10 @@ def qft_circuit(dim=(2, 3, 3, 2)):
     .. math::
 
        U \ket{x_1, x_2, \ldots, x_n}
-       = \frac{1}{\sqrt{d}} \sum_{k_i} \ket{k_n,\ldots, k_2, k_1} \exp\left(i 2 \pi \left(\sum_{r=1}^n k_r 0.x_r x_{r+1}\ldots x_n\right)\right)
-       = \frac{1}{\sqrt{d}} \sum_{k_i} \ket{k_n,\ldots, k_2, k_1} \exp\left(i 2 \pi 0.x_1 x_2 \ldots x_n \left(\sum_{r=1}^n d_1 d_2 \cdots d_{r-1} k_r \right)\right).
+       = \frac{1}{\sqrt{d}} \sum_{k_i} \ket{k_n,\ldots, k_2, k_1}
+         \exp\left(i 2 \pi \left(\sum_{r=1}^n k_r 0.x_r x_{r+1}\ldots x_n\right)\right)
+       = \frac{1}{\sqrt{d}} \sum_{k_i} \ket{k_n,\ldots, k_2, k_1}
+         \exp\left(i 2 \pi 0.x_1 x_2 \ldots x_n \left(\sum_{r=1}^n d_1 d_2 \cdots d_{r-1} k_r \right)\right).
     """
     # Ville Bergholm 2010-2016
 
@@ -960,8 +947,8 @@ def qubit_and_resonator(d_r=30):
     # Ville Bergholm 2010-2014
 
     print('\n\n=== Qubit coupled to a single-mode microwave resonator ===\n')
-    if d_r < 10:
-        d_r = 10 # truncated resonator dim
+
+    d_r = max(d_r, 10)
 
     #omega0 = 1e9 # Energy scale/\hbar, Hz
     #T = 0.025 # K
@@ -1438,7 +1425,7 @@ def teleportation(d=2):
 
     ov = fidelity(payload, reg_B)
     print('\nThe overlap between the resulting state and the original payload state is |<payload|B>| = {}'.format(ov))
-    if abs(ov-1) > tol:
+    if abs(ov-1) > TOLERANCE:
         raise RuntimeError('Should not happen.')
 
     print('The payload state was succesfully teleported from Alice to Bob.')

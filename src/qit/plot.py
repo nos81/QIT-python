@@ -29,17 +29,16 @@ Plotting utilities
 """
 # Ville Bergholm 2011-2020
 
-from functools import wraps
-
 import numpy as np
 
 import mpl_toolkits.mplot3d as mplot3d
 from mpl_toolkits.mplot3d import Axes3D  # required to make 3d plotting work for some reason!
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from matplotlib import colors
 
-from .state import *
-from .utils import copy_memoize, eighsort
+from qit.state import State
+from qit.utils import copy_memoize, eighsort
 
 
 
@@ -54,11 +53,11 @@ def set_plotstyle(ax):
     TODO FIXME
     """
     # TODO matplotlib.style.use()
-    set(ax, 'FontSize',18); #, 'FontName','Bitstream Vera Sans');
-    set(get(ax, 'Parent'), 'DefaultLineLineWidth',2); # apparently not an axes property(!)
+    #set(ax, 'FontSize',18)  #, 'FontName','Bitstream Vera Sans')
+    #set(get(ax, 'Parent'), 'DefaultLineLineWidth',2)  # apparently not an axes property(!)
 
     #set(ax, 'LineStyleOrder', '-|-.')
-    set(ax, 'Box','on');
+    #set(ax, 'Box','on')
     #set(ax, 'XMinorGrid','off', 'YMinorGrid','off')
 
 
@@ -96,6 +95,8 @@ def adiabatic_evolution(t, st, H_func, n=4):
     """
     # Jacob D. Biamonte 2008
     # Ville Bergholm 2009-2010
+    # pylint: disable=too-many-locals
+
     T = t[-1]  # final time
     H = H_func(T)
 
@@ -105,7 +106,7 @@ def adiabatic_evolution(t, st, H_func, n=4):
     # find the n lowest eigenstates of the final Hamiltonian
     #d, v = scipy.sparse.linalg.eigs(H, n, which = 'SR')
     #ind = d.argsort()  # increasing real part
-    d, v = eighsort(H)
+    _, v = eighsort(H)
     lowest = []
     for j in range(n):
         #j = ind[j]
@@ -176,8 +177,8 @@ def bloch_sphere(ax=None, equator=True):
     ax.text(0, 0, -1.2, '$|1\\rangle$')
     # equator
     if equator:
-        phi = np.linspace(0, 2*np.pi, 40);
-        ax.plot(np.cos(phi), np.sin(phi), np.zeros(phi.shape), 'k-');
+        phi = np.linspace(0, 2*np.pi, 40)
+        ax.plot(np.cos(phi), np.sin(phi), np.zeros(phi.shape), 'k-')
     # labels
     ax.set_xlabel('x')
     ax.set_ylabel('y')
@@ -405,7 +406,6 @@ def asongoficeandfire(n=127):
     Returns:
       ~matplotlib.colors.Colormap: colormap object
     """
-    from matplotlib import colors
     # exponent
     d = 3.1
     p = np.linspace(-1, 1, n)

@@ -48,8 +48,9 @@ import itertools
 import numpy as np
 import scipy.sparse as sparse
 
-from .lmap import Lmap, tensor
-from .utils import qubits, op_list, copy_memoize, gcd
+from qit.base import H
+from qit.lmap import Lmap, tensor
+from qit.utils import qubits, op_list, copy_memoize, gcd
 
 
 __all__ = ['dist', 'id', 'phase', 'qft', 'swap', 'walsh',
@@ -320,8 +321,6 @@ def walsh(n):
     """
     # Ville Bergholm 2009-2010
 
-    from .base import H
-
     U = 1
     for _ in range(n):
         U = np.kron(U, H)
@@ -379,7 +378,6 @@ def controlled(U, ctrl=(1,), dim=None):
             yes = np.kron(yes, np.ones(dim[k])) # no control on this qudit
 
     no = 1 - yes
-    T = np.prod(dim)
     dim = list(dim)
 
     if isinstance(U, Lmap):
@@ -478,7 +476,8 @@ def copydot(n_in, n_out, d=2):
 
     .. math::
 
-       \mathrm{COPY}^{n_\text{in} \to n_\text{out}} = \sum_{k=0}^{d-1} \ketbra{\underbrace{k \cdots k}_{n_\text{out}}}{\underbrace{k \cdots k}_{n_\text{in}}}.
+       \mathrm{COPY}^{n_\text{in} \to n_\text{out}} = \sum_{k=0}^{d-1}
+       \ketbra{\underbrace{k \cdots k}_{n_\text{out}}}{\underbrace{k \cdots k}_{n_\text{in}}}.
 
     Args:
         n_in (int): number of input legs
@@ -546,15 +545,15 @@ def plusdot(n_in, n_out, d=2):
     if n_in == 0:
         # loop over all output indices except the last one
         for j in range(d_out // d):
-            temp = np.sum(np.unravel_index(k, dim_out[1:]))  # sum of subsystem indices
-            last = -temp % d  # the last index must take this value for the sum to be 0 (mod d)
-            P[j, d*j +last] = x
+            ind_sum = np.sum(np.unravel_index(j, dim_out[1:]))  # sum of subsystem indices
+            last = -ind_sum % d  # the last index must take this value for the sum to be 0 (mod d)
+            P[d*j +last, 0] = x
     else:
         for j in range(d_out):
-            temp = np.sum(np.unravel_index(j, dim_out))
+            ind_sum_out = np.sum(np.unravel_index(j, dim_out))
             for k in range(d_in // d):
-                temp2 = np.sum(np.unravel_index(k, dim_in[1:]))
-                last = -(temp +temp2) % d
+                ind_sum_in = np.sum(np.unravel_index(k, dim_in[1:]))
+                last = -(ind_sum_out + ind_sum_in) % d
                 P[j, d*k +last] = x
     return Lmap(P, (dim_out, dim_in))
 
@@ -574,7 +573,7 @@ def epsilon(n):
         """Returns the parity of the permutation p by counting cycle lengths."""
         n = len(p)
         seen = np.zeros(n, dtype=bool)
-        sgn = 1;
+        sgn = 1
         k = 0
         while k < n:
             if not seen[k]:
