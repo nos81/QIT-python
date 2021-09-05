@@ -26,7 +26,7 @@ or by cloning the Git repository, and installing directly from there:
    $ cd qit
    $ pip install .
 
-For interactive use, we recommend the IPython shell.
+For interactive use, we recommend the `IPython shell <https://ipython.org/>`_.
 
 To get an overview of the features and capabilities of the toolkit, run
 

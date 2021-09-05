@@ -1,83 +1,11 @@
 """
-Quantum states
-==============
+Quantum states.
 
 In QIT, quantum states are represented by the :class:`State` class,
 defined in this module.
-
-
-.. currentmodule:: qit.state.State
-
-
-Utilities
----------
-
-.. autosummary::
-   check
-   subsystems
-   dims
-   clean_selection
-   invert_selection
-   fix_phase
-   normalize
-   to_ket
-   to_op
-   trace
-   ptrace
-   ptranspose
-   reorder
-   tensor
-   plot
-
-
-Physics
--------
-
-.. autosummary::
-   ev
-   var
-   prob
-   projector
-   u_propagate
-   propagate
-   kraus_propagate
-   measure
-
-
-Quantum information
--------------------
-
-.. autosummary::
-   fidelity
-   trace_dist
-   purity
-   schmidt
-   entropy
-   concurrence
-   negativity
-   lognegativity
-   scott
-   locc_convertible
-
-
-Other state representations
----------------------------
-
-.. autosummary::
-   bloch_vector
-   bloch_state
-
-
-Named states
-------------
-
-.. autosummary::
-   werner
-   isotropic
-
-.. currentmodule:: qit.state
 """
 # Ville Bergholm 2008-2020
+from __future__ import annotations
 
 import collections
 import numbers
@@ -131,43 +59,106 @@ class State(Lmap):
     """Class for quantum states.
 
     Describes the state (pure or mixed) of a discrete, possibly composite quantum system.
-    The subsystem dimensions can be obtained with :meth:`dims` (big-endian ordering).
+    The subsystem dimensions can be obtained with the :meth:`dims` method (big-endian ordering).
 
-    State class instances are special cases of :class:`Lmap`. They have exactly two indices.
-    If self.dim[1] == (1,), it is a ket representing a pure state.
+    State class instances are special cases of :class:`.Lmap`. They have exactly two indices.
+    If ``self.dim[1] == (1,)``, it is a ket representing a pure state.
     Otherwise both indices must have equal dimensions and the object represents a state operator.
 
     Does not require the state to be physical (it does not have to be trace-1, Hermitian, or nonnegative).
 
     By default, all :class:`State` methods leave the object unchanged and instead return a modified copy.
 
-    Args:
-        s (str, int, array[complex], State): state description, see below
-        dim (Sequence[int], None): Dimensions of the subsystems comprising the state.
-            If ``dim`` is None, the dimensions are inferred from ``s``.
 
-    .. code-block:: python
+    .. rubric:: Utilities
 
-          calling syntax            result
-          ==============            ======
-          State('00101')            standard basis ket |00101> in a five-qubit system
-          State('02', (2, 3))       standard basis ket |02> in a qubit+qutrit system
-          State('GHZ', (2, 2, 2))   named states (in this case the three-qubit GHZ state)
-          State(k, (2, 3))          linearized standard basis ket |k> in a qubit+qutrit system, k must be a nonnegative integer
-          State(rand(4))            ket, infer dim = (4,)
-          State(rand(4), (2, 2))    ket, two qubits
-          State(rand(4,4))          state operator, infer dim = (4,)
-          State(rand(6,6), (3, 2))  state operator, qutrit+qubit
+    .. autosummary::
+       check
+       subsystems
+       dims
+       clean_selection
+       invert_selection
+       fix_phase
+       normalize
+       to_ket
+       to_op
+       trace
+       ptrace
+       ptranspose
+       reorder
+       tensor
+       plot
 
-          State(s)                  (s is a State) copy constructor
-          State(s, dim)             (s is a State) copy constructor, redefine the dimensions
 
-    The currently supported named states are
-        GHZ (Greenberger-Horne-Zeilinger),
-        W,
-        Bell1, Bell2, Bell3, Bell4
+    .. rubric:: Physics
+
+    .. autosummary::
+       ev
+       var
+       prob
+       projector
+       u_propagate
+       propagate
+       kraus_propagate
+       measure
+
+
+    .. rubric:: Quantum information
+
+    .. autosummary::
+       fidelity
+       trace_dist
+       purity
+       schmidt
+       entropy
+       concurrence
+       negativity
+       lognegativity
+       scott
+       locc_convertible
+
+
+    .. rubric:: Other state representations
+
+    .. autosummary::
+       bloch_vector
+       bloch_state
+
+
+    .. rubric:: Named states
+
+    .. autosummary::
+       werner
+       isotropic
     """
-    def __init__(self, s, dim=None):
+    def __init__(self, s: Union[str, int, array_like, State], dim: Optional[Sequence[int]] = None):
+        """
+        Args:
+            s: state description, see below
+            dim: Dimensions of the subsystems comprising the state.
+                If ``dim`` is None, the dimensions are inferred from ``s``.
+
+        .. code-block:: python
+
+              calling syntax            result
+              ==============            ======
+              State('00101')            standard basis ket |00101> in a five-qubit system
+              State('02', (2, 3))       standard basis ket |02> in a qubit+qutrit system
+              State('GHZ', (2, 2, 2))   named states (in this case the three-qubit GHZ state)
+              State(k, (2, 3))          linearized standard basis ket |k> in a qubit+qutrit system, k must be a nonnegative integer
+              State(rand(4))            ket, infer dim = (4,)
+              State(rand(4), (2, 2))    ket, two qubits
+              State(rand(4,4))          state operator, infer dim = (4,)
+              State(rand(6,6), (3, 2))  state operator, qutrit+qubit
+
+              State(s)                  (s is a State) copy constructor
+              State(s, dim)             (s is a State) copy constructor, redefine the dimensions
+
+        The currently supported named states are
+            GHZ (Greenberger-Horne-Zeilinger),
+            W,
+            Bell1, Bell2, Bell3, Bell4
+        """
         # we want a tuple for dim
         if isinstance(dim, collections.abc.Iterable):
             dim = tuple(dim)
@@ -616,9 +607,9 @@ class State(Lmap):
 
         .. code-block:: python
 
-          propagate(H, t)                     Hamiltonian
-          propagate(L, t)                     Liouvillian
-          propagate([H, A_1, A_2, ...], t)    Hamiltonian and Lindblad ops
+          propagate(H, t)                     # Hamiltonian
+          propagate(L, t)                     # Liouvillian
+          propagate([H, A_1, A_2, ...], t)    # Hamiltonian and Lindblad ops
 
         Propagates the state using the generator G for the time t,
         returns the resulting state.
@@ -635,8 +626,8 @@ class State(Lmap):
 
         The generator G can either be a
 
-        * Hamiltonian H: :math:`\text{out} = \exp(-i H t) \ket{s}` (or :math:`\exp(-i H t) \rho_s \exp(+i H t)`)
-        * Liouvillian superoperator L: :math:`\text{out} = \text{inv\_vec}(\exp(L t) \text{vec}(\rho_s))`
+        * Hamiltonian H: :math:`\text{out} = \exp(-i H t) \ket{s}` (or :math:`\exp(-i H t) \rho_s \exp(i H t)`)
+        * Liouvillian superoperator L: :math:`\text{out} = \text{inv_vec}(\exp(L t) \text{vec}(\rho_s))`
         * list consisting of a Hamiltonian followed by Lindblad operators.
 
         For time-dependent cases, G can be a function G(t) which takes a time instance t
@@ -852,10 +843,10 @@ class State(Lmap):
         .. code-block:: python
 
           p, res, c
-            = measure()                 measure the entire system projectively
-            = measure((1, 4))           measure subsystems 1 and 4 projectively
-            = measure([M_1, M_2, ...])  perform a general measurement
-            = measure(A)                measure a Hermitian observable A
+            = measure()                 # measure the entire system projectively
+            = measure((1, 4))           # measure subsystems 1 and 4 projectively
+            = measure([M_1, M_2, ...])  # perform a general measurement
+            = measure(A)                # measure a Hermitian observable A
 
         Performs a quantum measurement on the state.
 
@@ -875,15 +866,15 @@ class State(Lmap):
           column of p contains the eigenvalue of A corresponding to each
           measurement result.
 
-        p = measure(..., do='P') returns the vector p, where p[k] is the probability of
+        ``p = measure(..., do='P')`` returns the vector ``p``, where p[k] is the probability of
         obtaining result k in the measurement. For a projective measurement
         in the computational basis this corresponds to the ket :math:`\ket{k}`.
 
-        (p, res) = measure(...) additionally returns the index of the result of the
-        measurement, res, chosen at random from the probability distribution p.
+        ``p, res = measure(...)`` additionally returns the index of the result of the
+        measurement, ``res``, chosen at random from the probability distribution ``p``.
 
-        (p, res, c) = measure(..., do='C') additionally gives c, the collapsed state
-        corresponding to the measurement result res.
+        ``p, res, c = measure(..., do='C')`` additionally gives ``c``, the collapsed state
+        corresponding to the measurement result ``res``.
         """
         def rand_measure(p):
             """Result of a random measurement using the prob. distribution p."""
@@ -1038,12 +1029,12 @@ class State(Lmap):
 
         .. todo:: quantiki defines fidelity as NC-fidelity^2
 
+        See :cite:`NC`, chapter 9.2.2.
+
         Args:
           r (state): another state
         Returns:
           float: Fidelity of r and the state itself.
-        References:
-          :cite:`NC`, chapter 9.2.2.
         """
         if not isinstance(r, State):
             raise TypeError('Not a state.')
@@ -1072,14 +1063,13 @@ class State(Lmap):
 
         .. todo:: stuff in NC
 
+        See :cite:`NC`, chapter 9.2.1.
+
         Args:
             r (state): another state
 
         Returns:
             float: Trace distance between r and the state itself.
-
-        References:
-            :cite:`NC`, chapter 9.2.1.
         """
         if not isinstance(r, State):
             raise TypeError('Not a state.')
@@ -1112,13 +1102,13 @@ class State(Lmap):
 
         The state is then given by :math:`\sum_k \lambda_k \ket{k}_A \otimes \ket{k}_B`.
 
+        See :cite:`NC`, chapter 2.5.
+
         Args:
           sys (Sequence[int]): subsystem indices
           full (bool): if True, returns also the Schmidt bases u and v
         Returns:
           array[float]: Schmidt coefficients
-        References:
-          :cite:`NC`, chapter 2.5.
         """
         dim = np.array(self.dims())
         n = self.subsystems()
@@ -1196,12 +1186,12 @@ class State(Lmap):
     def concurrence(self, sys=None):
         """Concurrence of the state.
 
+        See :cite:`Wootters`, :cite:`Horodecki`.
+
         Args:
           sys (Sequence[int]): subsystem indices
         Returns:
           float: Concurrence of the state wrt. the given partitioning.
-        References:
-          :cite:`Wootters`, :cite:`Horodecki`.
         """
         # TODO rewrite, check
         if abs(self.trace() - 1) > tol:
@@ -1252,12 +1242,12 @@ class State(Lmap):
     def negativity(self, sys):
         """Negativity of the state.
 
+        See :cite:`Peres`, :cite:`Horodecki1`
+
         Args:
           sys (Sequence[int]): subsystem indices
         Returns:
           float: Negativity of the state wrt. the given partitioning.
-        References:
-          :cite:`Peres`, :cite:`Horodecki1`
         """
         s = self.ptranspose(sys)  # partial transpose the state
         x = spl.svdvals(s.data)  # singular values
@@ -1278,13 +1268,13 @@ class State(Lmap):
     def scott(self, m):
         """Scott's average bipartite entanglement measure.
 
+        See :cite:`Love`, :cite:`Scott`, :cite:`MW`.
+
         Args:
           m (int): partition size
         Returns:
           array[float]: Terms of the Scott entanglement measure of the system for the given partition size.
           When m = 1 this is coincides with the Meyer-Wallach entanglement measure.
-        References:
-          :cite:`Love`, :cite:`Scott`, :cite:`MW`.
         """
         # Jacob D. Biamonte 2008
         # Ville Bergholm 2008-2014
@@ -1317,14 +1307,13 @@ class State(Lmap):
 
         For bipartite pure states s and t, returns True iff self can be converted to t
         using local operations and classical communication (LOCC).
+        See :cite:`NC`, chapter 12.5.1
 
         Args:
           t (state): another state
           sys (Sequence[int]): vector of subsystem indices defining the partition
         Returns:
           bool: True iff s can be LOCC-converted to t
-        References:
-          :cite:`NC`, chapter 12.5.1
         """
         if not equal_dims(self, t):
             raise ValueError('States must have equal dimensions.')
@@ -1464,14 +1453,13 @@ class State(Lmap):
 
            A_{ijk\ldots} = \sqrt{D} \: \mathrm{Tr}(\rho  B_{ijk\ldots}),
 
-        where D = prod(self.dims()). A is always real since :math:`\rho` is Hermitian.
+        where ``D = prod(self.dims())``. A is always real since :math:`\rho` is Hermitian.
         For valid, normalized states
 
-           self.purity() <= 1   implies   norm(A, 'fro')  <= sqrt(D)
+        * ``self.purity()`` :math:`\le 1 \implies` ``norm(A, 'fro')`` :math:`\le \sqrt{D}`
+        * ``self.trace()``  :math:`= 1 \implies`   ``A[0, 0, ..., 0]`` :math:`= 1`
 
-           self.trace()   = 1   implies   A[0, 0, ..., 0] == 1
-
-        E.g. for a single-qubit system norm(A, 'fro') <= sqrt(2).
+        E.g. for a single-qubit system ``norm(A, 'fro') <= sqrt(2)``.
         """
         dim = self.dims()
         G = tensorbasis(dim)
@@ -1506,12 +1494,12 @@ class State(Lmap):
 
 
     @staticmethod
-    def bloch_state(A, dim=None):
+    def bloch_state(A: array[float], dim: Optional[Sequence[int]] = None):
         r"""State corresponding to a generalized Bloch vector.
 
         Args:
-          A (array[float]): generalized Bloch vector
-          dim (Sequence[int], None): dimension vector. If None, we use dim = sqrt(A.shape).
+          A: generalized Bloch vector
+          dim: dimension vector. If ``None``, we use ``dim = np.sqrt(A.shape).astype(int)``.
         Returns:
           state: State corresponding to the given generalized Bloch vector.
 
@@ -1523,7 +1511,7 @@ class State(Lmap):
 
            \rho = \sum_{ijk\ldots} A_{ijk\ldots} B_{ijk\ldots} / \sqrt{D},
 
-        where D = prod(dim). For valid states norm(A, 'fro') <= sqrt(D).
+        where ``D = prod(dim)``. For valid states ``norm(A, 'fro') <= sqrt(D)``.
         """
         if dim is None:
             dim = tuple(np.sqrt(A.shape).astype(int))  # s == dim ** 2

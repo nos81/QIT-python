@@ -29,6 +29,7 @@ Demos
    superdense_coding
    teleportation
    werner_states
+   markovian_bath_properties
    tour
 
 
@@ -1490,7 +1491,7 @@ def werner_states(d=2):
     fig.show()
 
 
-def plot_bath_properties():
+def markovian_bath_properties():
     """Markovian bath properties demo.
     """
     bath = markov.MarkovianBath('ohmic', stat='boson', TU=1e-9, T=1e-3)
@@ -1566,7 +1567,7 @@ Between examples, press enter to proceed to the next one.""")
         qubit_and_resonator(20)
         pause()
 
-        plot_bath_properties()
+        markovian_bath_properties()
         pause()
 
 

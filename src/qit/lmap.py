@@ -1,50 +1,8 @@
 """
-Linear maps
-===========
-
-Bounded finite-dimensional linear maps are represented using :class:`Lmap` class instances.
-In addition to the matrix representing the map, they contain
-the dimension vectors of the domain and codomain vector spaces.
-All the usual scalar-map and map-map arithmetic operators are
-provided, including the exponentiation of maps by integers.
-
-
-.. currentmodule:: qit.lmap.Lmap
-
-
-Utilities
----------
-
-.. autosummary::
-   remove_singletons
-   is_compatible
-   is_ket
-   is_sparse
-
-
-Linear algebra
---------------
-
-.. autosummary::
-   real
-   imag
-   conj
-   transpose
-   ctranspose
-   trace
-   norm
-   tensorpow
-   reorder
-   reorder_legs
-
-Non-member functions:
-
-.. currentmodule:: qit.lmap
-
-.. autosummary::
-   tensor
+Linear maps.
 """
 # Ville Bergholm 2008-2020
+from __future__ import annotations
 
 import copy
 
@@ -118,26 +76,29 @@ def format_ket(ind, dim, is_ket=True):
 
 
 class Lmap:
-    """Bounded linear maps between tensor products of finite-dimensional Hilbert spaces.
+    """Bounded finite-dimensional linear maps between tensor products of Hilbert spaces.
 
-    Contains both the order-2 tensor and the dimensional information.
-    Base class of :class:`~qit.state.state`.
+    Contains both the order-2 tensor representing the map, and the dimension vectors of the
+    domain and codomain vector spaces.
+    All the usual scalar-map and map-map arithmetic operators are
+    provided, including the exponentiation of maps by integers.
 
-    .. todo:: Another possible interpretation of Lmap would be to
-      treat each subsystem as an index, with the subsystems within dim[0] and dim[1]
-      corresponding to contravariant and covariant indices, respectively?
+    Base class of :class:`.State`.
     """
+# TODO: Another possible interpretation of Lmap would be to
+# treat each subsystem as an index, with the subsystems within dim[0] and dim[1]
+# corresponding to contravariant and covariant indices, respectively?
 
 # TODO def __format__(self, format_spec)
 # TODO linalg efficiency: copy vs. view
 
-    def __init__(self, s, dim=None):
+    def __init__(self, s: Union[array_like, Lmap], dim: Optional[Sequence[int]] = None):
         """
         Args:
-          s (array_like, Lmap): Linear map. If an Lmap instance is given, a copy is made.
-          dim (tuple, None): 2-tuple containing the output and input subsystem dimensions
-              stored in tuples:  dim == (out, in).
-              If dim, out or in is None, the corresponding dimensions are inferred from s.
+          s: Linear map. If an Lmap instance is given, a copy is made.
+          dim: 2-tuple containing the output and input subsystem dimensions
+              stored in tuples:  ``dim == (out, in)``.
+              If ``dim``, ``out`` or ``in`` is ``None``, the corresponding dimensions are inferred from ``s``.
 
         .. code-block:: python
 
@@ -190,7 +151,7 @@ class Lmap:
             # infer both dimensions from s
             dim = (None, None)
 
-        #: tuple: 2-tuple of output and input dimension tuples, big-endian
+        #: tuple[tuple, tuple]: 2-tuple of output and input dimension tuples, big-endian
         self.dim = []
         for k, d in enumerate(dim):
             if d is None or len(d) == 0:
