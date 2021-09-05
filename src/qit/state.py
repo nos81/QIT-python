@@ -1471,12 +1471,12 @@ class State(Lmap):
         return a.reshape(np.array(dim) ** 2)
 
 
-    @staticmethod
-    def tensor(*arg):
+    def tensor(self, *arg):
         """Tensor product of states.
 
         Returns the tensor product state of states s1, s2, ...
         """
+        arg = (self, *arg)
         # if all states are kets, keep the result state a ket
         pure = all(k.is_ket() for k in arg)
         if not pure:
