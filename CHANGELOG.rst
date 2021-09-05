@@ -4,17 +4,18 @@ Changelog
 for Quantum Information Toolkit (Python version)
 
 
-0.12.0
-------
+0.12.0 (2021-07-30)
+-------------------
 
 Features
 ~~~~~~~~
 
 * Python 2 compatibility dropped.
-* Bump dependencies: NumPy 1.20, SciPy 1.6, matplotlib 3.4, Sphinx 4.0.2
+* Bump dependencies: NumPy 1.20, SciPy 1.6, matplotlib 3.4, Sphinx 4.1
 * New project setup with pyproject.toml, setup.cfg.
 * Unit tests now use pytest, more unit tests.
-* Docstrings now use sphinx.ext.napoleon, math in the docs is rendered using MathJax.
+* Docstrings now use sphinx.ext.napoleon, math in the docs is rendered using MathJax,
+  API docs are generated using sphinx.ext.autosummary.
 * Classes renamed to begin with a capital letter: Lmap, State, Seq...
 * SU(2) rotations renamed to Rx, Ry, Rz
 * seq: sign convention changed, converted into the Seq class.
