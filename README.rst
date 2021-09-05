@@ -66,10 +66,10 @@ coding guidelines:
   (purpose, calling syntax, output, approximations used, assumptions made...).
   The docstrings may contain reStructuredText markup for math, citations etc.
   Use the Google docstring style.
-* Add relevant literature references to :file:`docs/refs.bib` and cite them in the function
+* Add relevant literature references to ``docs/refs.bib`` and cite them in the function
   or module docstring using ``sphinxcontrib-bibtex`` syntax.
 * Instead of using multiple similar functions, use a single function
-  performing multiple related tasks, see e.g. :func:`qit.state.State.measure`.
+  performing multiple related tasks, see e.g. ``qit.state.State.measure``.
 * Raise an exception on invalid input.
 * Use variables sparingly, give them descriptive (but short) names.
 * Use brief comments to explain the logic of your code.

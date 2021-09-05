@@ -1,3 +1,2 @@
-include *.txt
-recursive-include docs *.rst *.bib conf.py
-prune docs/_*
+recursive-include docs *.rst *.bib conf.py Makefile
+prune docs/api
