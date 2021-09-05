@@ -1,6 +1,6 @@
 """Python Quantum Information Toolkit
 
-See the README.txt file included in this distribution
+See the README.rst file included in this distribution,
 or the project website at http://qit.sourceforge.net/
 """
 from importlib.metadata import version, PackageNotFoundError

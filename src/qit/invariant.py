@@ -364,7 +364,7 @@ def plot_makhlin_2q(
     ax.set_xlabel('$g_1$')
     ax.set_ylabel('$g_2$')
     ax.set_zlabel('$g_3$')
-    plt.title('Makhlin stingray')
+    ax.set_title('Makhlin stingray')
 
     # labels
     ax.text(1.05, 0, 2.7, 'I')
@@ -375,11 +375,13 @@ def plot_makhlin_2q(
     ax.text(0, -0.26, 0, 'SWAP$^{-1/2}$')
 
     #fig.colorbar(polyc, ax=ax)
-    plt.show()
     return ax
 
 
-def plot_weyl_2q(ax: 'Axes3D' = None, perfect_entanglers: bool = False) -> 'Axes3D':
+def plot_weyl_2q(
+        ax: 'Axes3D' = None,
+        perfect_entanglers: bool = False
+) -> 'Axes3D':
     """Plots the two-qubit Weyl chamber.
 
     Plots the Weyl chamber for the local invariants
@@ -418,7 +420,7 @@ def plot_weyl_2q(ax: 'Axes3D' = None, perfect_entanglers: bool = False) -> 'Axes
     ax.set_xlabel('$c_1/\\pi$')
     ax.set_ylabel('$c_2/\\pi$')
     ax.set_zlabel('$c_3/\\pi$')
-    plt.title('Two-qubit Weyl chamber')
+    ax.set_title('Two-qubit Weyl chamber')
 
     ax.text(-0.05, -0.05, 0, 'I')
     ax.text(1.05, -0.05, 0, 'I')
